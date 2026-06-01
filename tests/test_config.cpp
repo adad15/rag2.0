@@ -15,9 +15,9 @@ TEST_CASE("Config::from_map fills fields and applies defaults") {
     CHECK(c.doc_path == "C:/docs/a.pdf");
     // 默认值
     CHECK(c.milvus_base_url == "http://localhost:19530");
-    CHECK(c.embed_model == "text-embedding-v3");
-    CHECK(c.embed_dim == 1024);
-    CHECK(c.deepseek_model == "deepseek-chat");
+    CHECK(c.embed_model == "Qwen/Qwen3-Embedding-8B");
+    CHECK(c.embed_dim == 4096);
+    CHECK(c.deepseek_model == "deepseek-v4-pro");
     CHECK(c.milvus_collection == "clause_text");
 }
 
