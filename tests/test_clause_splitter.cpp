@@ -64,3 +64,18 @@ TEST_CASE("split_clauses does NOT treat single-level numeric headings as clauses
     auto clauses = split_clauses(page, 1);
     CHECK(clauses.empty());
 }
+
+TEST_CASE("split_clauses normalizes full-width period in clause number") {
+    // ４．２．１：全角数字 + 全角句点(U+FF0E)
+    std::string page = "４．２．１ 全角句点条款。\n";
+    auto clauses = split_clauses(page, 4);
+    REQUIRE(clauses.size() == 1);
+    CHECK(clauses[0].clause_no == "4.2.1");
+}
+
+TEST_CASE("split_clauses keeps -x suffix on a four-level clause number") {
+    std::string page = "4.2.1.1-a 带后缀的四级条款。\n";
+    auto clauses = split_clauses(page, 10);
+    REQUIRE(clauses.size() == 1);
+    CHECK(clauses[0].clause_no == "4.2.1.1-a");
+}

@@ -12,7 +12,7 @@ static std::string normalize_fullwidth(const std::string& in) {
     out.reserve(in.size());
     for (size_t i = 0; i < in.size();) {
         unsigned char b0 = static_cast<unsigned char>(in[i]);
-        if (b0 >= 0xE0 && i + 2 < in.size()) {
+        if (b0 >= 0xE0 && i + 2 < in.size()) {  // 需读 in[i+2]；严格 < 正确（允许三字节序列恰好结尾）
             unsigned char b1 = static_cast<unsigned char>(in[i + 1]);
             unsigned char b2 = static_cast<unsigned char>(in[i + 2]);
             if (b0 == 0xE3 && b1 == 0x80 && b2 == 0x80) { out += ' '; i += 3; continue; }
