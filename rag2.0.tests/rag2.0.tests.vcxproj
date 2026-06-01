@@ -81,6 +81,7 @@
     <ClCompile Include="..\src\embedding\cloud_embedding.cpp" />
     <ClCompile Include="..\src\ingest\clause_splitter.cpp" />
     <ClCompile Include="..\src\ingest\ingest_pipeline.cpp" />
+    <ClCompile Include="..\src\ingest\standard_meta.cpp" />
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp" />
     <ClCompile Include="..\src\generate\prompt_builder.cpp" />
     <ClCompile Include="..\src\generate\answer_pipeline.cpp" />
@@ -91,6 +92,7 @@
     <ClCompile Include="..\tests\test_clause_splitter.cpp" />
     <ClCompile Include="..\tests\test_embedding_parse.cpp" />
     <ClCompile Include="..\tests\test_prompt_builder.cpp" />
+    <ClCompile Include="..\tests\test_standard_meta.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -105,6 +107,7 @@
     <ClInclude Include="..\src\embedding\cloud_embedding.h" />
     <ClInclude Include="..\src\ingest\clause_splitter.h" />
     <ClInclude Include="..\src\ingest\ingest_pipeline.h" />
+    <ClInclude Include="..\src\ingest\standard_meta.h" />
     <ClInclude Include="..\src\retrieve\candidate.h" />
     <ClInclude Include="..\src\retrieve\retriever.h" />
     <ClInclude Include="..\src\retrieve\dense_retriever.h" />

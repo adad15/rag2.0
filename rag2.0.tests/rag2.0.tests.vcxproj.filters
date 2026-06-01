@@ -13,6 +13,7 @@
     <ClCompile Include="..\tests\test_clause_splitter.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_embedding_parse.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_prompt_builder.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_standard_meta.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\config.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\logging.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\http\http_client.cpp"><Filter>被测源码</Filter></ClCompile>
@@ -23,6 +24,7 @@
     <ClCompile Include="..\src\embedding\cloud_embedding.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\clause_splitter.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\ingest_pipeline.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\ingest\standard_meta.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\generate\prompt_builder.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\generate\answer_pipeline.cpp"><Filter>被测源码</Filter></ClCompile>
@@ -40,6 +42,7 @@
     <ClInclude Include="..\src\embedding\cloud_embedding.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\ingest\clause_splitter.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\ingest\ingest_pipeline.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\ingest\standard_meta.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\candidate.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\retriever.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\dense_retriever.h"><Filter>头文件</Filter></ClInclude>
