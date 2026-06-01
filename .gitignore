@@ -8,6 +8,10 @@ Win32/
 # vcpkg manifest-mode install tree
 vcpkg_installed/
 
+# data (copyrighted standard PDFs) and local secrets
+data/
+env.local.ps1
+
 # Secrets / local env
 .env
 
