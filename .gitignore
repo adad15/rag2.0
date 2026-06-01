@@ -16,6 +16,9 @@ env.local.ps1
 .env
 config.json
 
+# Runtime diagnostic output
+dump.txt
+
 # VS noise
 .vs/
 *.aps

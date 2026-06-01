@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <!-- 让进程的活动代码页(ACP)为 UTF-8：argv / getenv / std::filesystem 窄字符等
+       全部按 UTF-8 处理，避免中文路径与中文命令行参数被当成 GBK。需 Windows 10 1903+。 -->
+  <application>
+    <windowsSettings>
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    </windowsSettings>
+  </application>
+</assembly>

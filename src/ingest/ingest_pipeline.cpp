@@ -1,8 +1,8 @@
 #include "ingest/ingest_pipeline.h"
 #include "ingest/clause_splitter.h"
 #include "ingest/standard_meta.h"
+#include "util/path_utf8.h"
 #include <spdlog/spdlog.h>
-#include <filesystem>
 #include <functional>
 
 static std::string make_id(const std::string& s) {
@@ -14,7 +14,7 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
                          const std::string& collection) {
     ParsedDoc doc = parser.parse(file_path);
 
-    std::string stem = std::filesystem::path(file_path).stem().string();
+    std::string stem = path_utf8::stem(file_path);
     std::string standard_id = make_id(file_path);
     std::string page1 = doc.pages.empty() ? std::string() : doc.pages[0].text;
 

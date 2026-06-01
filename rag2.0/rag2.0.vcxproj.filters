@@ -58,6 +58,7 @@
     <ClInclude Include="..\src\retrieve\candidate.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\dense_retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
+    <ClInclude Include="..\src\util\path_utf8.h"><Filter>头文件</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql"><Filter>资源文件</Filter></None>

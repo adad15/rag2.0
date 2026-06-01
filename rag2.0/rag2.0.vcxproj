@@ -111,9 +111,13 @@
     <ClInclude Include="..\src\generate\context.h" />
     <ClInclude Include="..\src\generate\prompt_builder.h" />
     <ClInclude Include="..\src\generate\answer_pipeline.h" />
+    <ClInclude Include="..\src\util\path_utf8.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

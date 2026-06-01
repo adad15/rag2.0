@@ -3,7 +3,7 @@
 #include <poppler/cpp/poppler-page.h>
 #include <memory>
 #include <stdexcept>
-#include <filesystem>
+#include "util/path_utf8.h"
 
 ParsedDoc PopplerParser::parse(const std::string& file_path) {
     std::unique_ptr<poppler::document> doc(
@@ -13,7 +13,7 @@ ParsedDoc PopplerParser::parse(const std::string& file_path) {
 
     ParsedDoc out;
     out.source_path = file_path;
-    out.title = std::filesystem::path(file_path).filename().string();
+    out.title = path_utf8::filename(file_path);
 
     int n = doc->pages();
     for (int i = 0; i < n; ++i) {

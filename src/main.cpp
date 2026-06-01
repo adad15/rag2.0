@@ -73,37 +73,76 @@ static int cmd_smoke(const Config& cfg) {
 
 static int cmd_ingest(const Config& cfg) {
     if (cfg.doc_path.empty()) { spdlog::error("未设置 RAG_DOC_PATH"); return 1; }
-    PgClient pg(cfg.pg_conninfo);
-    pg.apply_schema(read_file("src/db/schema.sql"));   // 幂等建表
+    try {
+        PgClient pg(cfg.pg_conninfo);
+        pg.apply_schema(read_file("src/db/schema.sql"));   // 幂等建表
 
-    milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
-    CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
-                         cfg.embed_key, cfg.embed_dim);
-    PopplerParser parser;
+        milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
+        CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
+                             cfg.embed_key, cfg.embed_dim);
+        PopplerParser parser;
 
-    auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection);
-    spdlog::info("ingest 完成: standard_id={}, clauses={}", r.standard_id, r.clause_count);
-    return 0;
+        auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection);
+        spdlog::info("ingest 完成: standard_id={}, clauses={}", r.standard_id, r.clause_count);
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] ingest 失败: {}", e.what());
+        return 1;
+    }
 }
 
 static int cmd_query(const Config& cfg, const std::string& question) {
-    PgClient pg(cfg.pg_conninfo);
-    milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
-    CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
-                         cfg.embed_key, cfg.embed_dim);
-    DenseRetriever retriever(mv, embed, cfg.milvus_collection);
-    deepseek::DeepSeekClient ds(cfg.deepseek_base_url, cfg.deepseek_path,
-                                cfg.deepseek_model, cfg.deepseek_key);
+    try {
+        PgClient pg(cfg.pg_conninfo);
+        milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
+        CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
+                             cfg.embed_key, cfg.embed_dim);
+        DenseRetriever retriever(mv, embed, cfg.milvus_collection);
+        deepseek::DeepSeekClient ds(cfg.deepseek_base_url, cfg.deepseek_path,
+                                    cfg.deepseek_model, cfg.deepseek_key);
 
-    std::string ans = answer_query(question, retriever, pg, ds, /*top_k=*/5);
-    std::cout << "\n===== 回答 =====\n" << ans << "\n";
-    return 0;
+        std::string ans = answer_query(question, retriever, pg, ds, /*top_k=*/5);
+        std::cout << "\n===== 回答 =====\n" << ans << "\n";
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] query 失败: {}", e.what());
+        return 1;
+    }
+}
+
+// 诊断命令：解析 PDF，打印页数与抽取字节数，把全文写进 dump.txt，并打印首个非空页样本。
+static int cmd_dump(const Config& cfg) {
+    if (cfg.doc_path.empty()) { spdlog::error("未设置 RAG_DOC_PATH"); return 1; }
+    try {
+        PopplerParser parser;
+        ParsedDoc d = parser.parse(cfg.doc_path);
+        size_t total = 0;
+        for (auto& pg : d.pages) total += pg.text.size();
+        spdlog::info("dump: {} 页, 抽取文字共 {} 字节", d.pages.size(), total);
+
+        std::ofstream out("dump.txt", std::ios::binary);
+        for (auto& pg : d.pages)
+            out << "===== 第 " << pg.page_no << " 页 =====\n" << pg.text << "\n";
+        out.close();
+        spdlog::info("已写入 dump.txt（用编辑器打开查看抽取结果）");
+
+        for (auto& pg : d.pages) {
+            if (pg.text.find_first_not_of(" \t\r\n") == std::string::npos) continue;
+            std::cout << "\n----- 第 " << pg.page_no << " 页样本(前600字节) -----\n"
+                      << pg.text.substr(0, 600) << "\n";
+            break;
+        }
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] dump: {}", e.what());
+        return 1;
+    }
 }
 
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
-        std::cout << "usage: rag2 <smoke|ingest|query> [args]\n";
+        std::cout << "usage: rag2 <smoke|ingest|query|dump> [args]\n";
         return 1;
     }
     Config cfg = Config::from_json_file("config.json");
@@ -127,6 +166,9 @@ int main(int argc, char** argv) {
         auto missing = cfg.missing_required();
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
         return cmd_query(cfg, argv[2]);
+    }
+    if (cmd == "dump") {
+        return cmd_dump(cfg);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;

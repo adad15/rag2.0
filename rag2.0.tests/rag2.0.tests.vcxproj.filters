@@ -49,5 +49,6 @@
     <ClInclude Include="..\src\generate\context.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\generate\prompt_builder.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\generate\answer_pipeline.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\util\path_utf8.h"><Filter>头文件</Filter></ClInclude>
   </ItemGroup>
 </Project>
