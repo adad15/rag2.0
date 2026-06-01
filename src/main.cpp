@@ -6,7 +6,19 @@
 #include "milvus/milvus_rest.h"
 #include "generate/deepseek_client.h"
 #include "parse/poppler_parser.h"
+#include "embedding/cloud_embedding.h"
+#include "ingest/ingest_pipeline.h"
+#include "retrieve/dense_retriever.h"
+#include "generate/answer_pipeline.h"
 #include <spdlog/spdlog.h>
+#include <fstream>
+#include <sstream>
+
+static std::string read_file(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    std::stringstream ss; ss << f.rdbuf();
+    return ss.str();
+}
 
 static int cmd_smoke(const Config& cfg) {
     int failures = 0;
@@ -59,6 +71,35 @@ static int cmd_smoke(const Config& cfg) {
     return 1;
 }
 
+static int cmd_ingest(const Config& cfg) {
+    if (cfg.doc_path.empty()) { spdlog::error("未设置 RAG_DOC_PATH"); return 1; }
+    PgClient pg(cfg.pg_conninfo);
+    pg.apply_schema(read_file("src/db/schema.sql"));   // 幂等建表
+
+    milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
+    CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
+                         cfg.embed_key, cfg.embed_dim);
+    PopplerParser parser;
+
+    auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection);
+    spdlog::info("ingest 完成: standard_id={}, clauses={}", r.standard_id, r.clause_count);
+    return 0;
+}
+
+static int cmd_query(const Config& cfg, const std::string& question) {
+    PgClient pg(cfg.pg_conninfo);
+    milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
+    CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
+                         cfg.embed_key, cfg.embed_dim);
+    DenseRetriever retriever(mv, embed, cfg.milvus_collection);
+    deepseek::DeepSeekClient ds(cfg.deepseek_base_url, cfg.deepseek_path,
+                                cfg.deepseek_model, cfg.deepseek_key);
+
+    std::string ans = answer_query(question, retriever, pg, ds, /*top_k=*/5);
+    std::cout << "\n===== 回答 =====\n" << ans << "\n";
+    return 0;
+}
+
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
@@ -76,6 +117,17 @@ int main(int argc, char** argv) {
         }
         return cmd_smoke(cfg);
     }
-    std::cout << "command: " << cmd << " (not implemented yet)\n";
-    return 0;
+    if (cmd == "ingest") {
+        auto missing = cfg.missing_required();
+        if (!missing.empty()) { for (auto& m : missing) spdlog::error("缺少 {}", m); return 1; }
+        return cmd_ingest(cfg);
+    }
+    if (cmd == "query") {
+        if (argc < 3) { std::cout << "usage: rag2 query \"你的问题\"\n"; return 1; }
+        auto missing = cfg.missing_required();
+        if (!missing.empty()) { for (auto& m : missing) spdlog::error("缺少 {}", m); return 1; }
+        return cmd_query(cfg, argv[2]);
+    }
+    std::cout << "unknown command: " << cmd << "\n";
+    return 1;
 }

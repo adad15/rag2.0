@@ -9,6 +9,10 @@
     <ClCompile Include="..\tests\test_main.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_config.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_milvus_body.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_context.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_clause_splitter.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_embedding_parse.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_prompt_builder.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\config.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\logging.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\http\http_client.cpp"><Filter>被测源码</Filter></ClCompile>
@@ -16,6 +20,12 @@
     <ClCompile Include="..\src\milvus\milvus_rest.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\parse\poppler_parser.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\generate\deepseek_client.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\embedding\cloud_embedding.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\ingest\clause_splitter.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\ingest\ingest_pipeline.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\retrieve\dense_retriever.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\generate\prompt_builder.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\generate\answer_pipeline.cpp"><Filter>被测源码</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h"><Filter>头文件</Filter></ClInclude>
@@ -26,5 +36,15 @@
     <ClInclude Include="..\src\parse\parser.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\parse\poppler_parser.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\generate\deepseek_client.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\embedding\embedding_client.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\embedding\cloud_embedding.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\ingest\clause_splitter.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\ingest\ingest_pipeline.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\retrieve\candidate.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\retrieve\retriever.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\retrieve\dense_retriever.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\generate\context.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\generate\prompt_builder.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\generate\answer_pipeline.h"><Filter>头文件</Filter></ClInclude>
   </ItemGroup>
 </Project>

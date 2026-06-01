@@ -82,6 +82,12 @@
     <ClCompile Include="..\src\milvus\milvus_rest.cpp" />
     <ClCompile Include="..\src\parse\poppler_parser.cpp" />
     <ClCompile Include="..\src\generate\deepseek_client.cpp" />
+    <ClCompile Include="..\src\embedding\cloud_embedding.cpp" />
+    <ClCompile Include="..\src\ingest\clause_splitter.cpp" />
+    <ClCompile Include="..\src\ingest\ingest_pipeline.cpp" />
+    <ClCompile Include="..\src\retrieve\dense_retriever.cpp" />
+    <ClCompile Include="..\src\generate\prompt_builder.cpp" />
+    <ClCompile Include="..\src\generate\answer_pipeline.cpp" />
     <ClCompile Include="..\src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -93,6 +99,16 @@
     <ClInclude Include="..\src\parse\parser.h" />
     <ClInclude Include="..\src\parse\poppler_parser.h" />
     <ClInclude Include="..\src\generate\deepseek_client.h" />
+    <ClInclude Include="..\src\embedding\embedding_client.h" />
+    <ClInclude Include="..\src\embedding\cloud_embedding.h" />
+    <ClInclude Include="..\src\ingest\clause_splitter.h" />
+    <ClInclude Include="..\src\ingest\ingest_pipeline.h" />
+    <ClInclude Include="..\src\retrieve\candidate.h" />
+    <ClInclude Include="..\src\retrieve\retriever.h" />
+    <ClInclude Include="..\src\retrieve\dense_retriever.h" />
+    <ClInclude Include="..\src\generate\context.h" />
+    <ClInclude Include="..\src\generate\prompt_builder.h" />
+    <ClInclude Include="..\src\generate\answer_pipeline.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql" />
