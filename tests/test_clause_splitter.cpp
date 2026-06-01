@@ -29,3 +29,38 @@ TEST_CASE("split_clauses appends continuation lines to current clause") {
     REQUIRE(clauses.size() == 2);
     CHECK(clauses[0].text.find("续行内容") != std::string::npos);
 }
+
+TEST_CASE("split_clauses recognizes clause headers separated by a full-width space") {
+    // 国标常用全角空格(U+3000)分隔条款号与正文
+    std::string page =
+        "4.2.1　桥涵设计应符合本规范的规定。\n"
+        "4.2.2　设计洪水频率应按表4.2.2取值。\n";
+    auto clauses = split_clauses(page, 7);
+    REQUIRE(clauses.size() == 2);
+    CHECK(clauses[0].clause_no == "4.2.1");
+    CHECK(clauses[0].text.find("桥涵设计应符合") != std::string::npos);
+    CHECK(clauses[1].clause_no == "4.2.2");
+}
+
+TEST_CASE("split_clauses recognizes four-level clause numbers") {
+    std::string page = "4.2.1.1 具体要求如下。\n4.2.1.2 另一要求。\n";
+    auto clauses = split_clauses(page, 9);
+    REQUIRE(clauses.size() == 2);
+    CHECK(clauses[0].clause_no == "4.2.1.1");
+    CHECK(clauses[1].clause_no == "4.2.1.2");
+}
+
+TEST_CASE("split_clauses normalizes full-width digits in the clause number") {
+    // 全角数字条款号 ４.２.１
+    std::string page = "４.２.１ 全角编号条款。\n";
+    auto clauses = split_clauses(page, 3);
+    REQUIRE(clauses.size() == 1);
+    CHECK(clauses[0].clause_no == "4.2.1");
+}
+
+TEST_CASE("split_clauses does NOT treat single-level numeric headings as clauses") {
+    // M1 明确跳过单级章标题，避免表格/列表误判
+    std::string page = "4 桥涵设计\n2 100 200\n3 个螺栓\n";
+    auto clauses = split_clauses(page, 1);
+    CHECK(clauses.empty());
+}
