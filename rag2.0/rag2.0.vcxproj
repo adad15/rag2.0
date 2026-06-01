@@ -75,7 +75,27 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\**\*.cpp" />
+    <ClCompile Include="..\src\config.cpp" />
+    <ClCompile Include="..\src\logging.cpp" />
+    <ClCompile Include="..\src\http\http_client.cpp" />
+    <ClCompile Include="..\src\db\pg_client.cpp" />
+    <ClCompile Include="..\src\milvus\milvus_rest.cpp" />
+    <ClCompile Include="..\src\parse\poppler_parser.cpp" />
+    <ClCompile Include="..\src\generate\deepseek_client.cpp" />
+    <ClCompile Include="..\src\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\rag_config.h" />
+    <ClInclude Include="..\src\logging.h" />
+    <ClInclude Include="..\src\http\http_client.h" />
+    <ClInclude Include="..\src\db\pg_client.h" />
+    <ClInclude Include="..\src\milvus\milvus_rest.h" />
+    <ClInclude Include="..\src\parse\parser.h" />
+    <ClInclude Include="..\src\parse\poppler_parser.h" />
+    <ClInclude Include="..\src\generate\deepseek_client.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\db\schema.sql" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
