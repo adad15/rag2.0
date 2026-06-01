@@ -1,5 +1,6 @@
 #include "ingest/ingest_pipeline.h"
 #include "ingest/clause_splitter.h"
+#include "ingest/standard_meta.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <functional>
@@ -13,13 +14,14 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
                          const std::string& collection) {
     ParsedDoc doc = parser.parse(file_path);
 
-    std::string fname = std::filesystem::path(file_path).filename().string();
+    std::string stem = std::filesystem::path(file_path).stem().string();
     std::string standard_id = make_id(file_path);
+    std::string page1 = doc.pages.empty() ? std::string() : doc.pages[0].text;
 
     StandardRow s;
     s.standard_id = standard_id;
-    s.standard_no = fname;          // M1 占位
-    s.standard_name = doc.title;    // M1 占位
+    s.standard_no = extract_standard_no(page1, stem);  // 修订④：首页抽真号，回退文件名(去扩展名)
+    s.standard_name = stem;                            // M1 仍用文件名(去扩展名)，真名留给 M2
     s.status = "现行";
     s.file_path = file_path;
     pg.upsert_standard(s);
@@ -44,9 +46,8 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
             row.page_start = c.page_start;
             pg.insert_clause(row);
 
-            // 检索文本：M1 简单拼标准号 + 条款号 + 正文（retrieval_text 雏形）
-            std::string retrieval_text = s.standard_no + " " + c.clause_no + " " + c.text;
-            std::vector<float> vec = embed.embed(retrieval_text);
+            // 修订①：M1 只嵌条款正文（去掉占位文件名/条款号噪声）；M2 有真元数据后再升级为正规 retrieval_text
+            std::vector<float> vec = embed.embed(c.text);
             mv.insert(collection, node_id, standard_id, vec);
 
             ++result.clause_count;
