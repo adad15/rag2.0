@@ -1,5 +1,7 @@
 ﻿#include "rag_config.h"
-#include <cstdlib>
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <sstream>
 
 static std::string get(const std::map<std::string, std::string>& e,
                        const std::string& k, const std::string& def = "") {
@@ -26,18 +28,24 @@ Config Config::from_map(const std::map<std::string, std::string>& e) {
     return c;
 }
 
-Config Config::from_env() {
+Config Config::from_json_string(const std::string& json_text) {
     std::map<std::string, std::string> e;
-    const char* keys[] = {
-        "RAG_PG_CONNINFO","RAG_MILVUS_BASE_URL","RAG_MILVUS_TOKEN","RAG_MILVUS_COLLECTION",
-        "RAG_EMBED_BASE_URL","RAG_EMBED_PATH","RAG_EMBED_MODEL","RAG_EMBED_DIM","RAG_EMBED_KEY",
-        "RAG_DEEPSEEK_BASE_URL","RAG_DEEPSEEK_PATH","RAG_DEEPSEEK_MODEL","RAG_DEEPSEEK_KEY","RAG_DOC_PATH"
-    };
-    for (const char* k : keys) {
-        const char* v = std::getenv(k);
-        if (v) e[k] = v;
+    auto j = nlohmann::json::parse(json_text, nullptr, /*allow_exceptions=*/false);
+    if (j.is_object()) {
+        for (auto it = j.begin(); it != j.end(); ++it) {
+            if (it->is_string())      e[it.key()] = it->get<std::string>();
+            else if (!it->is_null())  e[it.key()] = it->dump();  // 数字/布尔 -> 字符串
+        }
     }
     return from_map(e);
+}
+
+Config Config::from_json_file(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return from_map({});  // 文件缺失 -> 空配置（由 missing_required 报缺项）
+    std::stringstream ss;
+    ss << f.rdbuf();
+    return from_json_string(ss.str());
 }
 
 std::vector<std::string> Config::missing_required() const {

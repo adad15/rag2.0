@@ -1,0 +1,16 @@
+{
+  "RAG_PG_CONNINFO": "host=localhost port=5432 dbname=rag user=postgres password=postgres",
+  "RAG_MILVUS_BASE_URL": "http://localhost:19530",
+  "RAG_MILVUS_TOKEN": "root:Milvus",
+  "RAG_MILVUS_COLLECTION": "clause_text",
+  "RAG_EMBED_BASE_URL": "https://api.siliconflow.cn",
+  "RAG_EMBED_PATH": "/v1/embeddings",
+  "RAG_EMBED_MODEL": "Qwen/Qwen3-Embedding-8B",
+  "RAG_EMBED_DIM": "4096",
+  "RAG_EMBED_KEY": "",
+  "RAG_DEEPSEEK_BASE_URL": "https://api.deepseek.com",
+  "RAG_DEEPSEEK_PATH": "/chat/completions",
+  "RAG_DEEPSEEK_MODEL": "deepseek-v4-pro",
+  "RAG_DEEPSEEK_KEY": "",
+  "RAG_DOC_PATH": ""
+}

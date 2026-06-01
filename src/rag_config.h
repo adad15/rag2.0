@@ -22,8 +22,10 @@ struct Config {
 
     // 从任意 key->value map 构建（测试友好）
     static Config from_map(const std::map<std::string, std::string>& env);
-    // 从真实进程环境变量构建
-    static Config from_env();
+    // 从 JSON 文本构建（测试友好）
+    static Config from_json_string(const std::string& json_text);
+    // 从 JSON 配置文件构建（如 config.json）；文件缺失/解析失败时返回空配置
+    static Config from_json_file(const std::string& path);
     // 返回缺失的必填 key 名列表
     std::vector<std::string> missing_required() const;
 };

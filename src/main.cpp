@@ -106,26 +106,26 @@ int main(int argc, char** argv) {
         std::cout << "usage: rag2 <smoke|ingest|query> [args]\n";
         return 1;
     }
-    Config cfg = Config::from_env();
+    Config cfg = Config::from_json_file("config.json");
     std::string cmd = argv[1];
 
     if (cmd == "smoke") {
         auto missing = cfg.missing_required();
         if (!missing.empty()) {
-            for (auto& m : missing) spdlog::error("缺少必填环境变量: {}", m);
+            for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m);
             return 1;
         }
         return cmd_smoke(cfg);
     }
     if (cmd == "ingest") {
         auto missing = cfg.missing_required();
-        if (!missing.empty()) { for (auto& m : missing) spdlog::error("缺少 {}", m); return 1; }
+        if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
         return cmd_ingest(cfg);
     }
     if (cmd == "query") {
         if (argc < 3) { std::cout << "usage: rag2 query \"你的问题\"\n"; return 1; }
         auto missing = cfg.missing_required();
-        if (!missing.empty()) { for (auto& m : missing) spdlog::error("缺少 {}", m); return 1; }
+        if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
         return cmd_query(cfg, argv[2]);
     }
     std::cout << "unknown command: " << cmd << "\n";

@@ -14,6 +14,7 @@ env.local.ps1
 
 # Secrets / local env
 .env
+config.json
 
 # VS noise
 .vs/

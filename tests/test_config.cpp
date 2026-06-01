@@ -29,3 +29,33 @@ TEST_CASE("Config::from_map reports missing required keys") {
     CHECK(std::find(missing.begin(), missing.end(), "RAG_EMBED_KEY") != missing.end());
     CHECK(std::find(missing.begin(), missing.end(), "RAG_DEEPSEEK_KEY") != missing.end());
 }
+
+TEST_CASE("Config::from_json_string parses keys and applies defaults") {
+    std::string json = R"({
+        "RAG_PG_CONNINFO": "host=localhost dbname=rag",
+        "RAG_EMBED_KEY": "sk-embed",
+        "RAG_DEEPSEEK_KEY": "sk-deep",
+        "RAG_EMBED_DIM": "2048",
+        "RAG_DOC_PATH": "C:/docs/a.pdf"
+    })";
+    Config c = Config::from_json_string(json);
+    CHECK(c.pg_conninfo == "host=localhost dbname=rag");
+    CHECK(c.embed_key == "sk-embed");
+    CHECK(c.deepseek_key == "sk-deep");
+    CHECK(c.embed_dim == 2048);
+    CHECK(c.doc_path == "C:/docs/a.pdf");
+    // 未提供的项回退默认
+    CHECK(c.milvus_base_url == "http://localhost:19530");
+    CHECK(c.embed_model == "Qwen/Qwen3-Embedding-8B");
+}
+
+TEST_CASE("Config::from_json_string accepts numeric values (e.g. dim as number)") {
+    Config c = Config::from_json_string(R"({"RAG_EMBED_DIM": 4096})");
+    CHECK(c.embed_dim == 4096);
+}
+
+TEST_CASE("Config::from_json_string on invalid json yields empty config (missing required)") {
+    Config c = Config::from_json_string("not valid json");
+    auto missing = c.missing_required();
+    CHECK(std::find(missing.begin(), missing.end(), "RAG_PG_CONNINFO") != missing.end());
+}
