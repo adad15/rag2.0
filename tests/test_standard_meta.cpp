@@ -20,3 +20,11 @@ TEST_CASE("extract_standard_no falls back when no number is present") {
     CHECK(extract_standard_no("前言 本规范由交通运输部提出。", "公路桥涵设计通用规范")
           == "公路桥涵设计通用规范");
 }
+
+TEST_CASE("extract_standard_no extracts a number embedded mid-sentence") {
+    CHECK(extract_standard_no("本规范应与 GB 50010-2010 配合使用。", "fb") == "GB 50010-2010");
+}
+
+TEST_CASE("extract_standard_no handles the JTG/T slash-T form") {
+    CHECK(extract_standard_no("JTG/T D70-2010 公路隧道设计规范", "fb") == "JTG/T D70-2010");
+}
