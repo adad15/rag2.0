@@ -79,3 +79,14 @@ TEST_CASE("split_clauses keeps -x suffix on a four-level clause number") {
     REQUIRE(clauses.size() == 1);
     CHECK(clauses[0].clause_no == "4.2.1.1-a");
 }
+
+TEST_CASE("split_clauses skips table-of-contents lines with dot leaders") {
+    // 目录条目形如 "2.1  术语 ........ 2"——含长串点号引导，应跳过，不当成条款
+    std::string page =
+        "2.1      术语 .................................................... 2\n"
+        "2.2      符号 .................................................... 5\n"
+        "2.1.1 集料 aggregate\n";
+    auto clauses = split_clauses(page, 1);
+    REQUIRE(clauses.size() == 1);
+    CHECK(clauses[0].clause_no == "2.1.1");
+}

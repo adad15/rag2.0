@@ -38,6 +38,8 @@ std::vector<SplitClause> split_clauses(const std::string& page_text, int page_no
     std::string raw;
     while (std::getline(iss, raw)) {
         std::string line = normalize_fullwidth(raw);
+        // 跳过目录(TOC)条目：形如 "2.1 术语 ........ 2"，含长串点号引导。
+        if (line.find("......") != std::string::npos) continue;
         std::smatch m;
         if (std::regex_match(line, m, head)) {
             SplitClause c;
