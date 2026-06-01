@@ -1,0 +1,16 @@
+# Build outputs
+/rag2.0/x64/
+/rag2.0/Win32/
+x64/
+Win32/
+*.user
+
+# vcpkg manifest-mode install tree
+vcpkg_installed/
+
+# Secrets / local env
+.env
+
+# VS noise
+.vs/
+*.aps

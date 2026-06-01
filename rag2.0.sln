@@ -1,0 +1,31 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37314.3 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rag2.0", "rag2.0\rag2.0.vcxproj", "{FF4A663D-9739-4F2D-92F2-83913445E7E8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rag2.0.tests", "rag2.0.tests\rag2.0.tests.vcxproj", "{A1B2C3D4-0001-0001-0001-000000000001}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FF4A663D-9739-4F2D-92F2-83913445E7E8}.Debug|x64.ActiveCfg = Debug|x64
+		{FF4A663D-9739-4F2D-92F2-83913445E7E8}.Debug|x64.Build.0 = Debug|x64
+		{FF4A663D-9739-4F2D-92F2-83913445E7E8}.Release|x64.ActiveCfg = Release|x64
+		{FF4A663D-9739-4F2D-92F2-83913445E7E8}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-0001-0001-0001-000000000001}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-0001-0001-0001-000000000001}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-0001-0001-0001-000000000001}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-0001-0001-0001-000000000001}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0722C530-3883-42BB-B850-A3A0BEC9244D}
+	EndGlobalSection
+EndGlobal
