@@ -1,6 +1,8 @@
 #include "embedding/cloud_embedding.h"
 #include "http/http_client.h"
 #include <stdexcept>
+#include <thread>
+#include <chrono>
 
 using nlohmann::json;
 
@@ -28,7 +30,18 @@ std::vector<float> CloudEmbedding::embed(const std::string& text) {
     std::map<std::string, std::string> headers = {
         {"Authorization", "Bearer " + api_key_}
     };
-    auto res = http::post_json(base_url_, path_, body, headers);
+    // embedding 幂等：连接层偶发失败(status==0，如 SSL 断连)或 5xx 时退避重试，避免单次抖动中止整批入库。
+    http::Response res;
+    const int kMaxAttempts = 4;
+    for (int attempt = 1; attempt <= kMaxAttempts; ++attempt) {
+        res = http::post_json(base_url_, path_, body, headers);
+        if (res.ok()) break;
+        bool transient = (res.status == 0 || res.status >= 500);
+        if (attempt < kMaxAttempts && transient)
+            std::this_thread::sleep_for(std::chrono::milliseconds(400 * attempt));
+        else
+            break;
+    }
     if (!res.ok())
         throw std::runtime_error("embedding api failed: " + res.body + res.error);
     auto v = parse_embedding_response(res.body);
