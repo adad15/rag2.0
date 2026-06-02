@@ -12,10 +12,11 @@ static httplib::Headers to_headers(const std::map<std::string, std::string>& h) 
 
 Response post_json(const std::string& base_url, const std::string& path,
                    const std::string& body,
-                   const std::map<std::string, std::string>& headers) {
+                   const std::map<std::string, std::string>& headers,
+                   int read_timeout_sec) {
     httplib::Client cli(base_url.c_str());
     cli.set_connection_timeout(10, 0);
-    cli.set_read_timeout(120, 0);
+    cli.set_read_timeout(read_timeout_sec, 0);
     cli.enable_server_certificate_verification(false);  // M1 阶段简化；生产应开启
     auto res = cli.Post(path.c_str(), to_headers(headers), body, "application/json");
     Response r;
