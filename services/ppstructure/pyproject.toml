@@ -1,0 +1,17 @@
+[project]
+name = "ppstructure-service"
+version = "0.1.0"
+description = "PP-Structure(PaddleOCR) FastAPI 服务：扫描页 OCR -> 归一化元素流，供 rag2.0 C++ 端调用"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "paddleocr",
+    "pymupdf",
+    "pillow",
+    "numpy",
+]
+
+# 注意：paddlepaddle 本体（GPU/CPU）不放这里——它的 GPU wheel 需按 CUDA 版本从飞桨官方
+# index 安装，放进 dependencies 会被 uv 从 PyPI 解析成不匹配的版本。请按 README 用
+# `uv pip install` 单独装（见 services/ppstructure/README.md）。

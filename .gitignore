@@ -19,6 +19,11 @@ config.json
 # Runtime diagnostic output
 dump.txt
 
+# Python (uv) service env / caches
+.venv/
+__pycache__/
+*.pyc
+
 # VS noise
 .vs/
 *.aps
