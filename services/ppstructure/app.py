@@ -1,11 +1,13 @@
-"""PP-Structure(PaddleOCR) FastAPI 服务：把扫描页 OCR 成归一化元素流，供 rag2.0 C++ 端调用。
+"""PP-StructureV3(PaddleOCR 3.x) FastAPI 服务：把扫描页 OCR 成归一化元素流，供 rag2.0 C++ 端调用。
 
 契约（与 C++ 端 ppstructure_backend.cpp / parse_ppstructure_json 对齐）：
   POST /parse_pages {"file_path": "...", "pages": [1-based 页号...]}  -> {"elements": [...]}
   POST /parse       {"file_path": "..."}                              -> {"elements": [...]}  (全篇)
-  GET  /health                                                        -> {"status": "ok"}
+  GET  /health                                                        -> {"status":"ok","engine":"v3"}
 元素字段：type ∈ {Heading,Text,Table,Formula,Figure}(区分大小写)、page_no、level、
   clause_no、title、text、table_html、caption、ocr_confidence。失败用 {"error": "..."}。
+
+依赖：paddleocr>=3.0 + paddlex[ocr] + paddlepaddle(-gpu)。构造 PPStructureV3() 首次会下载模型到 ~/.paddlex。
 """
 import os
 from fastapi import FastAPI
@@ -16,7 +18,7 @@ from PIL import Image
 from paddleocr import PPStructureV3
 
 app = FastAPI()
-_pipeline = PPStructureV3()      # 首次构造会下载/加载模型，较慢
+_engine = PPStructureV3()        # 首次构造会下载模型，较慢
 
 class PagesReq(BaseModel):
     file_path: str
@@ -32,29 +34,35 @@ def _render_page(doc, page_index_0based, dpi=200):
     return np.array(img)
 
 def _to_elements(result, page_no):
-    """把 PP-StructureV3 单页结果映射为 IR 元素。字段名随 PaddleOCR 版本不同需微调。"""
-    elements = []
-    blocks = []
-    if isinstance(result, dict):
-        blocks = result.get("parsing_res_list") or result.get("layout") or []
-    elif isinstance(result, list):
-        blocks = result
+    """把 PP-StructureV3 单页 predict 结果映射为 IR 元素。
+       v3 实测结构：predict 返回 LayoutParsingResultV2 对象列表；res.json 是 dict，
+       含 parsing_res_list，每块字段为 block_label(类型) / block_content(内容)。"""
+    res0 = result[0] if isinstance(result, (list, tuple)) and result else result
+    d = getattr(res0, "json", None)
+    if not isinstance(d, dict):
+        return []
+    d = d.get("res", d)
+    blocks = d.get("parsing_res_list") or []
+    out = []
     for b in blocks:
-        btype = (b.get("type") or b.get("label") or "text").lower()
-        if "table" in btype:
-            elements.append({"type": "Table", "page_no": page_no,
-                             "table_html": b.get("html", b.get("res", "")) or "",
-                             "caption": "", "text": "", "ocr_confidence": 1.0})
-        elif "title" in btype or "header" in btype:
-            txt = b.get("text", "") or ""
-            elements.append({"type": "Heading", "page_no": page_no, "level": 1,
-                             "title": txt, "text": txt, "ocr_confidence": 1.0})
-        else:
-            txt = b.get("text", "") or ""
-            if txt.strip():
-                elements.append({"type": "Text", "page_no": page_no,
-                                 "text": txt, "ocr_confidence": 1.0})
-    return elements
+        if not isinstance(b, dict):
+            continue
+        label = (b.get("block_label") or "text").lower()
+        content = b.get("block_content", "") or ""
+        if "table" in label:
+            out.append({"type": "Table", "page_no": page_no, "table_html": content,
+                        "caption": "", "text": "", "ocr_confidence": 1.0})
+        elif "formula" in label:
+            out.append({"type": "Formula", "page_no": page_no, "text": content,
+                        "ocr_confidence": 1.0})
+        elif "title" in label:                      # doc_title/paragraph_title/table_title...
+            out.append({"type": "Heading", "page_no": page_no, "level": 1,
+                        "title": content, "text": content, "ocr_confidence": 1.0})
+        else:                                        # text/header/footer/number/...
+            if content.strip():
+                out.append({"type": "Text", "page_no": page_no, "text": content,
+                            "ocr_confidence": 1.0})
+    return out
 
 def _parse(file_path, pages):
     if not os.path.exists(file_path):
@@ -67,9 +75,7 @@ def _parse(file_path, pages):
             continue
         try:
             img = _render_page(doc, pno - 1)
-            res = _pipeline.predict(input=img)
-            res0 = res[0] if isinstance(res, list) and res else res
-            all_elems.extend(_to_elements(res0, pno))
+            all_elems.extend(_to_elements(_engine.predict(input=img), pno))
         except Exception as ex:    # 单页失败不终止全篇
             all_elems.append({"type": "Text", "page_no": pno, "text": "",
                               "caption": f"[page {pno} ocr failed: {ex}]",
@@ -86,4 +92,4 @@ def parse(req: FileReq):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "engine": "v3"}

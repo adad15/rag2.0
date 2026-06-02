@@ -4,26 +4,30 @@ rag2.0 的扫描件 OCR 后端：PaddleOCR(PP-StructureV3) + FastAPI。C++ 端�
 
 ## 安装与运行（uv）
 
+> ⚠️ **重要：paddlepaddle 本体（尤其 GPU 版）不在 pyproject 里**——它是手动 `uv pip install` 的。
+> 因此**不要用普通 `uv run` 或 `uv sync`**（它们会按 pyproject 做精确同步，把手动装的 paddle 卸掉）。
+> 装依赖用 `uv sync --inexact`（保留手动装的包），跑服务用 `uv run --no-sync`。
+
 ```powershell
 cd services\ppstructure
 
-# 1. 建虚拟环境并装 pyproject 里的依赖（fastapi/uvicorn/paddleocr/pymupdf/...）
-uv sync
+# 1. 装 pyproject 依赖（含 paddleocr>=3.0）；--inexact 不删手动装的 paddle
+uv sync --inexact
 
-# 2. 装 paddlepaddle 本体（二选一；不放 pyproject 因 GPU wheel 需专用 index）
-#    —— CPU 版（稳、装得上、慢，先验证链路用它最省事）：
-uv pip install paddlepaddle
-#    —— GPU 版（GTX 1660 Ti，按你的 CUDA 版本选 index，例：CUDA 11.8）：
-# uv pip install paddlepaddle-gpu -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
-#    其它 CUDA 版把 cu118 换成 cu126 等；确切命令以飞桨官网安装选择器为准。
+# 2. 装 paddlepaddle 本体（二选一）
+#    —— GPU 版（GTX 1660 Ti，按 CUDA 版本选 index，例 CUDA 11.8）：
+uv pip install paddlepaddle-gpu -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+#    —— CPU 版（慢但稳）：
+# uv pip install paddlepaddle
 
-# 3. 起服务（从本目录跑，app:app 指 app.py 里的 app）
-uv run uvicorn app:app --host 0.0.0.0 --port 8001
+# 3. 起服务（--no-sync：不重新同步、不卸掉手动装的 GPU paddle）
+uv run --no-sync uvicorn app:app --host 0.0.0.0 --port 8001
 ```
 
-健康检查：`curl http://localhost:8001/health` → `{"status":"ok"}`。
+健康检查：`curl http://localhost:8001/health` → `{"status":"ok","engine":"v3"}`（v3=PPStructureV3）。
 
-> 注：`uv sync` 可能因 paddleocr 的依赖声明顺带拉一个 CPU 版 paddlepaddle；要用 GPU 就在第 2 步用 GPU wheel 覆盖。首次构造 `PPStructureV3()` 会下载模型，较慢。
+> 注：首次构造 `PPStructureV3()` 会下载 3.x 模型（PP-OCRv5 等），存到 `C:\Users\<你>\.paddlex\`（3.x 用 paddlex，路径不是 `.paddleocr`），较慢。
+> 升级/重装 paddleocr 后想验证，**别用 `uv run`**（会回退到 lock），用 venv python 直接验：`.venv\Scripts\python.exe -c "from paddleocr import PPStructureV3; import paddleocr; print(paddleocr.__version__)"`。
 
 ## 联调（验证字段映射 —— 唯一需按版本微调处）
 

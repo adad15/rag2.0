@@ -6,7 +6,8 @@ requires-python = ">=3.10,<3.13"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "paddleocr",
+    "paddleocr>=3.0",
+    "paddlex[ocr]>=3.0",   # PP-StructureV3 必需的 OCR 额外依赖组（缺它构造会 DependencyError）
     "pymupdf",
     "pillow",
     "numpy",
