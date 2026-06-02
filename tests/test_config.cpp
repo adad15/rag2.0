@@ -59,3 +59,20 @@ TEST_CASE("Config::from_json_string on invalid json yields empty config (missing
     auto missing = c.missing_required();
     CHECK(std::find(missing.begin(), missing.end(), "RAG_PG_CONNINFO") != missing.end());
 }
+
+TEST_CASE("Config parses M2a parser keys with defaults") {
+    Config c = Config::from_json_string("{}");
+    CHECK(c.parse_mode == "auto");
+    CHECK(c.ocr_engine == "ppstructure");
+    CHECK(c.ppstruct_base_url == "http://localhost:8001");
+    CHECK(c.scan_chars_threshold == 100);
+}
+
+TEST_CASE("Config M2a parser keys can be overridden") {
+    Config c = Config::from_json_string(
+        R"({"RAG_PARSE_MODE":"ocr","RAG_OCR_ENGINE":"ppstructure",
+            "RAG_PPSTRUCT_BASE_URL":"http://x:9","RAG_SCAN_CHARS_THRESHOLD":"50"})");
+    CHECK(c.parse_mode == "ocr");
+    CHECK(c.ppstruct_base_url == "http://x:9");
+    CHECK(c.scan_chars_threshold == 50);
+}

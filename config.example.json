@@ -12,5 +12,9 @@
   "RAG_DEEPSEEK_PATH": "/chat/completions",
   "RAG_DEEPSEEK_MODEL": "deepseek-v4-pro",
   "RAG_DEEPSEEK_KEY": "",
-  "RAG_DOC_PATH": ""
+  "RAG_DOC_PATH": "",
+  "RAG_PARSE_MODE": "auto",
+  "RAG_OCR_ENGINE": "ppstructure",
+  "RAG_PPSTRUCT_BASE_URL": "http://localhost:8001",
+  "RAG_SCAN_CHARS_THRESHOLD": "100"
 }

@@ -25,6 +25,10 @@ Config Config::from_map(const std::map<std::string, std::string>& e) {
     c.deepseek_model   = get(e, "RAG_DEEPSEEK_MODEL", "deepseek-v4-pro");
     c.deepseek_key     = get(e, "RAG_DEEPSEEK_KEY");
     c.doc_path         = get(e, "RAG_DOC_PATH");
+    c.parse_mode       = get(e, "RAG_PARSE_MODE", "auto");
+    c.ocr_engine       = get(e, "RAG_OCR_ENGINE", "ppstructure");
+    c.ppstruct_base_url= get(e, "RAG_PPSTRUCT_BASE_URL", "http://localhost:8001");
+    c.scan_chars_threshold = std::stoi(get(e, "RAG_SCAN_CHARS_THRESHOLD", "100"));
     return c;
 }
 
