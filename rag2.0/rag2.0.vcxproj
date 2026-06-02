@@ -81,6 +81,7 @@
     <ClCompile Include="..\src\db\pg_client.cpp" />
     <ClCompile Include="..\src\milvus\milvus_rest.cpp" />
     <ClCompile Include="..\src\parse\poppler_parser.cpp" />
+    <ClCompile Include="..\src\parse\parse_cache.cpp" />
     <ClCompile Include="..\src\generate\deepseek_client.cpp" />
     <ClCompile Include="..\src\embedding\cloud_embedding.cpp" />
     <ClCompile Include="..\src\ingest\clause_splitter.cpp" />
@@ -99,6 +100,7 @@
     <ClInclude Include="..\src\milvus\milvus_rest.h" />
     <ClInclude Include="..\src\parse\parser.h" />
     <ClInclude Include="..\src\parse\poppler_parser.h" />
+    <ClInclude Include="..\src\parse\parse_cache.h" />
     <ClInclude Include="..\src\generate\deepseek_client.h" />
     <ClInclude Include="..\src\embedding\embedding_client.h" />
     <ClInclude Include="..\src\embedding\cloud_embedding.h" />

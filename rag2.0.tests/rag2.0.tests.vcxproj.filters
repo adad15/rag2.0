@@ -14,12 +14,14 @@
     <ClCompile Include="..\tests\test_embedding_parse.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_prompt_builder.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_standard_meta.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_parse_cache.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\config.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\logging.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\http\http_client.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\db\pg_client.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\milvus\milvus_rest.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\parse\poppler_parser.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\parse\parse_cache.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\generate\deepseek_client.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\embedding\cloud_embedding.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\clause_splitter.cpp"><Filter>被测源码</Filter></ClCompile>
@@ -37,6 +39,7 @@
     <ClInclude Include="..\src\milvus\milvus_rest.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\parse\parser.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\parse\poppler_parser.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\parse\parse_cache.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\generate\deepseek_client.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\embedding\embedding_client.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\embedding\cloud_embedding.h"><Filter>头文件</Filter></ClInclude>
