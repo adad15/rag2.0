@@ -8,6 +8,8 @@
 #include "parse/poppler_parser.h"
 #include "parse/hybrid_parser.h"
 #include "parse/parser_factory.h"
+#include "parse/ocr_backend.h"
+#include <memory>
 #include "embedding/cloud_embedding.h"
 #include "ingest/ingest_pipeline.h"
 #include "retrieve/dense_retriever.h"
@@ -20,6 +22,16 @@ static std::string read_file(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     std::stringstream ss; ss << f.rdbuf();
     return ss.str();
+}
+
+// 按 config 构建解析器：poppler + 选定 OCR 后端 + 路由模式。backend 的所有权交给调用方持有，
+// 须与返回的 HybridParser 同生命周期（HybridParser 内部持引用）。make_ocr_backend 选未实现引擎会抛。
+static HybridParser make_parser(const Config& cfg, PopplerParser& poppler,
+                                std::unique_ptr<OcrBackend>& backend) {
+    backend = make_ocr_backend(cfg.ocr_engine, cfg.ppstruct_base_url);
+    return HybridParser(poppler, *backend,
+                        parse_mode_from_string(cfg.parse_mode),
+                        cfg.scan_chars_threshold);
 }
 
 static int cmd_smoke(const Config& cfg) {
@@ -83,10 +95,8 @@ static int cmd_ingest(const Config& cfg) {
         CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
                              cfg.embed_key, cfg.embed_dim);
         PopplerParser poppler;
-        auto backend = make_ocr_backend(cfg.ocr_engine, cfg.ppstruct_base_url);
-        HybridParser parser(poppler, *backend,
-                            parse_mode_from_string(cfg.parse_mode),
-                            cfg.scan_chars_threshold);
+        std::unique_ptr<OcrBackend> backend;
+        HybridParser parser = make_parser(cfg, poppler, backend);
 
         auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection);
         spdlog::info("ingest 完成: standard_id={}, clauses={}", r.standard_id, r.clause_count);
@@ -120,7 +130,9 @@ static int cmd_query(const Config& cfg, const std::string& question) {
 static int cmd_dump(const Config& cfg) {
     if (cfg.doc_path.empty()) { spdlog::error("未设置 RAG_DOC_PATH"); return 1; }
     try {
-        PopplerParser parser;
+        PopplerParser poppler;
+        std::unique_ptr<OcrBackend> backend;
+        HybridParser parser = make_parser(cfg, poppler, backend);
         ParsedDoc d = parser.parse(cfg.doc_path);
         size_t total = 0;
         for (auto& pg : d.pages) total += pg.text.size();

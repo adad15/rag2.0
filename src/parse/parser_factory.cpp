@@ -3,9 +3,10 @@
 #include <stdexcept>
 
 ParseMode parse_mode_from_string(const std::string& s) {
+    if (s == "auto")    return ParseMode::Auto;
     if (s == "poppler") return ParseMode::Poppler;
     if (s == "ocr")     return ParseMode::Ocr;
-    return ParseMode::Auto;
+    return ParseMode::Auto;   // 未知值兜底为 auto
 }
 
 std::unique_ptr<OcrBackend> make_ocr_backend(const std::string& engine,
