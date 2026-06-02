@@ -1,6 +1,7 @@
 #include "ingest/ingest_pipeline.h"
 #include "ingest/clause_splitter.h"
 #include "ingest/standard_meta.h"
+#include "parse/parse_cache.h"
 #include "util/path_utf8.h"
 #include <spdlog/spdlog.h>
 #include <functional>
@@ -11,11 +12,13 @@ static std::string make_id(const std::string& s) {
 
 IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient& pg,
                          milvus::MilvusRest& mv, EmbeddingClient& embed,
-                         const std::string& collection) {
+                         const std::string& collection, const std::string& cache_dir) {
     ParsedDoc doc = parser.parse(file_path);
 
     std::string stem = path_utf8::stem(file_path);
     std::string standard_id = make_id(file_path);
+    // M2a：把富 IR（含 OCR 页元素/表格）写磁盘缓存，供下一轮结构化层消费（不重复 OCR）
+    write_parse_cache(cache_dir + "/" + standard_id + ".json", doc);
     std::string page1 = doc.pages.empty() ? std::string() : doc.pages[0].text;
 
     StandardRow s;

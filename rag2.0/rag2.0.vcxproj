@@ -93,6 +93,7 @@
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
     <ClCompile Include="..\src\parse\hybrid_parser.cpp" />
+    <ClCompile Include="..\src\parse\parser_factory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -119,6 +120,7 @@
     <ClInclude Include="..\src\parse\ocr_backend.h" />
     <ClInclude Include="..\src\parse\ppstructure_backend.h" />
     <ClInclude Include="..\src\parse\hybrid_parser.h" />
+    <ClInclude Include="..\src\parse\parser_factory.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql" />

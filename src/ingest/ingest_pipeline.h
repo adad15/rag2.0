@@ -17,4 +17,5 @@ IngestResult ingest_file(const std::string& file_path,
                          PgClient& pg,
                          milvus::MilvusRest& mv,
                          EmbeddingClient& embed,
-                         const std::string& collection);
+                         const std::string& collection,
+                         const std::string& cache_dir = "data/parse_cache");

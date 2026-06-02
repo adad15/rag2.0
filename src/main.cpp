@@ -6,6 +6,8 @@
 #include "milvus/milvus_rest.h"
 #include "generate/deepseek_client.h"
 #include "parse/poppler_parser.h"
+#include "parse/hybrid_parser.h"
+#include "parse/parser_factory.h"
 #include "embedding/cloud_embedding.h"
 #include "ingest/ingest_pipeline.h"
 #include "retrieve/dense_retriever.h"
@@ -80,7 +82,11 @@ static int cmd_ingest(const Config& cfg) {
         milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
         CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
                              cfg.embed_key, cfg.embed_dim);
-        PopplerParser parser;
+        PopplerParser poppler;
+        auto backend = make_ocr_backend(cfg.ocr_engine, cfg.ppstruct_base_url);
+        HybridParser parser(poppler, *backend,
+                            parse_mode_from_string(cfg.parse_mode),
+                            cfg.scan_chars_threshold);
 
         auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection);
         spdlog::info("ingest 完成: standard_id={}, clauses={}", r.standard_id, r.clause_count);
