@@ -15,6 +15,7 @@
     <ClCompile Include="..\tests\test_prompt_builder.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_standard_meta.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_parse_cache.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_ppstructure_normalize.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\config.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\logging.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\http\http_client.cpp"><Filter>被测源码</Filter></ClCompile>
@@ -30,6 +31,7 @@
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\generate\prompt_builder.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\generate\answer_pipeline.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\parse\ppstructure_backend.cpp"><Filter>被测源码</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h"><Filter>头文件</Filter></ClInclude>
@@ -53,5 +55,7 @@
     <ClInclude Include="..\src\generate\prompt_builder.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\generate\answer_pipeline.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\util\path_utf8.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\parse\ocr_backend.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\parse\ppstructure_backend.h"><Filter>头文件</Filter></ClInclude>
   </ItemGroup>
 </Project>

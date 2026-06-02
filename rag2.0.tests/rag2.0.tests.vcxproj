@@ -95,6 +95,8 @@
     <ClCompile Include="..\tests\test_prompt_builder.cpp" />
     <ClCompile Include="..\tests\test_standard_meta.cpp" />
     <ClCompile Include="..\tests\test_parse_cache.cpp" />
+    <ClCompile Include="..\tests\test_ppstructure_normalize.cpp" />
+    <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -118,6 +120,8 @@
     <ClInclude Include="..\src\generate\prompt_builder.h" />
     <ClInclude Include="..\src\generate\answer_pipeline.h" />
     <ClInclude Include="..\src\util\path_utf8.h" />
+    <ClInclude Include="..\src\parse\ocr_backend.h" />
+    <ClInclude Include="..\src\parse\ppstructure_backend.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
