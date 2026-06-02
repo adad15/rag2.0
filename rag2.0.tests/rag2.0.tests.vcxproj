@@ -96,7 +96,9 @@
     <ClCompile Include="..\tests\test_standard_meta.cpp" />
     <ClCompile Include="..\tests\test_parse_cache.cpp" />
     <ClCompile Include="..\tests\test_ppstructure_normalize.cpp" />
+    <ClCompile Include="..\tests\test_hybrid_router.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
+    <ClCompile Include="..\src\parse\hybrid_parser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -122,6 +124,7 @@
     <ClInclude Include="..\src\util\path_utf8.h" />
     <ClInclude Include="..\src\parse\ocr_backend.h" />
     <ClInclude Include="..\src\parse\ppstructure_backend.h" />
+    <ClInclude Include="..\src\parse\hybrid_parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

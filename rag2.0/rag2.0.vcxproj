@@ -92,6 +92,7 @@
     <ClCompile Include="..\src\generate\answer_pipeline.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
+    <ClCompile Include="..\src\parse\hybrid_parser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -117,6 +118,7 @@
     <ClInclude Include="..\src\util\path_utf8.h" />
     <ClInclude Include="..\src\parse\ocr_backend.h" />
     <ClInclude Include="..\src\parse\ppstructure_backend.h" />
+    <ClInclude Include="..\src\parse\hybrid_parser.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql" />
