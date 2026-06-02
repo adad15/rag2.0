@@ -17,14 +17,15 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
 
     std::string stem = path_utf8::stem(file_path);
     std::string standard_id = make_id(file_path);
-    // M2a：把富 IR（含 OCR 页元素/表格）写磁盘缓存，供下一轮结构化层消费（不重复 OCR）
-    write_parse_cache(cache_dir + "/" + standard_id + ".json", doc);
     std::string page1 = doc.pages.empty() ? std::string() : doc.pages[0].text;
 
     StandardRow s;
     s.standard_id = standard_id;
     s.standard_no = extract_standard_no(page1, stem);  // 修订④：首页抽真号，回退文件名(去扩展名)
     s.standard_name = stem;                            // M1 仍用文件名(去扩展名)，真名留给 M2
+    doc.standard_no = s.standard_no;                   // 回填真实标准号到 IR
+    // M2a：把富 IR（含 OCR 页元素/表格 + 真实标准号）写磁盘缓存，供下一轮结构化层消费（不重复 OCR）
+    write_parse_cache(cache_dir + "/" + standard_id + ".json", doc);
     s.status = "现行";
     s.file_path = file_path;
     pg.upsert_standard(s);
