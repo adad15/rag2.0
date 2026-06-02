@@ -2,6 +2,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
+#include <spdlog/spdlog.h>
 
 using nlohmann::json;
 
@@ -33,14 +34,14 @@ ParsedDoc parsed_doc_from_json(const std::string& json_text) {
     d.source_path = j.value("source_path", "");
     d.title = j.value("title", "");
     d.standard_no = j.value("standard_no", "");
-    if (j.contains("pages"))
+    if (j.contains("pages") && j["pages"].is_array())
         for (auto& p : j["pages"]) {
             ParsedPage pp;
             pp.page_no = p.value("page_no", 0);
             pp.text = p.value("text", "");
             d.pages.push_back(std::move(pp));
         }
-    if (j.contains("elements"))
+    if (j.contains("elements") && j["elements"].is_array())
         for (auto& e : j["elements"]) {
             ParseElement pe;
             pe.type = element_type_from_string(e.value("type", "Text"));
@@ -62,6 +63,7 @@ void write_parse_cache(const std::string& cache_path, const ParsedDoc& doc) {
     std::filesystem::path p(cache_path);
     if (p.has_parent_path())
         std::filesystem::create_directories(p.parent_path());
-    std::ofstream f(cache_path, std::ios::binary);
+    std::ofstream f(cache_path, std::ios::binary);  // binary：避免 Windows CRLF 改写 UTF-8 JSON
+    if (!f) { spdlog::warn("parse cache 写入失败，无法打开: {}", cache_path); return; }
     f << parsed_doc_to_json(doc);
 }

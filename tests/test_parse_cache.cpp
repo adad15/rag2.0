@@ -23,4 +23,5 @@ TEST_CASE("parsed_doc JSON round-trip preserves pages and elements") {
     CHECK(r.elements[0].table_html.find("<table>") != std::string::npos);
     CHECK(r.elements[0].caption == std::string("\xe8\xa1\xa8\x31"));
     CHECK(r.elements[0].source == std::string("ppstructure"));
+    CHECK(r.elements[0].ocr_confidence == doctest::Approx(0.9f));
 }
