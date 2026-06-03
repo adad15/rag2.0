@@ -1,5 +1,6 @@
 #include "parse/ocr_normalize.h"
 #include "parse/clause_no.h"
+#include <algorithm>
 
 // 去前导空白后做 UTF-8 字节前缀匹配（OCR 文本常带前导空格）。
 static bool starts_with_trimmed(const std::string& s, const std::string& pre) {
@@ -67,6 +68,47 @@ void tag_regions(std::vector<ParseElement>& els) {
         e.region = cur;
     }
 }
-void flag_anomalies(std::vector<ParseElement>&) {}
-// 本轮仅抠号；英文糊过滤 + region + 异常标记在后续 Task 接入。
-void normalize_parsed_doc(ParsedDoc& doc) { apply_clause_extraction(doc.elements); }
+// 把 "7.2"/"7.33"/"5.2.1" 拆成整数段，便于比较顺序。
+static std::vector<int> split_no(const std::string& no) {
+    std::vector<int> v; std::string cur;
+    for (char c : no) {
+        if (c >= '0' && c <= '9') cur += c;
+        else if (c == '.') { if(!cur.empty()){v.push_back(std::stoi(cur));cur.clear();} else v.push_back(0); }
+        else break;   // 遇 '-' 后缀停止
+    }
+    if (!cur.empty()) v.push_back(std::stoi(cur));
+    return v;
+}
+
+void flag_anomalies(std::vector<ParseElement>& els) {
+    std::vector<int> prev;
+    for (auto& e : els) {
+        if (e.region != Region::Body || e.clause_no.empty() || e.is_caption) continue;
+        // 正文过短（抠号后 text < 9 字节 ≈ 不足 3 个汉字，如 "算："=6 字节）
+        if (e.text.size() < 9) { e.suspect = "short"; }
+        // 连续性：同级（段数相同）下末段应递增 1，跳变 >1 标 seq
+        auto cur = split_no(e.clause_no);
+        if (!prev.empty() && cur.size() == prev.size()) {
+            bool same_parent = std::equal(cur.begin(), cur.end()-1, prev.begin());
+            if (same_parent && cur.back() - prev.back() > 1 && e.suspect.empty())
+                e.suspect = "seq";
+        }
+        prev = cur;
+    }
+}
+
+void normalize_parsed_doc(ParsedDoc& doc) {
+    auto& els = doc.elements;
+    // 1) 丢弃独立英文糊块（仅对 ppstructure 源、非表格的标题/正文）
+    els.erase(std::remove_if(els.begin(), els.end(), [](const ParseElement& e){
+        return e.source == "ppstructure" && is_english_garble(e.title.empty()? e.text : e.title)
+               && e.table_html.empty();
+    }), els.end());
+    // 2) caption + clause_no
+    apply_clause_extraction(els);
+    // 3) region
+    tag_regions(els);
+    // 4) 异常标记
+    flag_anomalies(els);
+    doc.schema_version = 2;
+}

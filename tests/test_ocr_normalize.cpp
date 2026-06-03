@@ -59,3 +59,36 @@ TEST_CASE("tag_regions: 按 目次/首章/附录/条文说明 切区域") {
     CHECK(els[6].region == Region::Explanation);
     CHECK(els[7].region == Region::Explanation);
 }
+
+TEST_CASE("flag_anomalies: 跳号标 seq、正文过短标 short") {
+    auto C = [](const std::string& no, const std::string& txt){
+        ParseElement e; e.type=ElementType::Heading; e.clause_no=no; e.text=txt;
+        e.region=Region::Body; e.source="ppstructure"; return e; };
+    std::vector<ParseElement> els = {
+        C("7.1","一般规定"), C("7.2","评定方法说明充分"),
+        C("7.33","路基技术状况评定"),   // 7.2 后跳到 7.33 -> seq
+        C("7.4.9","算："),              // 正文过短 -> short
+    };
+    flag_anomalies(els);
+    CHECK(els[2].suspect == "seq");
+    CHECK(els[3].suspect == "short");
+    CHECK(els[0].suspect == "");
+}
+
+TEST_CASE("normalize_parsed_doc: 丢弃独立英文糊块、跑全链") {
+    ParsedDoc d;
+    auto add = [&](ElementType ty, const std::string& label, const std::string& title){
+        ParseElement e; e.type=ty; e.raw_label=label; e.title=title; e.source="ppstructure";
+        d.elements.push_back(e); };
+    add(ElementType::Heading, "doc_title", "sessmentSta");        // 英文糊 -> 丢
+    add(ElementType::Heading, "paragraph_title", "1总则");
+    add(ElementType::Heading, "paragraph_title", "5.2.1龟裂应按面积计算");
+    add(ElementType::Heading, "table_title", "表4.0.1等级划分");   // caption
+
+    normalize_parsed_doc(d);
+
+    REQUIRE(d.elements.size() == 3);                  // 英文糊被丢
+    CHECK(d.elements[0].clause_no == "1");
+    CHECK(d.elements[1].clause_no == "5.2.1");
+    CHECK(d.elements[2].is_caption == true);
+}
