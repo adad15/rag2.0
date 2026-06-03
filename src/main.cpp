@@ -17,6 +17,7 @@
 #include "retrieve/dense_retriever.h"
 #include "generate/answer_pipeline.h"
 #include <spdlog/spdlog.h>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -161,13 +162,20 @@ static int cmd_dump(const Config& cfg) {
 
 // 体检命令：读一份 parse_cache JSON，打印 OCR 干不干净的指标表。
 static int cmd_ocrcheck(const std::string& cache_path) {
-    std::string js = read_file(cache_path);
-    if (js.empty()) { spdlog::error("读不到缓存文件: {}", cache_path); return 1; }
-    ParsedDoc d = parsed_doc_from_json(js);
-    spdlog::info("缓存: {} | schema_version={} | pages={} elements={}",
-                 cache_path, d.schema_version, d.pages.size(), d.elements.size());
-    std::cout << format_ocr_metrics(compute_ocr_metrics(d)) << "\n";
-    return 0;
+    try {
+        if (!std::filesystem::exists(cache_path)) {
+            spdlog::error("缓存文件不存在: {}", cache_path); return 1;
+        }
+        std::string js = read_file(cache_path);
+        if (js.empty()) { spdlog::error("缓存文件为空: {}", cache_path); return 1; }
+        ParsedDoc d = parsed_doc_from_json(js);
+        spdlog::info("缓存: {} | schema_version={} | pages={} elements={}",
+                     cache_path, d.schema_version, d.pages.size(), d.elements.size());
+        std::cout << format_ocr_metrics(compute_ocr_metrics(d)) << "\n";
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] ocrcheck: {}", e.what()); return 1;
+    }
 }
 
 int main(int argc, char** argv) {
