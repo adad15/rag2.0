@@ -22,6 +22,26 @@ inline ElementType element_type_from_string(const std::string& s) {
     return ElementType::Text;
 }
 
+// 区域标签：M2b 顺序扫元素流打标，供 M2c 决定哪些入树/防撞号。
+enum class Region { FrontMatter, Toc, Body, Appendix, Explanation };
+
+inline std::string region_to_string(Region r) {
+    switch (r) {
+        case Region::FrontMatter: return "front_matter";
+        case Region::Toc:         return "toc";
+        case Region::Appendix:    return "appendix";
+        case Region::Explanation: return "explanation";
+        default:                  return "body";
+    }
+}
+inline Region region_from_string(const std::string& s) {
+    if (s == "front_matter") return Region::FrontMatter;
+    if (s == "toc")          return Region::Toc;
+    if (s == "appendix")     return Region::Appendix;
+    if (s == "explanation")  return Region::Explanation;
+    return Region::Body;
+}
+
 // 归一化元素：按阅读顺序排列。poppler 页产出 Text；OCR 页产出完整结构。
 struct ParseElement {
     ElementType type = ElementType::Text;
@@ -34,6 +54,10 @@ struct ParseElement {
     std::string caption;         // 表/图题
     std::string source;          // "poppler" | "ppstructure" | ...
     float ocr_confidence = 1.0f;
+    std::string raw_label;          // PP-Structure 原始块标签（如 table_title/paragraph_title），app.py 透传
+    Region region = Region::Body;   // M2b 区域标签
+    bool is_caption = false;        // 图/表题，非条款
+    std::string suspect;            // "" | "seq" | "short"（异常标记，只标不修）
 };
 
 // 统一中间格式（IR）。M1 仅用 pages；M2a 加 elements（富 IR）与 standard_no。
@@ -48,6 +72,7 @@ struct ParsedDoc {
     std::string standard_no;                 // 可空，由 extract_standard_no 回填
     std::vector<ParsedPage> pages;           // 每页全文
     std::vector<ParseElement> elements;      // 归一化元素流（富 IR，本轮仅缓存）
+    int schema_version = 2;   // M1/M2a=1（隐式）；M2b 起为 2
 };
 
 class Parser {
