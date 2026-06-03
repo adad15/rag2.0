@@ -107,3 +107,17 @@ chcp 65001
 - `RAG_SCAN_CHARS_THRESHOLD` 单位是**字节**（中文≈3字节/字），默认 100，区分扫描(每页~几字节)与文字(每页~千字节)绰绰有余。
 - 用户语料**多为扫描件**，且**文字层可能与图像页不对齐**（劣质 OCR 版）——以 OCR 结果为准，别拿旧 poppler 文字层比对完整性。
 - `/parse_pages` JSON 契约：`{"elements":[{type∈{Heading,Text,Table,Formula,Figure}区分大小写, page_no, text, table_html, caption, ocr_confidence, ...}]}`，错误 `{"error":"..."}`。
+
+---
+
+## 7. 附：M1 切分/入库/检索的"裸版"机制（理解为什么检索弱）
+
+扫描件 M2a 也用同一套 M1 切分/入库/检索，只是输入文本换成 OCR 的。
+
+**① 切分**（`src/ingest/clause_splitter.cpp` `split_clauses(页文本,页号)`）：逐页逐行扫描，行首匹配条款号正则 `^\s*(\d+(?:\.\d+){1,3}(?:-[0-9a-zA-Z]+)?)\s+(.*)$`（2~4级编号）就起新条款，否则把该行并入当前条款正文。含全角归一化、跳过 TOC(`......`)行、跳过单级章标题。产出 `SplitClause{clause_no,text,page_start}`。**朴素**：按页独立(跨页续行尾巴丢)、同号覆盖、**不建层级树/不分三文本/不处理表格结构**。
+
+**② 入库**（`src/ingest/ingest_pipeline.cpp` `ingest_file`）：每条款 → 写 PG `clause_nodes`(node_id=`standard_id:clause_no`, clause_no, text正文, page_start, path=clause_no占位) + **embed 只嵌条款正文 `c.text`**(无富化) → 写 Milvus(node_id+standard_id+4096维向量)。**Milvus 只存向量+id，原文以 PG 为权威回查**(底座原则)。
+
+**③ 检索**（`query` → `src/retrieve/dense_retriever.cpp` + `src/generate/answer_pipeline.cpp`）：**单路 dense**——问题 embed→Milvus COSINE 搜 top5→{node_id,分数}→Candidate→用 node_id 回查 PG 取权威原文/标准号/条款号→组 ContextFragment(§11.3)→system(6条铁律)+user(问题+上下文JSON)→DeepSeek。候选空则直接拒答。
+
+**为什么弱**：只有 1 路 dense + 只嵌短正文 + 无查询理解 + 表格未结构化 + 无 BM25/精确匹配/RRF/重排。→ 编号/关键词精确查(如 `T0327-1`/`干筛法`)命不中。修复=§4 结构化层(富化retrieval_text+表格cell) + §5 M3(三路召回+查询理解)。
