@@ -20,6 +20,7 @@
     <ClCompile Include="..\tests\test_parser_factory.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_clause_no.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_ocr_normalize.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_parse_cache_m2b.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\config.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\logging.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\http\http_client.cpp"><Filter>被测源码</Filter></ClCompile>

@@ -29,6 +29,7 @@ std::vector<ParseElement> parse_ppstructure_json(const std::string& json_body) {
         pe.table_html = e.value("table_html", "");
         pe.caption = e.value("caption", "");
         pe.ocr_confidence = e.value("ocr_confidence", 1.0f);
+        pe.raw_label = e.value("raw_label", "");
         pe.source = "ppstructure";
         out.push_back(std::move(pe));
     }

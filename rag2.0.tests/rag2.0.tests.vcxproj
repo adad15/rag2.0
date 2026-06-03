@@ -100,6 +100,7 @@
     <ClCompile Include="..\tests\test_parser_factory.cpp" />
     <ClCompile Include="..\tests\test_clause_no.cpp" />
     <ClCompile Include="..\tests\test_ocr_normalize.cpp" />
+    <ClCompile Include="..\tests\test_parse_cache_m2b.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
     <ClCompile Include="..\src\parse\clause_no.cpp" />
     <ClCompile Include="..\src\parse\ocr_normalize.cpp" />

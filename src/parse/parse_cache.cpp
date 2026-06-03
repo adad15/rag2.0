@@ -11,6 +11,7 @@ std::string parsed_doc_to_json(const ParsedDoc& doc) {
     j["source_path"] = doc.source_path;
     j["title"] = doc.title;
     j["standard_no"] = doc.standard_no;
+    j["schema_version"] = doc.schema_version;
     j["pages"] = json::array();
     for (const auto& p : doc.pages)
         j["pages"].push_back({ {"page_no", p.page_no}, {"text", p.text} });
@@ -21,7 +22,9 @@ std::string parsed_doc_to_json(const ParsedDoc& doc) {
             {"page_no", e.page_no}, {"level", e.level},
             {"clause_no", e.clause_no}, {"title", e.title}, {"text", e.text},
             {"table_html", e.table_html}, {"caption", e.caption},
-            {"source", e.source}, {"ocr_confidence", e.ocr_confidence}
+            {"source", e.source}, {"ocr_confidence", e.ocr_confidence},
+            {"raw_label", e.raw_label}, {"region", region_to_string(e.region)},
+            {"is_caption", e.is_caption}, {"suspect", e.suspect}
         });
     }
     return j.dump(2);
@@ -34,6 +37,7 @@ ParsedDoc parsed_doc_from_json(const std::string& json_text) {
     d.source_path = j.value("source_path", "");
     d.title = j.value("title", "");
     d.standard_no = j.value("standard_no", "");
+    d.schema_version = j.value("schema_version", 1);
     if (j.contains("pages") && j["pages"].is_array())
         for (auto& p : j["pages"]) {
             ParsedPage pp;
@@ -54,6 +58,10 @@ ParsedDoc parsed_doc_from_json(const std::string& json_text) {
             pe.caption = e.value("caption", "");
             pe.source = e.value("source", "");
             pe.ocr_confidence = e.value("ocr_confidence", 1.0f);
+            pe.raw_label = e.value("raw_label", "");
+            pe.region = region_from_string(e.value("region", "body"));
+            pe.is_caption = e.value("is_caption", false);
+            pe.suspect = e.value("suspect", "");
             d.elements.push_back(std::move(pe));
         }
     return d;

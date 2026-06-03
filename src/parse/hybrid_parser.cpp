@@ -1,4 +1,5 @@
 #include "parse/hybrid_parser.h"
+#include "parse/ocr_normalize.h"
 #include <set>
 
 std::vector<int> pick_ocr_pages(const std::vector<int>& bytes_per_page,
@@ -68,5 +69,7 @@ ParsedDoc HybridParser::parse(const std::string& file_path) {
     std::vector<ParseElement> ocr_els;
     if (!ocr_pages.empty()) ocr_els = ocr_.ocr_pages(file_path, ocr_pages);
 
-    return merge_doc(base, ocr_pages, ocr_els);
+    ParsedDoc doc = merge_doc(base, ocr_pages, ocr_els);
+    normalize_parsed_doc(doc);
+    return doc;
 }
