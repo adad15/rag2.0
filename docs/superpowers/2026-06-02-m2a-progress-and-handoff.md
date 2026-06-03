@@ -93,7 +93,9 @@ chcp 65001
 
 1. **正在验证**：真实扫描件端到端 ingest（刚加 embedding 重试，待重跑确认 `clauses>0` + query 命中）。若 SSL 仍频繁失败（非偶发），改 embedding **复用连接**（现在每条新建 TLS）或查网络/限流。
 2. **M2a 收尾后**：本轮的"富 IR"已落 `data/parse_cache/`，供下一轮消费。
-3. **M2 第二刀「结构化层」**（独立子项目，走 brainstorm→spec→plan）：条款层级树(章/节/条) + atomic/retrieval/context 三文本分离 + 表格 cell 级结构化(spec_tables/spec_table_cells) + page_clause_map + 解析质检门禁 + 对应 PG schema 扩展。消费 parse_cache 的 `elements`(含 table_html)。
+3. **检索质量差是预期内的**（M2a 只解决"读进来"，没碰检索）。实测 ingest 成功（query 能返回条款上下文），但：表格类查询(如方法号 `T0327-1`)答不了——**表格未结构化**；关键词查询(如 `干筛法`)召回错——**单路 dense + 只嵌条款正文**太弱。**这正是下面两步要解决的，别期待现在检索好。**
+4. **M2 第二刀「结构化层」**（独立子项目，走 brainstorm→spec→plan）：条款层级树(章/节/条) + atomic/retrieval/context 三文本分离(**富化 retrieval_text=标准号+名称+章节路径+正文+关键词+单位**) + 表格 cell 级结构化(spec_tables/spec_table_cells，让表格可查) + page_clause_map + 解析质检门禁 + 对应 PG schema 扩展。消费 parse_cache 的 `elements`(含 table_html)。
+5. **M3 三路召回**：dense + BM25 + PG 精确匹配 + RRF 融合 + 查询理解（标准号/条款号归一化、同义词/中文分词词典）。检索质量主要靠这步。
 4. 之后按路线图：M3 三路召回 → M4 评估闭环。
 
 ---
