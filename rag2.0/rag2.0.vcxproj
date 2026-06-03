@@ -93,6 +93,7 @@
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
     <ClCompile Include="..\src\parse\clause_no.cpp" />
+    <ClCompile Include="..\src\parse\ocr_normalize.cpp" />
     <ClCompile Include="..\src\parse\hybrid_parser.cpp" />
     <ClCompile Include="..\src\parse\parser_factory.cpp" />
   </ItemGroup>
@@ -121,6 +122,7 @@
     <ClInclude Include="..\src\parse\ocr_backend.h" />
     <ClInclude Include="..\src\parse\ppstructure_backend.h" />
     <ClInclude Include="..\src\parse\clause_no.h" />
+    <ClInclude Include="..\src\parse\ocr_normalize.h" />
     <ClInclude Include="..\src\parse\hybrid_parser.h" />
     <ClInclude Include="..\src\parse\parser_factory.h" />
   </ItemGroup>
