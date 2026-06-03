@@ -26,3 +26,11 @@ TEST_CASE("apply_clause_extraction: 给非 caption 元素抠号、给 caption �
     CHECK(els[1].clause_no == "");      // caption 不抠号
     CHECK(els[2].clause_no == "1");     // 单级章号
 }
+
+TEST_CASE("is_english_garble: 纯英文糊判 true、含汉字判 false") {
+    CHECK(is_english_garble("sessmentSta"));
+    CHECK(is_english_garble("highwamintenanceulitinicar"));
+    CHECK_FALSE(is_english_garble("总则"));
+    CHECK_FALSE(is_english_garble("2.0.1公路技术状况指数"));   // 含成段汉字
+    CHECK_FALSE(is_english_garble(""));
+}

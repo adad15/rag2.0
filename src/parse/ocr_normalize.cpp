@@ -39,6 +39,8 @@ void apply_clause_extraction(std::vector<ParseElement>& els) {
         auto r = parse_clause_no(src, is_heading);
         if (r.matched) {
             e.clause_no = r.clause_no;
+            // Heading（或 text 为空）：把号从标题剥到 text，供下游统一读 text。
+            // 正文 Text 元素：仅打 clause_no，保留原文不剥（避免破坏正文）。
             if (e.text.empty() || e.type == ElementType::Heading) e.text = r.rest;
         }
     }
@@ -47,4 +49,5 @@ void apply_clause_extraction(std::vector<ParseElement>& els) {
 // 以下三个本任务留桩，后续任务实现。
 void tag_regions(std::vector<ParseElement>&) {}
 void flag_anomalies(std::vector<ParseElement>&) {}
+// 本轮仅抠号；英文糊过滤 + region + 异常标记在后续 Task 接入。
 void normalize_parsed_doc(ParsedDoc& doc) { apply_clause_extraction(doc.elements); }
