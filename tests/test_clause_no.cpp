@@ -10,8 +10,13 @@ TEST_CASE("parse_clause_no: 多级号（宽松）") {
     CHECK(parse_clause_no("2.0.1公路技术状况指数", false).clause_no == "2.0.1");
     CHECK(parse_clause_no("5.2.10泛油", false).clause_no == "5.2.10");
     CHECK(parse_clause_no("6.3.10路面结构强度", false).clause_no == "6.3.10");
-    CHECK(parse_clause_no("4.2.1-1", false).clause_no == "4.2.1-1");
+    auto bare = parse_clause_no("4.2.1-1", false);
+    CHECK(bare.matched);
+    CHECK(bare.clause_no == "4.2.1-1");
+    CHECK(bare.rest.empty());                                       // 纯条款号，rest 为空
     CHECK(parse_clause_no("5.2沥青路面", false).clause_no == "5.2");
+    // 多级号优先于单级章号：即便 is_heading=true，也不会把 5.2.1 误判成 5
+    CHECK(parse_clause_no("5.2.1总则", true).clause_no == "5.2.1");
 }
 
 TEST_CASE("parse_clause_no: 单级号（章，仅 Heading + 后跟汉字）") {

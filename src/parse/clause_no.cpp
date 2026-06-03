@@ -4,8 +4,8 @@
 // 单位词/符号前缀：rest 以这些开头则判为数值，不当条款号。
 static bool rest_starts_like_unit(const std::string& rest) {
     if (rest.empty()) return false;
-    static const std::string unit_bytes = "%";
-    if (unit_bytes.find(rest[0]) != std::string::npos) return true;
+    if (rest[0] == '%') return true;
+    // 单位词前缀（按语料确认的误报逐步扩充）：rest 以这些起判为数值，不抠号。
     static const char* units[] = {"mm", "cm", "km", "kN", "kg", "MPa", "kPa", "mL", "ml"};
     for (auto u : units) {
         size_t n = std::char_traits<char>::length(u);
@@ -18,7 +18,8 @@ static bool rest_starts_like_unit(const std::string& rest) {
     return false;
 }
 
-static bool starts_with_cjk(const std::string& s) {
+// 号后是否紧跟非 ASCII 字符（汉字/全角等）。排除 "5 个"(空格)、"5a"(ASCII) 这类非章标题。
+static bool starts_with_nonascii(const std::string& s) {
     return !s.empty() && (unsigned char)s[0] >= 0x80;
 }
 
@@ -49,7 +50,7 @@ ClauseNoResult parse_clause_no(const std::string& text, bool is_heading) {
         if (std::regex_match(s, m, single)) {
             std::string no = m[1].str();
             std::string rest = ltrim(m[2].str());
-            if (no != "0" && starts_with_cjk(rest)) {
+            if (no != "0" && starts_with_nonascii(rest)) {
                 out.matched = true; out.clause_no = no; out.rest = rest;
                 return out;
             }
