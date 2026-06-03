@@ -46,8 +46,31 @@ void apply_clause_extraction(std::vector<ParseElement>& els) {
     }
 }
 
-// 以下三个本任务留桩，后续任务实现。
-void tag_regions(std::vector<ParseElement>&) {}
+void tag_regions(std::vector<ParseElement>& els) {
+    Region cur = Region::FrontMatter;
+    bool body_started = false;
+    auto title_of = [](const ParseElement& e){ return e.title.empty() ? e.text : e.title; };
+    auto starts = [](const std::string& s, const std::string& p){
+        size_t a = s.find_first_not_of(" \t\r");
+        std::string t = (a==std::string::npos)? std::string(): s.substr(a);
+        return t.size() >= p.size() && t.compare(0, p.size(), p) == 0;
+    };
+    for (auto& e : els) {
+        std::string t = title_of(e);
+        // 区域标题切换（优先级：条文说明/附录/目次 标题）
+        if (starts(t, "条文说明")) cur = Region::Explanation;
+        else if (starts(t, "附录"))  cur = Region::Appendix;
+        else if (!body_started && starts(t, "目次")) cur = Region::Toc;
+
+        // 首个合法单级章号（如 "1总则"）→ 正文开始
+        if (!body_started && e.type == ElementType::Heading && !e.is_caption
+            && !e.clause_no.empty() && e.clause_no.find('.') == std::string::npos) {
+            body_started = true;
+            cur = Region::Body;
+        }
+        e.region = cur;
+    }
+}
 void flag_anomalies(std::vector<ParseElement>&) {}
 // 本轮仅抠号；英文糊过滤 + region + 异常标记在后续 Task 接入。
 void normalize_parsed_doc(ParsedDoc& doc) { apply_clause_extraction(doc.elements); }

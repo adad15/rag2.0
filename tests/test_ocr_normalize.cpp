@@ -34,3 +34,28 @@ TEST_CASE("is_english_garble: 纯英文糊判 true、含汉字判 false") {
     CHECK_FALSE(is_english_garble("2.0.1公路技术状况指数"));   // 含成段汉字
     CHECK_FALSE(is_english_garble(""));
 }
+
+TEST_CASE("tag_regions: 按 目次/首章/附录/条文说明 切区域") {
+    auto H = [](const std::string& t){ ParseElement e; e.type=ElementType::Heading; e.title=t; e.source="ppstructure"; return e; };
+    std::vector<ParseElement> els = {
+        H("公路技术状况评定标准"),   // front_matter
+        H("目次"),                   // -> toc
+        H("5.2 沥青路面 …… 13"),     // toc 内
+        H("1总则"),                  // -> body（首章）
+        H("5.2.1龟裂"),              // body
+        H("附录A 调查表"),           // -> appendix
+        H("条文说明"),               // -> explanation
+        H("3.2 本规程"),             // explanation 内
+    };
+    apply_clause_extraction(els);
+    tag_regions(els);
+
+    CHECK(els[0].region == Region::FrontMatter);
+    CHECK(els[1].region == Region::Toc);
+    CHECK(els[2].region == Region::Toc);
+    CHECK(els[3].region == Region::Body);
+    CHECK(els[4].region == Region::Body);
+    CHECK(els[5].region == Region::Appendix);
+    CHECK(els[6].region == Region::Explanation);
+    CHECK(els[7].region == Region::Explanation);
+}
