@@ -9,6 +9,8 @@
 #include "parse/hybrid_parser.h"
 #include "parse/parser_factory.h"
 #include "parse/ocr_backend.h"
+#include "parse/parse_cache.h"
+#include "parse/ocr_metrics.h"
 #include <memory>
 #include "embedding/cloud_embedding.h"
 #include "ingest/ingest_pipeline.h"
@@ -157,10 +159,21 @@ static int cmd_dump(const Config& cfg) {
     }
 }
 
+// 体检命令：读一份 parse_cache JSON，打印 OCR 干不干净的指标表。
+static int cmd_ocrcheck(const std::string& cache_path) {
+    std::string js = read_file(cache_path);
+    if (js.empty()) { spdlog::error("读不到缓存文件: {}", cache_path); return 1; }
+    ParsedDoc d = parsed_doc_from_json(js);
+    spdlog::info("缓存: {} | schema_version={} | pages={} elements={}",
+                 cache_path, d.schema_version, d.pages.size(), d.elements.size());
+    std::cout << format_ocr_metrics(compute_ocr_metrics(d)) << "\n";
+    return 0;
+}
+
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
-        std::cout << "usage: rag2 <smoke|ingest|query|dump> [args]\n";
+        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck> [args]\n";
         return 1;
     }
     Config cfg = Config::from_json_file("config.json");
@@ -187,6 +200,10 @@ int main(int argc, char** argv) {
     }
     if (cmd == "dump") {
         return cmd_dump(cfg);
+    }
+    if (cmd == "ocrcheck") {
+        if (argc < 3) { std::cout << "usage: rag2 ocrcheck <parse_cache.json>\n"; return 1; }
+        return cmd_ocrcheck(argv[2]);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;
