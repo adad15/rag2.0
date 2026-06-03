@@ -37,6 +37,8 @@ ParsedDoc parsed_doc_from_json(const std::string& json_text) {
     d.source_path = j.value("source_path", "");
     d.title = j.value("title", "");
     d.standard_no = j.value("standard_no", "");
+    // 旧缓存无此键 → 读为 1（M2b 前、未归一化），供 M2c 缓存有效性检查判定需重解析；
+    // 勿"修正"为 2：那会让旧缓存被误判为已归一化。
     d.schema_version = j.value("schema_version", 1);
     if (j.contains("pages") && j["pages"].is_array())
         for (auto& p : j["pages"]) {

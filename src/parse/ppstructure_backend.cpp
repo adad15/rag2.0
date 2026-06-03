@@ -30,6 +30,7 @@ std::vector<ParseElement> parse_ppstructure_json(const std::string& json_body) {
         pe.caption = e.value("caption", "");
         pe.ocr_confidence = e.value("ocr_confidence", 1.0f);
         pe.raw_label = e.value("raw_label", "");
+        // region / is_caption 不从服务 JSON 读：由 normalize_parsed_doc 在下游统一打标。
         pe.source = "ppstructure";
         out.push_back(std::move(pe));
     }

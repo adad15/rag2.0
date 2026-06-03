@@ -7,7 +7,7 @@ TEST_CASE("parse_cache 往返保留 M2b 新字段") {
     ParseElement e;
     e.type = ElementType::Heading; e.page_no = 13; e.clause_no = "5.2.1";
     e.text = "龟裂应按面积计算"; e.raw_label = "paragraph_title";
-    e.region = Region::Body; e.is_caption = false; e.suspect = "short";
+    e.region = Region::Body; e.is_caption = true; e.suspect = "short";
     e.source = "ppstructure"; e.ocr_confidence = 0.87f;
     d.elements.push_back(e);
 
@@ -18,6 +18,7 @@ TEST_CASE("parse_cache 往返保留 M2b 新字段") {
     CHECK(back.schema_version == 2);
     CHECK(back.elements[0].raw_label == "paragraph_title");
     CHECK(back.elements[0].region == Region::Body);
+    CHECK(back.elements[0].is_caption == true);
     CHECK(back.elements[0].suspect == "short");
     CHECK(back.elements[0].ocr_confidence == doctest::Approx(0.87f));
 }
