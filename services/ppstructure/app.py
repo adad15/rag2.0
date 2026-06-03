@@ -49,9 +49,12 @@ def _to_elements(result, page_no):
         raw = (b.get("block_label") or "text")
         label = raw.lower()
         content = b.get("block_content", "") or ""
-        # 真实置信度：优先块级分数，缺失则置 0.0（而非伪 1.0），便于 C++ 端识别"无分数"
+        # 真实置信度：优先块级分数，缺失/非数（含数字字符串）则置 0.0（而非伪 1.0），便于 C++ 端识别"无分数"
         conf = b.get("block_score", b.get("score", None))
-        conf = float(conf) if isinstance(conf, (int, float)) else 0.0
+        try:
+            conf = float(conf)
+        except (TypeError, ValueError):
+            conf = 0.0
         base = {"page_no": page_no, "raw_label": raw, "ocr_confidence": conf}
         if "table" in label:
             out.append({**base, "type": "Table", "table_html": content, "caption": "", "text": ""})
