@@ -1,19 +1,19 @@
 #include "parse/ocr_normalize.h"
 #include "parse/clause_no.h"
 
-// UTF-8 字节前缀匹配。
-static bool starts_with(const std::string& s, const std::string& pre) {
-    return s.size() >= pre.size() && s.compare(0, pre.size(), pre) == 0;
+// 去前导空白后做 UTF-8 字节前缀匹配（OCR 文本常带前导空格）。
+static bool starts_with_trimmed(const std::string& s, const std::string& pre) {
+    size_t a = s.find_first_not_of(" \t\r");
+    std::string t = (a == std::string::npos) ? std::string() : s.substr(a);
+    return t.size() >= pre.size() && t.compare(0, pre.size(), pre) == 0;
 }
 
 bool is_caption_label(const std::string& raw_label, const std::string& title) {
     if (raw_label == "table_title" || raw_label == "figure_title" || raw_label == "chart_title")
         return true;
     // 前缀兜底：图 / 表 / 续表 / 附图 / 附表（允许前导空白）
-    size_t a = title.find_first_not_of(" \t\r");
-    std::string t = (a == std::string::npos) ? std::string() : title.substr(a);
     static const char* prefixes[] = {"图", "表", "续表", "附图", "附表"};
-    for (auto p : prefixes) if (starts_with(t, p)) return true;
+    for (auto p : prefixes) if (starts_with_trimmed(title, p)) return true;
     return false;
 }
 
@@ -50,19 +50,15 @@ void tag_regions(std::vector<ParseElement>& els) {
     Region cur = Region::FrontMatter;
     bool body_started = false;
     auto title_of = [](const ParseElement& e){ return e.title.empty() ? e.text : e.title; };
-    auto starts = [](const std::string& s, const std::string& p){
-        size_t a = s.find_first_not_of(" \t\r");
-        std::string t = (a==std::string::npos)? std::string(): s.substr(a);
-        return t.size() >= p.size() && t.compare(0, p.size(), p) == 0;
-    };
     for (auto& e : els) {
         std::string t = title_of(e);
         // 区域标题切换（优先级：条文说明/附录/目次 标题）
-        if (starts(t, "条文说明")) cur = Region::Explanation;
-        else if (starts(t, "附录"))  cur = Region::Appendix;
-        else if (!body_started && starts(t, "目次")) cur = Region::Toc;
+        if (starts_with_trimmed(t, "条文说明")) cur = Region::Explanation;
+        else if (starts_with_trimmed(t, "附录")) cur = Region::Appendix;
+        else if (!body_started && starts_with_trimmed(t, "目次")) cur = Region::Toc;
 
-        // 首个合法单级章号（如 "1总则"）→ 正文开始
+        // 首个合法单级章号（如 "1总则"）→ 正文开始。
+        // 假设：正文首章总是单级编号（"1 xxx"）。若文档直接以多级号(如 1.1)起，将停留在前序区域。
         if (!body_started && e.type == ElementType::Heading && !e.is_caption
             && !e.clause_no.empty() && e.clause_no.find('.') == std::string::npos) {
             body_started = true;
