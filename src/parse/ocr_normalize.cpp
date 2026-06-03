@@ -69,11 +69,12 @@ void tag_regions(std::vector<ParseElement>& els) {
     }
 }
 // 把 "7.2"/"7.33"/"5.2.1" 拆成整数段，便于比较顺序。
+// 任一数字段超过 9 位（OCR 噪声）或出现前导点等畸形 → 返回空，调用方按"无顺序信息"处理（不抛）。
 static std::vector<int> split_no(const std::string& no) {
     std::vector<int> v; std::string cur;
     for (char c : no) {
-        if (c >= '0' && c <= '9') cur += c;
-        else if (c == '.') { if(!cur.empty()){v.push_back(std::stoi(cur));cur.clear();} else v.push_back(0); }
+        if (c >= '0' && c <= '9') { cur += c; if (cur.size() > 9) return {}; }  // 超长数字段=噪声，放弃
+        else if (c == '.') { if (cur.empty()) return {}; v.push_back(std::stoi(cur)); cur.clear(); }
         else break;   // 遇 '-' 后缀停止
     }
     if (!cur.empty()) v.push_back(std::stoi(cur));
@@ -86,7 +87,9 @@ void flag_anomalies(std::vector<ParseElement>& els) {
         if (e.region != Region::Body || e.clause_no.empty() || e.is_caption) continue;
         // 正文过短（抠号后 text < 9 字节 ≈ 不足 3 个汉字，如 "算："=6 字节）
         if (e.text.size() < 9) { e.suspect = "short"; }
-        // 连续性：同级（段数相同）下末段应递增 1，跳变 >1 标 seq
+        // 连续性：同级（段数相同）下末段应递增 1，跳变 >1 标 seq。
+        // 注意：prev 按"深度变化"而非"父级变化"复位——若某节只有子条款而缺节标题
+        // （如缺 5.3 标题、只有 5.3.x），可能把 5.2→5.4 误标 seq。仅作提示，可接受。
         auto cur = split_no(e.clause_no);
         if (!prev.empty() && cur.size() == prev.size()) {
             bool same_parent = std::equal(cur.begin(), cur.end()-1, prev.begin());

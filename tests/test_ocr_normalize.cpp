@@ -75,6 +75,14 @@ TEST_CASE("flag_anomalies: 跳号标 seq、正文过短标 short") {
     CHECK(els[0].suspect == "");
 }
 
+TEST_CASE("flag_anomalies: 跨父级同深度不误报 seq") {
+    auto C = [](const std::string& no){ ParseElement e; e.type=ElementType::Heading;
+        e.clause_no=no; e.text="xxxxxxxxxx"; e.region=Region::Body; e.source="ppstructure"; return e; };
+    std::vector<ParseElement> els = { C("5.3"), C("6.1") };   // 不同父级(5 vs 6)，不该标 seq
+    flag_anomalies(els);
+    CHECK(els[1].suspect == "");
+}
+
 TEST_CASE("normalize_parsed_doc: 丢弃独立英文糊块、跑全链") {
     ParsedDoc d;
     auto add = [&](ElementType ty, const std::string& label, const std::string& title){
