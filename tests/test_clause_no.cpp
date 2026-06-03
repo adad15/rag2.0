@@ -8,13 +8,13 @@ TEST_CASE("parse_clause_no: 多级号（宽松）") {
     CHECK(r.rest == "龟裂应按面积计算");
 
     CHECK(parse_clause_no("2.0.1公路技术状况指数", false).clause_no == "2.0.1");
-    CHECK(parse_clause_no("5.2.10泻油", false).clause_no == "5.2.10");
+    CHECK(parse_clause_no("5.2.10泛油", false).clause_no == "5.2.10");
     CHECK(parse_clause_no("6.3.10路面结构强度", false).clause_no == "6.3.10");
     CHECK(parse_clause_no("4.2.1-1", false).clause_no == "4.2.1-1");
-    CHECK(parse_clause_no("5.2氥青路面", false).clause_no == "5.2");
+    CHECK(parse_clause_no("5.2沥青路面", false).clause_no == "5.2");
 }
 
-TEST_CASE("parse_clause_no: 单级号（章，仅 Heading + 后跟hangzizi）") {
+TEST_CASE("parse_clause_no: 单级号（章，仅 Heading + 后跟汉字）") {
     auto r = parse_clause_no("1总则", true);
     CHECK(r.matched);
     CHECK(r.clause_no == "1");
