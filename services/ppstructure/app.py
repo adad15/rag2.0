@@ -28,11 +28,18 @@ class PagesReq(BaseModel):
 class FileReq(BaseModel):
     file_path: str
 
+# 去预览水印：水印为浅灰斜纹(亮度高)，正文为黑。亮度 > 阈值的像素置白。
+# 0 = 关闭；环境变量 RAG_WM_THRESHOLD 可覆盖（这类规范常见水印实测 170~190 干净）。
+_WM_THRESHOLD = int(os.environ.get("RAG_WM_THRESHOLD", "180"))
+
 def _render_page(doc, page_index_0based, dpi=250):
     page = doc[page_index_0based]
     pix = page.get_pixmap(dpi=dpi)
-    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    return np.array(img)
+    arr = np.array(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
+    if _WM_THRESHOLD > 0:
+        lum = arr @ np.array([0.299, 0.587, 0.114])   # 亮度
+        arr[lum > _WM_THRESHOLD] = 255                # 浅灰水印/背景 -> 纯白，保留深色正文
+    return arr
 
 def _to_elements(result, page_no):
     """把 PP-StructureV3 单页结果映射为 IR 元素。
