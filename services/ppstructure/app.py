@@ -10,6 +10,7 @@
 依赖：paddleocr>=3.0 + paddlex[ocr] + paddlepaddle(-gpu)。构造 PPStructureV3() 首次会下载模型到 ~/.paddlex。
 """
 import os
+import time
 from fastapi import FastAPI
 from pydantic import BaseModel
 import fitz                      # PyMuPDF：渲染指定页为图（免系统 poppler）
@@ -27,7 +28,7 @@ class PagesReq(BaseModel):
 class FileReq(BaseModel):
     file_path: str
 
-def _render_page(doc, page_index_0based, dpi=300):
+def _render_page(doc, page_index_0based, dpi=250):
     page = doc[page_index_0based]
     pix = page.get_pixmap(dpi=dpi)
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
@@ -72,17 +73,27 @@ def _parse(file_path, pages):
         return {"error": f"file not found: {file_path}"}
     doc = fitz.open(file_path)
     page_nums = pages if pages else list(range(1, doc.page_count + 1))
+    total = len(page_nums)
+    t_batch = time.time()
+    print(f"[ocr] 收到请求：{total} 页（{page_nums[0]}~{page_nums[-1]}），dpi=250", flush=True)
     all_elems = []
-    for pno in page_nums:
+    for idx, pno in enumerate(page_nums, 1):
         if pno < 1 or pno > doc.page_count:
             continue
+        t0 = time.time()
         try:
             img = _render_page(doc, pno - 1)
-            all_elems.extend(_to_elements(_engine.predict(input=img), pno))
+            els = _to_elements(_engine.predict(input=img), pno)
+            all_elems.extend(els)
+            print(f"[ocr] 第 {pno} 页 ({idx}/{total}) OK  {len(els)} 元素  用时 {time.time()-t0:.1f}s",
+                  flush=True)
         except Exception as ex:    # 单页失败不终止全篇
+            print(f"[ocr] 第 {pno} 页 ({idx}/{total}) 失败：{ex}", flush=True)
             all_elems.append({"type": "Text", "page_no": pno, "text": "",
                               "caption": f"[page {pno} ocr failed: {ex}]",
                               "ocr_confidence": 0.0})
+    print(f"[ocr] 本批完成：{total} 页 -> {len(all_elems)} 元素，总用时 {time.time()-t_batch:.1f}s",
+          flush=True)
     return {"elements": all_elems}
 
 @app.post("/parse_pages")
