@@ -18,6 +18,11 @@ bool is_caption_label(const std::string& raw_label, const std::string& title) {
     return false;
 }
 
+// 页面 furniture：页眉/页脚/页码。PP-Structure 已标好 raw_label，按标签直接滤掉最精准。
+static bool is_page_furniture(const std::string& raw_label) {
+    return raw_label == "header" || raw_label == "footer" || raw_label == "number";
+}
+
 bool is_english_garble(const std::string& text) {
     if (text.empty()) return false;
     size_t ascii = 0, total = 0;
@@ -102,10 +107,11 @@ void flag_anomalies(std::vector<ParseElement>& els) {
 
 void normalize_parsed_doc(ParsedDoc& doc) {
     auto& els = doc.elements;
-    // 1) 丢弃独立英文糊块（仅对 ppstructure 源、非表格的标题/正文）
+    // 1) 丢弃：页眉/页脚/页码（raw_label）+ 独立英文糊块。仅对 ppstructure 源、非表格。
     els.erase(std::remove_if(els.begin(), els.end(), [](const ParseElement& e){
-        return e.source == "ppstructure" && is_english_garble(e.title.empty()? e.text : e.title)
-               && e.table_html.empty();
+        if (e.source != "ppstructure" || !e.table_html.empty()) return false;
+        if (is_page_furniture(e.raw_label)) return true;
+        return is_english_garble(e.title.empty()? e.text : e.title);
     }), els.end());
     // 2) caption + clause_no
     apply_clause_extraction(els);

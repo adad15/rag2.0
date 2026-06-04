@@ -100,3 +100,19 @@ TEST_CASE("normalize_parsed_doc: 丢弃独立英文糊块、跑全链") {
     CHECK(d.elements[1].clause_no == "5.2.1");
     CHECK(d.elements[2].is_caption == true);
 }
+
+TEST_CASE("normalize_parsed_doc: 按 raw_label 丢弃页眉/页脚/页码") {
+    ParsedDoc d;
+    auto add = [&](const std::string& label, const std::string& title){
+        ParseElement e; e.type=ElementType::Heading; e.raw_label=label; e.title=title;
+        e.text=title; e.source="ppstructure"; d.elements.push_back(e); };
+    add("header", "公路技术状况评定标准（JTC 5210-2018）");   // 页眉 -> 丢
+    add("footer", "JTC 5210-2018");                          // 页脚 -> 丢
+    add("number", "1");                                      // 页码 -> 丢
+    add("paragraph_title", "5.2.1龟裂应按面积计算");          // 正文 -> 留
+
+    normalize_parsed_doc(d);
+
+    REQUIRE(d.elements.size() == 1);
+    CHECK(d.elements[0].clause_no == "5.2.1");
+}
