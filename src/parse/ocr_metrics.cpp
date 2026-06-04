@@ -28,7 +28,10 @@ OcrMetrics compute_ocr_metrics(const ParsedDoc& doc) {
         if (!e.is_caption && !e.clause_no.empty() && is_caption_label(e.raw_label, t)) ++m.caption_leak;
         if (e.region == Region::Body && !e.suspect.empty()) ++m.suspect;
     }
-    if (cn > 0) { m.conf_min = cmin; m.conf_max = cmax; m.conf_mean = csum / cn; }
+    if (cn > 0) {
+        m.conf_min = cmin; m.conf_max = cmax; m.conf_mean = csum / cn;
+        m.conf_available = cmax > 0.0;   // 全为 0 = 服务未提供逐块分数（PP-Structure parsing_res_list 无分数）
+    }
     return m;
 }
 
@@ -42,8 +45,12 @@ std::string format_ocr_metrics(const OcrMetrics& m) {
     os << "图表题泄漏          : " << m.caption_leak << "  (目标 0)\n";
     os << "可疑条款(seq/short) : " << m.suspect << "\n";
     os << "TOC 元素            : " << m.toc_count << "\n";
-    os << std::setprecision(3);
-    os << "置信度 min/mean/max : " << m.conf_min << " / " << m.conf_mean << " / " << m.conf_max << "\n";
-    os << "置信度全为1.0(疑写死): " << (m.all_conf_one ? "是" : "否") << "\n";
+    if (!m.conf_available) {
+        os << "置信度              : 不可用（服务未提供逐块分数）\n";
+    } else {
+        os << std::setprecision(3);
+        os << "置信度 min/mean/max : " << m.conf_min << " / " << m.conf_mean << " / " << m.conf_max
+           << (m.all_conf_one ? "  (疑似写死 1.0)" : "") << "\n";
+    }
     return os.str();
 }

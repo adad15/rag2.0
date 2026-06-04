@@ -35,8 +35,20 @@ TEST_CASE("compute_ocr_metrics: toc 计数 / 置信度全1 / format 冒烟") {
     OcrMetrics m = compute_ocr_metrics(d);
     CHECK(m.toc_count == 1);
     CHECK(m.all_conf_one == true);                       // 两个都是 1.0
+    CHECK(m.conf_available == true);                      // max=1.0>0
     CHECK(m.conf_mean == doctest::Approx(1.0));
     std::string s = format_ocr_metrics(m);
     CHECK(!s.empty());
     CHECK(s.find("OCR") != std::string::npos);
+}
+
+TEST_CASE("compute_ocr_metrics: 置信度全 0 视为不可用") {
+    ParsedDoc d;
+    ParseElement e; e.region=Region::Body; e.type=ElementType::Heading; e.title="1总则";
+    e.clause_no="1"; e.source="ppstructure"; e.ocr_confidence=0.0f;   // PP-Structure 不给分数
+    d.elements.push_back(e);
+
+    OcrMetrics m = compute_ocr_metrics(d);
+    CHECK(m.conf_available == false);
+    CHECK(format_ocr_metrics(m).find("不可用") != std::string::npos);
 }
