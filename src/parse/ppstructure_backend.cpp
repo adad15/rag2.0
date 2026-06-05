@@ -107,7 +107,7 @@ std::vector<ParseElement> PpStructureBackend::ocr_pages(const std::string& file_
             wrap["elements"] = by_page[p];
             const std::string path = page_cache_path(dir, p);
             const std::string tmp = path + ".tmp";
-            { std::ofstream f(tmp, std::ios::binary); if (f) f << wrap.dump(); }
+            { std::ofstream f(tmp, std::ios::binary); if (f) f << wrap.dump(2); }  // 缩进，便于查看
             fs::rename(tmp, path, ec);
         }
         spdlog::info("OCR 批次 {}/{}：返回 {} 个元素，已落盘第 {}~{} 页",
