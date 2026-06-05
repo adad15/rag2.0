@@ -58,10 +58,12 @@ void tag_regions(std::vector<ParseElement>& els) {
     auto title_of = [](const ParseElement& e){ return e.title.empty() ? e.text : e.title; };
     for (auto& e : els) {
         std::string t = title_of(e);
-        // 区域标题切换（优先级：条文说明/附录/目次 标题）
-        if (starts_with_trimmed(t, "条文说明")) cur = Region::Explanation;
-        else if (starts_with_trimmed(t, "附录")) cur = Region::Appendix;
-        else if (!body_started && starts_with_trimmed(t, "目次")) cur = Region::Toc;
+        // 区域标题切换：必须是 Heading（独立章级标题）才切——避免正文里含"条文说明"的
+        // text 块误触发(JTG 3432 实例:一个 text 块="条文说明" 曾把 99% 正文锁进 explanation)。
+        const bool heading = (e.type == ElementType::Heading);
+        if (heading && starts_with_trimmed(t, "条文说明")) cur = Region::Explanation;
+        else if (heading && starts_with_trimmed(t, "附录")) cur = Region::Appendix;
+        else if (!body_started && heading && starts_with_trimmed(t, "目次")) cur = Region::Toc;
 
         // 首个合法单级章号（如 "1总则"）→ 正文开始。
         // 假设：正文首章总是单级编号（"1 xxx"）。若文档直接以多级号(如 1.1)起，将停留在前序区域。

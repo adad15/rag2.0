@@ -83,6 +83,21 @@ TEST_CASE("flag_anomalies: 跨父级同深度不误报 seq") {
     CHECK(els[1].suspect == "");
 }
 
+TEST_CASE("tag_regions: 正文里的'条文说明'文本块不误锁（须 Heading 才切）") {
+    auto H = [](const std::string& t){ ParseElement e; e.type=ElementType::Heading; e.title=t; e.source="ppstructure"; return e; };
+    auto T = [](const std::string& t){ ParseElement e; e.type=ElementType::Text; e.text=t; e.source="ppstructure"; return e; };
+    std::vector<ParseElement> els = {
+        H("1总则"), T("条文说明"), H("5.2.1龟裂"), H("条文说明"), H("3.2本规程"),
+    };
+    apply_clause_extraction(els);
+    tag_regions(els);
+    CHECK(els[0].region == Region::Body);          // 1总则
+    CHECK(els[1].region == Region::Body);          // text "条文说明" 不该切
+    CHECK(els[2].region == Region::Body);          // 仍正文
+    CHECK(els[3].region == Region::Explanation);   // Heading 条文说明 才切
+    CHECK(els[4].region == Region::Explanation);
+}
+
 TEST_CASE("normalize_parsed_doc: 丢弃独立英文糊块、跑全链") {
     ParsedDoc d;
     auto add = [&](ElementType ty, const std::string& label, const std::string& title){

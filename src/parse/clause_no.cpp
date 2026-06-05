@@ -56,5 +56,23 @@ ClauseNoResult parse_clause_no(const std::string& text, bool is_heading) {
             }
         }
     }
+
+    // 档3：试验方法号（JTG 试验规程等），如 "T 0301—2024集料取样法" / "T0355-2000填料加热"。
+    // 仅 Heading + 号后接汉字标题（排除英文/数值/材料级配如 "AC 13"——后者仅 2 位数字不匹配）。
+    if (is_heading) {
+        static const std::regex tmethod(R"(^([A-Za-z]{1,2})\s?(\d{3,5})((?:-|—)\d{2,4})?(.*)$)");
+        if (std::regex_match(s, m, tmethod)) {
+            std::string rest = ltrim(m[4].str());
+            if (starts_with_nonascii(rest)) {
+                std::string suffix = m[3].str();                 // "-2024" / "—2024"(全角) / ""
+                if (suffix.size() >= 3 && (unsigned char)suffix[0] == 0xE2)
+                    suffix = "-" + suffix.substr(3);             // 全角破折号 — 归一化为 '-'
+                out.matched = true;
+                out.clause_no = m[1].str() + m[2].str() + suffix; // 去内部空格 → "T0301-2024"
+                out.rest = rest;
+                return out;
+            }
+        }
+    }
     return out;
 }

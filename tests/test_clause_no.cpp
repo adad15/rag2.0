@@ -29,6 +29,17 @@ TEST_CASE("parse_clause_no: 单级号（章，仅 Heading + 后跟汉字）") {
     CHECK_FALSE(parse_clause_no("5 个试样", false).matched);
 }
 
+TEST_CASE("parse_clause_no: T 方法号（试验规程）") {
+    auto r = parse_clause_no("T 0301—2024集料取样法", true);   // 全角破折号
+    CHECK(r.matched);
+    CHECK(r.clause_no == "T0301-2024");
+    CHECK(r.rest == "集料取样法");
+    CHECK(parse_clause_no("T0355-2000填料加热", true).clause_no == "T0355-2000");
+    CHECK(parse_clause_no("T 0301集料取样法", true).clause_no == "T0301");  // 无年份
+    CHECK_FALSE(parse_clause_no("AC 13沥青混合料", true).matched);          // 仅 2 位数字，非方法号
+    CHECK_FALSE(parse_clause_no("T 0301 sampling", true).matched);          // 号后非汉字
+}
+
 TEST_CASE("parse_clause_no: 数值负例不误判") {
     CHECK_FALSE(parse_clause_no("200kN加到", false).matched);   // 无点
     CHECK_FALSE(parse_clause_no("0.5%。", false).matched);      // 顶层段为 0
