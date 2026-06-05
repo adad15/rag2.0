@@ -110,6 +110,12 @@ TOC 元素     : 6
 ### 致命叠加:没有逐块置信度
 PP-StructureV3 的 `parsing_res_list` **不含逐块分数**(app.py 兜底全 0.0)。所以上面 ③ 这种乱码**无法靠置信度自动标红**——这是质检的一大缺口。
 
+### ④ M2b 清洗规则过拟合 JTC 5210，换标准族就崩(重要,直接定义 M2c 需求)
+实测 JTG 3432《集料试验规程》(已 ingest,parse_cache `12104388589027850934.json`,4551 元素):
+- **region 灾难**:body=60 / **explanation=4455** / front_matter=28 / toc=4 / appendix=4，即 **99% 被误判为"条文说明"**。根因:第 92 个元素是 `raw_label=text`、内容恰为"条文说明"的块 → `tag_regions` 的 explanation 锁**一触即锁、永不切回** → 其后所有正文(`3集料取样方法`、`T 0301—2024集料取样法`、`3.1 皮带运输机上取样`…)全错位进 explanation。
+- **clause_no 不认 T 方法号**:试验规程的"条款"是 `T 0301—2024` 形式;`parse_clause_no` 只认点分号(`5.2.1`)+单级章号(`1总则`)→ T 号 clause_no 全空。
+- **结论**:`parse_clause_no` 编号文法 + `tag_regions` region 规则都是**按 JTC 5210 结构调的,不跨标准族泛化**。不是 bug,是 M2b 只在一份文档验过的**适用范围局限**。光加 T 号正则无用——这些方法此刻被埋在 explanation 区,body 填充率统计不到;**编号 + region 必须一起在 M2c 治**。
+
 ---
 
 ## 5. 下一步(按杠杆排序)
@@ -126,6 +132,10 @@ PP-StructureV3 的 `parsing_res_list` **不含逐块分数**(app.py 兜底全 0.
 2. **续接归位**:把"上一条尾巴"接回上一条;
 3. **质检门禁**:加"**列项应从 1 开始**""**条款号连续性**"检查,把②③这类缺失/乱码**自动标红**(弥补无置信度的缺口);
 4. 条款层级树 + atomic/retrieval/context 三文本 + page_clause_map + PG schema 扩展 + Milvus 标量字段。
+5. **跨标准族鲁棒(见 §4④,JTG 3432 的真实反例)**:
+   - **可扩展编号文法**:点分号(`5.2.1`)/ T 方法号(`T 0301-2024`)/ 附录字母号(`A.1`)… 按标准类型可插拔,别写死一种;
+   - **鲁棒 region 检测**:"条文说明/附录"必须是**独立章级标题**才切换(不能被正文里含该词的 `text` 块触发),修掉"一触即锁、永不切回"的脆弱锁;并能处理试验规程"每个 T 方法下还有子条款(适用范围/仪具/方法…)"的嵌套结构。
+   - 设计时拿 **JTC 5210(点分) + JTG 3432(T 号)** 两份做对照,确保不再过拟合单一文档。
 
 ### 5.3 M3 三路召回
 dense + BM25 + PG 精确 + RRF + 查询理解。检索质量主要靠这步。
@@ -161,7 +171,8 @@ chcp 65001
 ## 7. 待办清单(给下一轮)
 
 - [ ] **MinerU A/B**(§5.1,最高优先):实现 MineruBackend + 同文档对比 + 用体检表量化,定主引擎。
-- [ ] **M2c 结构化层**(§5.2):块中部拆分、续接归位、列项/条款号连续性质检门禁、条款树、三文本、PG/Milvus schema。
+- [ ] **M2c 结构化层**(§5.2):块中部拆分、续接归位、列项/条款号连续性质检门禁、条款树、三文本、PG/Milvus schema;**+ 跨标准族鲁棒(可扩展编号文法 T号/字母号 + 鲁棒 region 检测,拿 JTC 5210 与 JTG 3432 两份对照,见 §4④)**。
+- [ ] **(可选速度优化,见对话)** app.py 关掉 PP-Structure 无用子模型(`use_doc_unwarping`/`use_doc_orientation_classify`/`use_textline_orientation`/`use_seal_recognition`/`use_chart_recognition`=False),纯提速不掉精度;改后需清 `data/ocr_cache/<id>/` 重跑。
 - [ ] M2b 收尾:本分支 V2.0 已含全部 M2b 代码且验证通过,可按 finishing-a-development-branch 决定合并/PR。
 - [ ] (低优)若坚持用 PP-Structure:研究能否从底层 OCR 文本行分数聚合出逐块置信度,以恢复"乱码自动标红"能力。
 
