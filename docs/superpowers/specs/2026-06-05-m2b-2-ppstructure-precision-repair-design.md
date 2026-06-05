@@ -4,7 +4,7 @@
 - 类型：子项目 spec（PP-StructureV3 继续使用前提下的精度增强；不引入 MinerU）
 - 来源：用户确认“MinerU 目前先不考虑”；[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §4/§5.2、[M2c-1 结构化建树 spec](2026-06-05-m2c1-structural-tree-design.md)
 - 状态：已与项目负责人确认前置到 M2c-1 之前，待写实现计划
-- 背景：M2b 已把 PP-StructureV3 输出清洗成 `schema_version=2` 的富 IR，解决了条款号抽取、图表题泄漏、页眉页脚、水印等问题。但真实扫描规范仍暴露三类 PP-StructureV3 引擎级问题：块边界混乱、跨页接缝丢内容、局部乱码；且 `parsing_res_list` 不提供块级置信度，导致问题难以自动定位。本 spec 不换 OCR 引擎，而是在现有 PP-StructureV3 后面加一层“证据透传 + 保守边界检测 + 质量门禁”。
+- 背景：M2b 已把 PP-StructureV3 输出清洗成 `schema_version=2` 的富 IR，解决了条款号抽取、图表题泄漏、页眉页脚、水印等问题。但真实扫描规范仍暴露三类 PP-StructureV3 引擎级问题：块边界混乱、列项缺失、局部乱码；且 `parsing_res_list` 不提供块级置信度，导致问题难以自动定位。本 spec 不换 OCR 引擎，而是在现有 PP-StructureV3 后面加一层“证据透传 + 保守边界检测 + 质量门禁”。
 
 ---
 
@@ -18,7 +18,7 @@ M2c-1  结构化建树：elements → clause tree                          已�
 M2c-2+ 三文本 / 落库 / 检索接线                                    后续
 ```
 
-M2b-2 放在 M2c-1 之前：建树器应消费已经尽量可靠的元素流，而不是在树构建时同时处理 OCR 揉块、低置信、跨页缺列项等问题。接缝仍是 `data/parse_cache/<id>.json`，本轮把缓存 schema 加性升级到 v3；M2c-1 的输入契约同步改为 v3。
+M2b-2 放在 M2c-1 之前：建树器应消费已经尽量可靠的元素流，而不是在树构建时同时处理 OCR 块边界混乱、低置信、列项缺失等问题。接缝仍是 `data/parse_cache/<id>.json`，本轮把缓存 schema 加性升级到 v3；M2c-1 的输入契约同步改为 v3。
 
 ---
 
@@ -35,7 +35,7 @@ M2b-2 放在 M2c-1 之前：建树器应消费已经尽量可靠的元素流，�
 1. **不换引擎，不重写 OCR**：继续用 `services/ppstructure/app.py` 的 PPStructureV3 服务。
 2. **Python 只透传证据，C++ 做确定性判断**：模型输出、坐标、顺序、行级分数留在 Python；条款拆分、续文归属、列项检查放 C++，方便在缓存上秒级回归。
 3. **保守边界检测优先**：只自动做高置信结构性拆分，如块中部出现显式新条款号；不猜测尾巴归属，不自动重排阅读顺序，不自动改写乱码。
-4. **标红比误修更重要**：跨页缺列项、疑似乱码、低置信块应进入 `quality_flags` 和 `ocrcheck`，供人工复核或后续二次 OCR。
+4. **标红比误修更重要**：缺列项、疑似乱码、低置信块应进入 `quality_flags` 和 `ocrcheck`，供人工复核或后续二次 OCR。
 5. **加性 schema 升级**：新增字段不破坏旧缓存读取；M1/M2b 既有逻辑继续可运行。
 
 ---
@@ -46,7 +46,7 @@ M2b-2 放在 M2c-1 之前：建树器应消费已经尽量可靠的元素流，�
 
 A. **PP-Structure 证据透传**
 - 从 PP-StructureV3 结果中透传块坐标 `bbox`、阅读顺序 `reading_order`。
-- 透传页面尺寸 `page_width`、`page_height`，支持页底/跨页接缝判断和未来局部重 OCR。
+- 透传页面尺寸 `page_width`、`page_height`，仅作为版面证据，支持未来人工复核和局部重 OCR；第一期不据此做页底断裂自动判断。
 - 从 `overall_ocr_res` 的 OCR 行级结果聚合出近似块级置信度：`confidence_min`、`confidence_mean`，并继续填 `ocr_confidence` 为块内行均值。
 - 失败时保留 `ocr_confidence=0.0`，并打 `quality_flags=["no_confidence"]`。
 - 生成本次 OCR 配置指纹 `ocr_config_hash`（DPI、去水印阈值、PP-Structure 子模块开关、paddleocr 版本等），写入缓存，避免参数变化后误用旧缓存。
@@ -59,15 +59,15 @@ B. **IR schema v3**
 C. **新增 `ocr_repair` 修复层**
 - 块内显式条款边界检测：仅当块中部出现高置信新条款号时拆分；不判断前半段究竟属于上一条还是本条。
 - 续文归属：无号正文块、列项块、短续文块绑定到最近的正文条款元素，写 `attached_to_element_id`；`attached_to_clause_no` 只作可读辅助，不作为唯一键。
-- 质量标记：不确定块混排、条款跳号、列项缺失、疑似乱码、低置信、跨页接缝风险进入 `quality_flags`。
+- 质量标记：不确定块混排、条款跳号、列项缺失、疑似乱码、低置信进入 `quality_flags`。
 
 D. **增强 `ocrcheck`**
-- 输出 v3 新指标：拆分次数、续文归属次数、低置信块数、乱码风险数、列项缺失风险数、跨页接缝风险数。
+- 输出 v3 新指标：拆分次数、续文归属次数、低置信块数、乱码风险数、列项缺失风险数。
 - 支持列出前 N 条风险元素，便于人工复核。
 
 **不做（Out of scope）**
 - 不引入 MinerU/VL API/Tesseract。
-- 不自动补回缺失文字；跨页漏掉的内容只标红。
+- 不自动补回缺失文字；缺失内容只通过列项连续性等确定性规则标红。
 - 不做二次局部重 OCR；可在后续版本用 `bbox` 支撑。
 - 不做表格 cell 结构化；表格 HTML 仍留给 M5。
 - 不改 PG/Milvus/检索接线；M2c 后续消费 v3 缓存。
@@ -256,7 +256,7 @@ struct ParseElement {
 
 第一期不把文本硬拼进上一条，避免改变原始证据；M2c 建树时可按 `attached_to_clause_no` 合并到叶子节点正文。
 
-### 7.3 列项缺失与跨页接缝风险
+### 7.3 列项缺失风险
 
 工程规范常见结构：
 
@@ -273,9 +273,8 @@ struct ParseElement {
 - 在同一条款归属范围内收集列项编号。
 - 若首个列项不是 1，标 `missing_item_start`。
 - 若列项序列跳号，如 `1, 3`，标 `missing_item_gap`。
-- 若引导语位于页底附近（bbox y1 接近页面底部）且下一页首个归属列项不是 1，额外标 `cross_page_gap`。
 
-页面底部判断采用相对坐标：如果 bbox 有效且 `y1 / page_height >= 0.85`，视作页底风险。`page_height` 由 Python 渲染层透传；缺失时只做列项序列检查，并给该元素加 `quality_flags += "missing_page_size"`。
+第一期不做 `cross_page_gap` / 页底断裂自动判断。`bbox/page_width/page_height` 只作为证据保留给 `ocrcheck` 风险样例、人工复核和未来局部重 OCR；不能单独推出“页底断了”，因为正常半页结束、表格/图片/空白页都会造成误报。
 
 ### 7.4 疑似乱码
 
@@ -307,7 +306,6 @@ schema_version          : 3
 低置信块                : 12
 疑似乱码                : 5
 缺列项风险              : 2
-跨页接缝风险            : 1
 可疑条款(seq/short)     : 4
 置信度 min/mean/max     : 0.512 / 0.903 / 0.992
 ```
@@ -315,7 +313,7 @@ schema_version          : 3
 风险清单输出前 N 条，默认 20：
 
 ```text
-[p13 order=1 flags=cross_page_gap,missing_item_start] 判断：3重度应为...
+[p13 order=1 flags=missing_item_start] 判断：3重度应为...
 [p15 order=7 flags=garble_risk,low_confidence] 2EM 添司
 ```
 
@@ -348,7 +346,7 @@ schema_version          : 3
 4. 运行 `ocrcheck`，确认 v3 指标出现。
 5. 抽查 p7、p12-13、p15：
    - p7/p15 若存在显式新条款边界，应出现 `explicit_clause_boundary_split`；若无法确定边界，应只出现 `ambiguous_block_mix`。
-   - p12-13 缺列项应出现 `missing_item_start` 或 `cross_page_gap`。
+   - p12-13 缺列项应出现 `missing_item_start` 或 `missing_item_gap`。
    - p15 乱码应出现 `garble_risk` 或 `low_confidence`。
 
 ---
@@ -359,7 +357,7 @@ schema_version          : 3
 2. `parse_cache` schema v3 能往返新字段、稳定 `element_id`、顶层 `ocr_config_hash`，旧 v2 缓存仍可读取。
 3. 块内显式条款边界检测对真实样本有效：高置信新条款号可拆，低确定性块只标 `ambiguous_block_mix`，数值单位负例不误拆。
 4. 无号续文能绑定到最近条款元素，但原始文本不被硬改写。
-5. `ocrcheck` 能量化低置信、乱码、缺列项、跨页接缝风险。
+5. `ocrcheck` 能量化低置信、乱码、缺列项风险。
 6. 现有 M2b 指标不回退：图表题泄漏仍为 0，正文条款填充率不下降。
 
 ---
@@ -405,7 +403,7 @@ schema_version          : 3
 
 本期完成后，bbox 与 quality flags 可支撑两条后续路线：
 
-1. **局部二次 OCR**：只对 `low_confidence/garble_risk/cross_page_gap` 附近区域提高 DPI 或裁剪重识别。
+1. **局部二次 OCR**：只对 `low_confidence/garble_risk/missing_item_*` 附近区域提高 DPI 或裁剪重识别。
 2. **人工复核界面**：按风险清单导出页面、bbox 和文本，快速定位问题页。
 
 这两项不进入本期实现，避免把“精度修复一期”拖成完整质检平台。
