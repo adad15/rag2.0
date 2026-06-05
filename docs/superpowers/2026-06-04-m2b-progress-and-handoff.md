@@ -116,6 +116,8 @@ PP-StructureV3 的 `parsing_res_list` **不含逐块分数**(app.py 兜底全 0.
 - **clause_no 不认 T 方法号**:试验规程的"条款"是 `T 0301—2024` 形式;`parse_clause_no` 只认点分号(`5.2.1`)+单级章号(`1总则`)→ T 号 clause_no 全空。
 - **结论**:`parse_clause_no` 编号文法 + `tag_regions` region 规则都是**按 JTC 5210 结构调的,不跨标准族泛化**。不是 bug,是 M2b 只在一份文档验过的**适用范围局限**。光加 T 号正则无用——这些方法此刻被埋在 explanation 区,body 填充率统计不到;**编号 + region 必须一起在 M2c 治**。
 
+> **更新(commit `8ffdf79`)**:已在 M2b 先打两个补丁——① `parse_clause_no` 加 T 方法号档(`T 0301—2024`→`T0301-2024`);② `tag_regions` 的 条文说明/附录/目次 切换**必须是 Heading**(stray text 块不再误锁)。**仍属 M2c 的**:T 方法下的嵌套子条款结构、三文本、以及 `ocrcheck` 的"正文条款候选"只数**数字开头**标题(不计 T 号标题,是个度量盲点)。验证:对 JTG 3432 **重跑 ingest**(OCR 已全缓存→秒级),再看 parse_cache 的 region 分布与 T 号 clause_no。
+
 ---
 
 ## 5. 下一步(按杠杆排序)
