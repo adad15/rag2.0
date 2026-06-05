@@ -3,7 +3,7 @@
 - 日期：2026-06-05
 - 类型：子项目 spec（PP-StructureV3 继续使用前提下的精度增强；不引入 MinerU）
 - 来源：用户确认“MinerU 目前先不考虑”；[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §4/§5.2、[M2c-1 结构化建树 spec](2026-06-05-m2c1-structural-tree-design.md)
-- 状态：已与项目负责人确认方向，待评审后写实现计划
+- 状态：已与项目负责人确认前置到 M2c-1 之前，待写实现计划
 - 背景：M2b 已把 PP-StructureV3 输出清洗成 `schema_version=2` 的富 IR，解决了条款号抽取、图表题泄漏、页眉页脚、水印等问题。但真实扫描规范仍暴露三类 PP-StructureV3 引擎级问题：阅读顺序揉块、跨页接缝丢内容、局部乱码；且 `parsing_res_list` 不提供块级置信度，导致问题难以自动定位。本 spec 不换 OCR 引擎，而是在现有 PP-StructureV3 后面加一层“证据透传 + 结构修复 + 质量门禁”。
 
 ---
@@ -18,7 +18,7 @@ M2c-1  结构化建树：elements → clause tree                          已�
 M2c-2+ 三文本 / 落库 / 检索接线                                    后续
 ```
 
-M2b-2 放在 M2c-1 之前更合适：建树器最好消费已经尽量可靠的元素流，而不是在树构建时同时处理 OCR 揉块、低置信、跨页缺列项等问题。接缝仍是 `data/parse_cache/<id>.json`，本轮把缓存 schema 加性升级到 v3。
+M2b-2 放在 M2c-1 之前：建树器应消费已经尽量可靠的元素流，而不是在树构建时同时处理 OCR 揉块、低置信、跨页缺列项等问题。接缝仍是 `data/parse_cache/<id>.json`，本轮把缓存 schema 加性升级到 v3；M2c-1 的输入契约同步改为 v3。
 
 ---
 
@@ -46,17 +46,19 @@ M2b-2 放在 M2c-1 之前更合适：建树器最好消费已经尽量可靠的�
 
 A. **PP-Structure 证据透传**
 - 从 PP-StructureV3 结果中透传块坐标 `bbox`、阅读顺序 `reading_order`。
+- 透传页面尺寸 `page_width`、`page_height`，支持页底/跨页接缝判断和未来局部重 OCR。
 - 从 `overall_ocr_res` 的 OCR 行级结果聚合出近似块级置信度：`confidence_min`、`confidence_mean`，并继续填 `ocr_confidence` 为块内行均值。
 - 失败时保留 `ocr_confidence=0.0`，并打 `quality_flags=["no_confidence"]`。
+- 生成本次 OCR 配置指纹 `ocr_config_hash`（DPI、去水印阈值、PP-Structure 子模块开关、paddleocr 版本等），写入缓存，避免参数变化后误用旧缓存。
 
 B. **IR schema v3**
-- `ParseElement` 加 `bbox`、`reading_order`、`quality_flags`、`attached_to_clause_no`。
+- `ParseElement` 加 `element_id`、`bbox`、`reading_order`、`page_width`、`page_height`、`quality_flags`、`attached_to_element_id`、`attached_to_clause_no`。
 - `parse_cache` 读写新字段；旧缓存缺字段时默认空值。
 - `schema_version` 升到 3。
 
 C. **新增 `ocr_repair` 修复层**
 - 块中部条款号拆分：把 PP-Structure 揉在同一块里的“上一条尾巴 + 新条款”拆为多个元素。
-- 续文归属：无号正文块、列项块、短续文块绑定到最近的正文条款，先写 `attached_to_clause_no`，不硬合并文本。
+- 续文归属：无号正文块、列项块、短续文块绑定到最近的正文条款元素，写 `attached_to_element_id`；`attached_to_clause_no` 只作可读辅助，不作为唯一键。
 - 质量标记：条款跳号、列项缺失、疑似乱码、低置信、跨页接缝风险进入 `quality_flags`。
 
 D. **增强 `ocrcheck`**
@@ -76,9 +78,9 @@ D. **增强 `ocrcheck`**
 
 ```
 PDF 页面
-  ↓ render_page(dpi=250, 去水印)
+  ↓ render_page(dpi=250, 去水印, page_width/page_height)
 PPStructureV3.predict
-  ↓ app.py 透传 parsing_res_list + overall_ocr_res
+  ↓ app.py 透传 parsing_res_list + overall_ocr_res + OCR 配置指纹
 HTTP elements(JSON)
   ↓ ppstructure_backend 反序列化
 ParsedDoc elements(schema v3 原始证据)
@@ -113,6 +115,7 @@ return doc;
 
 - `block_bbox` / `bbox`：块坐标，统一成 `[x0, y0, x1, y1]`。
 - `block_order` / `order`：阅读顺序；缺失时用数组下标。
+- `page_width`、`page_height`：渲染后图像尺寸。
 - `overall_ocr_res.rec_texts`、`rec_scores`、`rec_boxes`：行级 OCR 文本、分数、坐标。
 
 行级分数聚合策略：
@@ -132,6 +135,8 @@ return doc;
   "raw_label": "text",
   "reading_order": 12,
   "bbox": [126.0, 522.5, 1480.0, 611.0],
+  "page_width": 1654,
+  "page_height": 2339,
   "text": "5.3.4错台应为接缝两边出现的高差...",
   "ocr_confidence": 0.91,
   "confidence_min": 0.84,
@@ -140,6 +145,8 @@ return doc;
 ```
 
 如果 PP-StructureV3 当前版本字段名与上述不同，`app.py` 采用“多键候选 + 缺失容忍”的读取方式，并在服务启动或首个请求打印真实顶层 key 与 block key 集合一次，方便定位版本差异。
+
+`ocr_config_hash` 不需要每个元素重复计算；服务响应顶层携带一次，C++ 写入 parse cache 顶层 manifest。第一期可同时把 hash 冗余到每个元素，便于旧读取路径调试，但权威位置是缓存顶层。
 
 ---
 
@@ -158,21 +165,27 @@ struct BBox {
 struct ParseElement {
     // 保留 M2b 已有字段：type/page_no/level/clause_no/title/text/table_html/
     // caption/source/ocr_confidence/raw_label/region/is_caption/suspect。
+    std::string element_id;
     BBox bbox;
     int reading_order = 0;
+    int page_width = 0;
+    int page_height = 0;
     float confidence_min = 0.0f;
     float confidence_mean = 0.0f;
     std::vector<std::string> quality_flags;
+    std::string attached_to_element_id;
     std::string attached_to_clause_no;
 };
 ```
 
 兼容策略：
 
+- `element_id` 在 C++ 反序列化后生成，格式为 `p<page_no>:o<reading_order>:<short_hash>`；拆分产生的新元素追加 `:s<index>`，保证一次 ingest 内稳定且不依赖条款号。
 - `parse_ppstructure_json` 缺 `bbox` 时保留 0 坐标。
 - `parse_cache.cpp` 缺 `quality_flags` 时读成空数组。
 - `suspect` 字段保留；新增规则同时写入 `quality_flags`，旧 UI/测试仍可看 `suspect`。
 - `ParsedDoc.schema_version = 3` 只在执行 repair 后设置；读旧 v2 缓存不自动伪装成 v3。
+- 缓存顶层新增 `ocr_config_hash`；哈希不匹配时后续 `ocrcheck` 应提示“缓存来自不同 OCR 配置”，但不阻止读取。
 
 ---
 
@@ -203,7 +216,8 @@ struct ParseElement {
 
 识别规则：
 
-- 只处理 `source=="ppstructure"`、`region==Body`、非 `Table/Formula/Figure`、非 caption。
+- 只处理 `source=="ppstructure"`、非 `Table/Formula/Figure`、非 caption、非明确页眉页脚页码的元素。
+- 不强依赖 `region==Body`。M2c-1 文档已判断 M2b 的 region 对汇编型文档只是弱提示；因此只要元素本身含可信条款候选、T 方法号候选或列项候选，就允许参与修复。
 - 在块首之外扫描可信条款号：
   - 十进制条款号：`N.M`、`N.M.K`、`N.M.K-S`。
   - T 方法号：`T 0301—2024` / `T 0301-2024`。
@@ -224,10 +238,10 @@ struct ParseElement {
 
 规则：
 
-- 顺序扫描 body 元素。
-- 遇到带 `clause_no` 的正文元素，更新 `current_clause_no`。
+- 顺序扫描正文候选元素。
+- 遇到带 `clause_no` 的正文元素，更新 `current_element_id` 与 `current_clause_no`。
 - 遇到无 `clause_no`、非 caption、非表格、非前置区域的文本元素：
-  - 若文本像列项（`1 `、`1）`、`（1）`、`1 重度...`）或普通续文，则 `attached_to_clause_no=current_clause_no`。
+  - 若文本像列项（`1 `、`1）`、`（1）`、`1 重度...`）或普通续文，则 `attached_to_element_id=current_element_id`，同时填 `attached_to_clause_no=current_clause_no` 方便人读。
   - 添加 `quality_flags += "attached_continuation"`。
 - 如果无当前条款可归属，添加 `quality_flags += "orphan_text"`。
 
@@ -252,7 +266,7 @@ struct ParseElement {
 - 若列项序列跳号，如 `1, 3`，标 `missing_item_gap`。
 - 若引导语位于页底附近（bbox y1 接近页面底部）且下一页首个归属列项不是 1，额外标 `cross_page_gap`。
 
-页面底部判断第一期采用相对坐标：如果 bbox 有效且 `y1 / page_height >= 0.85`，视作页底风险。若暂时没有 page_height 字段，则退化为只做列项序列检查，不做页底判定。
+页面底部判断采用相对坐标：如果 bbox 有效且 `y1 / page_height >= 0.85`，视作页底风险。`page_height` 由 Python 渲染层透传；缺失时只做列项序列检查，并给该元素加 `quality_flags += "missing_page_size"`。
 
 ### 7.4 疑似乱码
 
@@ -303,12 +317,12 @@ schema_version          : 3
 
 **单测优先，不依赖 OCR 服务**
 
-- `test_ppstructure_normalize.cpp`：补 bbox/order/confidence/quality_flags 反序列化。
-- `test_parse_cache.cpp`：schema v3 字段往返。
+- `test_ppstructure_normalize.cpp`：补 bbox/order/page_size/confidence/quality_flags 反序列化。
+- `test_parse_cache.cpp`：schema v3 字段、`element_id`、`attached_to_element_id`、`ocr_config_hash` 往返。
 - `test_ocr_repair.cpp`：
   - 块中部 `5.3.4` 被拆出新元素。
   - `3.5mm`、`0.5%`、`200kN` 不被误拆。
-  - 无号续文绑定最近 `clause_no`。
+  - 无号续文绑定最近 `element_id`，并保留 `attached_to_clause_no` 作为可读辅助。
   - 无当前条款时标 `orphan_text`。
   - 列项 `1,3` 标 `missing_item_gap`。
   - `判断：` 后首项为 `3` 标 `missing_item_start`。
@@ -330,10 +344,10 @@ schema_version          : 3
 
 ## 10. 验收标准
 
-1. `app.py` 返回元素包含 bbox/order/confidence 字段；字段缺失时服务不崩。
-2. `parse_cache` schema v3 能往返新字段，旧 v2 缓存仍可读取。
+1. `app.py` 返回元素包含 bbox/order/page_size/confidence 字段；字段缺失时服务不崩。
+2. `parse_cache` schema v3 能往返新字段、稳定 `element_id`、顶层 `ocr_config_hash`，旧 v2 缓存仍可读取。
 3. 块中部条款号拆分对真实揉块样本有效，且数值单位负例不误拆。
-4. 无号续文能绑定到最近条款，但原始文本不被硬改写。
+4. 无号续文能绑定到最近条款元素，但原始文本不被硬改写。
 5. `ocrcheck` 能量化低置信、乱码、缺列项、跨页接缝风险。
 6. 现有 M2b 指标不回退：图表题泄漏仍为 0，正文条款填充率不下降。
 
@@ -346,8 +360,9 @@ schema_version          : 3
 | PP-StructureV3 字段名随版本变化 | Python 多键候选读取；首批日志打印真实 key 集合 |
 | bbox 与 OCR 行框坐标系不一致 | 若聚合结果异常，全量标 `no_confidence` 并保留旧逻辑，不阻塞主流程 |
 | 块中部拆分误拆数值 | 复用 `parse_clause_no` 守卫；新增单位负例测试 |
-| 自动续文归属误绑 | 只写 `attached_to_clause_no`，不直接合并文本；M2c 可选择使用或忽略 |
+| 自动续文归属误绑 | 只写 `attached_to_element_id` / `attached_to_clause_no`，不直接合并文本；M2c 可选择使用或忽略 |
 | 质量 flags 过多影响判断 | `ocrcheck` 分类型统计并输出样例，先让数据说话再调阈值 |
+| OCR 参数变化复用旧缓存 | 顶层 `ocr_config_hash` 和 `ocrcheck` mismatch 提示；后续可把 hash 纳入 `data/ocr_cache` 目录 key |
 
 ---
 

@@ -1,21 +1,21 @@
 # M2c-1 结构化建树（抽象层级条款树）设计
 
 - 日期：2026-06-05
-- 类型：子项目 spec（M2c 第一刀：结构化建树；三文本 / 落库 / 引擎修复另立 spec）
-- 来源：[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §5.2、[总览路线图](2026-05-31-rag-overview-roadmap-design.md) M2
+- 类型：子项目 spec（M2c 第一刀：结构化建树；三文本 / 落库另立 spec）
+- 来源：[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b-2 PP-Structure 精度修复 spec](2026-06-05-m2b-2-ppstructure-precision-repair-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §5.2、[总览路线图](2026-05-31-rag-overview-roadmap-design.md) M2
 - 分支：V2.1
 - 状态：已与项目负责人确认设计，待写实现计划
-- 背景：M2b 把 `parse_cache/<id>.json` 的 `elements` 洗成了干净、带 `region`/`clause_no`/`suspect` 的富 IR（`schema_version=2`）。但当前 ingest 仍走 M1 老路（`split_clauses` 逐页朴素切），**完全没消费富 elements**。M2c 要把这条扁平元素流变成**有层级的条款树**，供检索消费。M2c 整体太大，本 spec 只做第一刀——**结构化建树**。
+- 背景：M2b 把 `parse_cache/<id>.json` 的 `elements` 洗成了干净、带 `region`/`clause_no`/`suspect` 的富 IR（`schema_version=2`）。M2b-2 会在 M2c-1 前把缓存升级到 `schema_version=3`，补 `element_id`、bbox/page size、置信度聚合、`quality_flags`、`attached_to_element_id`，并保守修复块中部条款号与续文归属。但当前 ingest 仍走 M1 老路（`split_clauses` 逐页朴素切），**完全没消费富 elements**。M2c 要把这条 v3 扁平元素流变成**有层级的条款树**，供检索消费。M2c 整体太大，本 spec 只做第一刀——**结构化建树**。
 
 ---
 
 ## 0. 在 M2c 几刀里的位置
 
 ```
-M2c-1  结构化建树（元素流 → 抽象层级条款树 + page_clause_map）—— 本 spec   纯 C++ 转换
+M2b-2  PP-Structure 精度修复（parse_cache v2 → v3，修复建树前输入）        前置
+M2c-1  结构化建树（v3 元素流 → 抽象层级条款树 + page_clause_map）—— 本 spec  纯 C++ 转换
 M2c-2  三文本生成（atomic / retrieval / context）                          依赖 M2c-1
 M2c-3  落库与接线（PG schema 扩展 + Milvus 标量 + 替换 ingest 的 split_clauses） 依赖 M2c-1/2
-M2c-4  §4 引擎垃圾修复（块中部拆分 / 续接归位 / 乱码质检门禁）               依赖 M2c-1
 ```
 
 拆分理由：建树器（作用域栈 + 多格式识别）是整个 M2c 的**核心与风险**；做成纯函数 + 多份文档 fixture 的单测，能把"识别每个标题是几级"这个最难的点单独打磨到对，不被落库/embedding 干扰。后面几层相对机械。
@@ -26,8 +26,8 @@ M2c-4  §4 引擎垃圾修复（块中部拆分 / 续接归位 / 乱码质检门
 
 ## 1. 一句话现状与目标
 
-- **现状**：`parse_cache` 里是一条扁平 `elements` 流，带 `clause_no`/`region`/`type`/`raw_label`/`title`/`text`。`element.level` 是 app.py 写死的 1（假的），`type` 是 PP-Structure `block_label` 的子串映射（排版意义自洽，但**不表达逻辑层级**），`raw_label` 的 title/text 区分按排版判定、不可靠。
-- **目标**：消费 `elements`，产出**抽象层级条款树**——每个节点带层级（1/2/3…）、原始号、标题、（叶子的）正文、页范围、父子关系、路径式 `node_id`；外加 `page_clause_map`。序列化到 `tree_cache`，并出 `treecheck` CLI 体检。**不生成三文本、不碰 PG/Milvus/embedding、不改检索、不修 §4 引擎垃圾。**
+- **现状**：M2c-1 计划消费 M2b-2 后的 `parse_cache` v3：一条扁平 `elements` 流，带 `element_id`、`clause_no`、`region`、`type`、`raw_label`、`title`、`text`、`bbox`、`quality_flags`、`attached_to_element_id`。`element.level` 是 app.py 写死的 1（假的），`type` 是 PP-Structure `block_label` 的子串映射（排版意义自洽，但**不表达逻辑层级**），`raw_label` 的 title/text 区分按排版判定、不可靠。
+- **目标**：消费 v3 `elements`，产出**抽象层级条款树**——每个节点带层级（1/2/3…）、原始号、标题、（叶子的）正文、页范围、父子关系、路径式 `node_id`；外加 `page_clause_map`。序列化到 `tree_cache`，并出 `treecheck` CLI 体检。**不生成三文本、不碰 PG/Milvus/embedding、不改检索；不再承担 PP-Structure 原始揉块修复，改为消费 M2b-2 的修复结果与质量标记。**
 
 ---
 
@@ -59,6 +59,8 @@ struct TreeNode {
     bool is_leaf = false;    // 检索单元(L3 或最深级)
     bool has_table = false;  // 含表格(table_html 留给 M5)
     std::string suspect;     // 透传 M2b 的 suspect + 树级异常(如 "gap")
+    std::vector<std::string> quality_flags;       // 聚合来源元素的 quality_flags + 树级异常
+    std::vector<std::string> source_element_ids;  // 追溯到 parse_cache v3 elements
 };
 
 struct ClauseTree {
@@ -100,7 +102,7 @@ struct ClauseTree {
 4. **作用域栈走元素流**（阅读顺序）：
    - 文本/号命中 `T` 正则（`T\s*\d{4}[—\-]\d{4}`）→ 按表定级，压栈建节点；
    - 有 `clause_no` → 按表 + 当前作用域定级，弹栈到该级父、建节点、压栈；
-   - 无号文本 → 文本前缀命中"图/表/续表/附图/附表" → 当 caption（不入树，或挂当前叶子的 caption）；否则**并入当前叶子的 `text`**；
+   - 无号文本 → 优先看 `attached_to_element_id`：若指向某个已建条款节点，则并入该节点；否则文本前缀命中"图/表/续表/附图/附表" → 当 caption（不入树，或挂当前叶子的 caption）；再否则并入当前叶子的 `text`；
    - `type==Table/Formula` → 挂到当前叶子（`has_table=true`，`table_html` 留给 M5）；
    - **跳级/缺中间级**（如 L1 直接到 L3）→ 插虚拟节点（`number=""`）+ 标 `suspect="gap"`。
 5. **标叶子**：`is_leaf = 带正文且无子条款节点的终端号节点`（即该分支最深的号），聚合正文。映射表的"检索深度"（A=L3/B=L4）是**预期深度**，实际叶子按"分支终端"取——这样深度不齐的分支（如 `1.0.x` 只到 L2、`5.x.y` 到 L3）都能正确取到条级叶子，不漏总则类浅分支。
@@ -175,7 +177,7 @@ M2b 的 `tag_regions` 是按扁平 JTC5210 调的（靠"目次/附录/条文说�
 
 ## 10. 明确不解决（防范围蔓延）
 
-§4 那三类 PP-Structure 引擎垃圾——揉块埋号的 ~77 块、跨页丢的列项、区域乱码——**本 spec 照搬带 `suspect` 进树，不主动救**，留 M2c-4。因此第一版叶子数会少于"理论条数"，属预期内。本 spec 也**不生成三文本、不碰 PG/Milvus、不改检索**。
+PP-Structure 的揉块埋号、跨页丢列项、区域乱码不再留到 M2c-1 之后，而是由前置的 M2b-2 处理：能保守拆分的先拆，能归属的先写 `attached_to_element_id`，不能修的进入 `quality_flags`。本 spec **只消费这些结果**：把已拆出的条款建进树，把归属续文并入对应节点，把 `quality_flags` 透传到节点/`treecheck`。本 spec 仍然**不生成三文本、不碰 PG/Milvus、不改检索、不自动补缺失文字**。
 
 ---
 
