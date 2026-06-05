@@ -4,7 +4,7 @@
 - 类型：子项目 spec（PP-StructureV3 继续使用前提下的精度增强；不引入 MinerU）
 - 来源：用户确认“MinerU 目前先不考虑”；[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §4/§5.2、[M2c-1 结构化建树 spec](2026-06-05-m2c1-structural-tree-design.md)
 - 状态：已与项目负责人确认前置到 M2c-1 之前，待写实现计划
-- 背景：M2b 已把 PP-StructureV3 输出清洗成 `schema_version=2` 的富 IR，解决了条款号抽取、图表题泄漏、页眉页脚、水印等问题。但真实扫描规范仍暴露三类 PP-StructureV3 引擎级问题：阅读顺序揉块、跨页接缝丢内容、局部乱码；且 `parsing_res_list` 不提供块级置信度，导致问题难以自动定位。本 spec 不换 OCR 引擎，而是在现有 PP-StructureV3 后面加一层“证据透传 + 结构修复 + 质量门禁”。
+- 背景：M2b 已把 PP-StructureV3 输出清洗成 `schema_version=2` 的富 IR，解决了条款号抽取、图表题泄漏、页眉页脚、水印等问题。但真实扫描规范仍暴露三类 PP-StructureV3 引擎级问题：块边界混乱、跨页接缝丢内容、局部乱码；且 `parsing_res_list` 不提供块级置信度，导致问题难以自动定位。本 spec 不换 OCR 引擎，而是在现有 PP-StructureV3 后面加一层“证据透传 + 保守边界检测 + 质量门禁”。
 
 ---
 
@@ -13,7 +13,7 @@
 ```
 M2a    OCR 管道：可插拔后端 + PP-Structure 服务 + 逐页缓存          已完成
 M2b    OCR 输出清洗：raw_label / clause_no / region / suspect       已完成
-M2b-2  PP-Structure 精度修复一期：证据透传 + 保守修复 + 质量门禁    本 spec
+M2b-2  PP-Structure 精度修复一期：证据透传 + 保守边界检测 + 质量门禁  本 spec
 M2c-1  结构化建树：elements → clause tree                          已有 spec
 M2c-2+ 三文本 / 落库 / 检索接线                                    后续
 ```
@@ -24,9 +24,9 @@ M2b-2 放在 M2c-1 之前：建树器应消费已经尽量可靠的元素流，�
 
 ## 1. 一句话目标
 
-在不更换 PP-StructureV3 的前提下，让 `parse_cache` 的 `elements` 从“干净但可能缺/乱/糊”升级为“带坐标证据、可保守拆分、可归属续文、能自动标红风险”的 IR，为 M2c 建树与后续检索提供更可靠输入。
+在不更换 PP-StructureV3 的前提下，让 `parse_cache` 的 `elements` 从“干净但可能缺/乱/糊”升级为“带坐标证据、只在高确定性边界处拆分、可归属续文、能自动标红风险”的 IR，为 M2c 建树与后续检索提供更可靠输入。
 
-验收时不追求 OCR 完美；目标是把已知三类失败从“靠人翻缓存才知道”变成“能修的保守修、不能修的明确标红并体检量化”。
+验收时不追求 OCR 完美；目标是把已知三类失败从“靠人翻缓存才知道”变成“高确定性边界可拆、低确定性情况明确标红并体检量化”。
 
 ---
 
@@ -34,7 +34,7 @@ M2b-2 放在 M2c-1 之前：建树器应消费已经尽量可靠的元素流，�
 
 1. **不换引擎，不重写 OCR**：继续用 `services/ppstructure/app.py` 的 PPStructureV3 服务。
 2. **Python 只透传证据，C++ 做确定性判断**：模型输出、坐标、顺序、行级分数留在 Python；条款拆分、续文归属、列项检查放 C++，方便在缓存上秒级回归。
-3. **保守修复优先**：只自动做高置信结构性修复，如块中部条款号拆分；不猜测缺失文字，不自动改写乱码。
+3. **保守边界检测优先**：只自动做高置信结构性拆分，如块中部出现显式新条款号；不猜测尾巴归属，不自动重排阅读顺序，不自动改写乱码。
 4. **标红比误修更重要**：跨页缺列项、疑似乱码、低置信块应进入 `quality_flags` 和 `ocrcheck`，供人工复核或后续二次 OCR。
 5. **加性 schema 升级**：新增字段不破坏旧缓存读取；M1/M2b 既有逻辑继续可运行。
 
@@ -57,9 +57,9 @@ B. **IR schema v3**
 - `schema_version` 升到 3。
 
 C. **新增 `ocr_repair` 修复层**
-- 块中部条款号拆分：把 PP-Structure 揉在同一块里的“上一条尾巴 + 新条款”拆为多个元素。
+- 块内显式条款边界检测：仅当块中部出现高置信新条款号时拆分；不判断前半段究竟属于上一条还是本条。
 - 续文归属：无号正文块、列项块、短续文块绑定到最近的正文条款元素，写 `attached_to_element_id`；`attached_to_clause_no` 只作可读辅助，不作为唯一键。
-- 质量标记：条款跳号、列项缺失、疑似乱码、低置信、跨页接缝风险进入 `quality_flags`。
+- 质量标记：不确定块混排、条款跳号、列项缺失、疑似乱码、低置信、跨页接缝风险进入 `quality_flags`。
 
 D. **增强 `ocrcheck`**
 - 输出 v3 新指标：拆分次数、续文归属次数、低置信块数、乱码风险数、列项缺失风险数、跨页接缝风险数。
@@ -87,7 +87,7 @@ ParsedDoc elements(schema v3 原始证据)
   ↓ normalize_parsed_doc(M2b 既有清洗)
 caption / clause_no / region / suspect
   ↓ repair_ocr_elements(新增)
-块中部拆分 / 续文归属 / 质量 flags
+显式边界拆分 / 续文归属 / 质量 flags
   ↓ write_parse_cache
 data/parse_cache/<id>.json
   ↓ ocrcheck
@@ -199,9 +199,9 @@ struct ParseElement {
 | `src/parse/ocr_repair.cpp` | 块拆分、续文归属、质量标记 |
 | `tests/test_ocr_repair.cpp` | 纯 C++ 单测 |
 
-### 7.1 块中部条款号拆分
+### 7.1 块内显式条款边界检测
 
-目标修复 PP-Structure 揉块：
+目标不是猜测“揉块”里每段文字的真实归属，而是只识别一种高确定性情况：同一个块中部出现新的显式条款号，且该条款号可以独立通过 `parse_clause_no`。例如：
 
 ```text
 度（1.0m）换算成损坏面积。损坏程度应按下列标准判断。5.3.4错台应为接缝两边出现的高差...
@@ -223,14 +223,23 @@ struct ParseElement {
   - T 方法号：`T 0301—2024` / `T 0301-2024`。
 - 命中点前必须是句号、分号、冒号、换行、中文右括号、空白之一。
 - 命中点后必须跟中文、字母标题或正文；如果后面是 `%`、`mm`、`kN`、数字单位，则拒绝。
+- 拆分后的后半段必须能独立通过 `parse_clause_no`；否则不拆。
 - 若同一块中命中多个可信条款号，按顺序拆成多段。
+
+不做的事：
+
+- 不判断前半段究竟属于上一条、本条，还是当前块自己的尾巴。
+- 不自动重排块顺序。
+- 不自动把前半段接回上一条。
+- 不自动补缺失文字。
+- 如果块内疑似混有多段内容但没有高置信新条款边界，只添加 `quality_flags += "ambiguous_block_mix"`，保留原文。
 
 拆分后的字段继承：
 
 - `page_no/source/raw_label/region/bbox/reading_order/confidence_*` 继承原块。
 - 第一段保留原 `clause_no` 或空。
 - 后续段重新调用 `parse_clause_no` 填 `clause_no`。
-- 原块及新块都加 `quality_flags += "embedded_clause_split"`。
+- 原块及新块都加 `quality_flags += "explicit_clause_boundary_split"`。
 
 ### 7.2 续文归属
 
@@ -290,7 +299,8 @@ struct ParseElement {
 schema_version          : 3
 正文条款候选            : 45
   其中抠到号            : 45  (填充率 100.0%)
-块中部拆分              : 8
+显式边界拆分            : 8
+不确定块混排            : 6
 续文归属                : 64
 孤立正文                : 3
 图表题泄漏              : 0
@@ -320,7 +330,8 @@ schema_version          : 3
 - `test_ppstructure_normalize.cpp`：补 bbox/order/page_size/confidence/quality_flags 反序列化。
 - `test_parse_cache.cpp`：schema v3 字段、`element_id`、`attached_to_element_id`、`ocr_config_hash` 往返。
 - `test_ocr_repair.cpp`：
-  - 块中部 `5.3.4` 被拆出新元素。
+  - 块中部 `5.3.4` 在高置信边界条件下被拆出新元素，并打 `explicit_clause_boundary_split`。
+  - 块内疑似混排但没有高置信新条款边界时不拆，只标 `ambiguous_block_mix`。
   - `3.5mm`、`0.5%`、`200kN` 不被误拆。
   - 无号续文绑定最近 `element_id`，并保留 `attached_to_clause_no` 作为可读辅助。
   - 无当前条款时标 `orphan_text`。
@@ -336,7 +347,7 @@ schema_version          : 3
 3. 对 JTC 5210-2018 扫描件重跑 `ingest`。
 4. 运行 `ocrcheck`，确认 v3 指标出现。
 5. 抽查 p7、p12-13、p15：
-   - p7/p15 揉块应出现 `embedded_clause_split`。
+   - p7/p15 若存在显式新条款边界，应出现 `explicit_clause_boundary_split`；若无法确定边界，应只出现 `ambiguous_block_mix`。
    - p12-13 缺列项应出现 `missing_item_start` 或 `cross_page_gap`。
    - p15 乱码应出现 `garble_risk` 或 `low_confidence`。
 
@@ -346,7 +357,7 @@ schema_version          : 3
 
 1. `app.py` 返回元素包含 bbox/order/page_size/confidence 字段；字段缺失时服务不崩。
 2. `parse_cache` schema v3 能往返新字段、稳定 `element_id`、顶层 `ocr_config_hash`，旧 v2 缓存仍可读取。
-3. 块中部条款号拆分对真实揉块样本有效，且数值单位负例不误拆。
+3. 块内显式条款边界检测对真实样本有效：高置信新条款号可拆，低确定性块只标 `ambiguous_block_mix`，数值单位负例不误拆。
 4. 无号续文能绑定到最近条款元素，但原始文本不被硬改写。
 5. `ocrcheck` 能量化低置信、乱码、缺列项、跨页接缝风险。
 6. 现有 M2b 指标不回退：图表题泄漏仍为 0，正文条款填充率不下降。
@@ -359,7 +370,8 @@ schema_version          : 3
 |---|---|
 | PP-StructureV3 字段名随版本变化 | Python 多键候选读取；首批日志打印真实 key 集合 |
 | bbox 与 OCR 行框坐标系不一致 | 若聚合结果异常，全量标 `no_confidence` 并保留旧逻辑，不阻塞主流程 |
-| 块中部拆分误拆数值 | 复用 `parse_clause_no` 守卫；新增单位负例测试 |
+| 显式边界拆分误拆数值 | 复用 `parse_clause_no` 守卫；新增单位负例测试 |
+| 不确定揉块被过度修复 | 默认不猜尾巴归属；不满足高置信边界条件只标 `ambiguous_block_mix` |
 | 自动续文归属误绑 | 只写 `attached_to_element_id` / `attached_to_clause_no`，不直接合并文本；M2c 可选择使用或忽略 |
 | 质量 flags 过多影响判断 | `ocrcheck` 分类型统计并输出样例，先让数据说话再调阈值 |
 | OCR 参数变化复用旧缓存 | 顶层 `ocr_config_hash` 和 `ocrcheck` mismatch 提示；后续可把 hash 纳入 `data/ocr_cache` 目录 key |

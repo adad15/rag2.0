@@ -5,7 +5,7 @@
 - 来源：[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b-2 PP-Structure 精度修复 spec](2026-06-05-m2b-2-ppstructure-precision-repair-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §5.2、[总览路线图](2026-05-31-rag-overview-roadmap-design.md) M2
 - 分支：V2.1
 - 状态：已与项目负责人确认设计，待写实现计划
-- 背景：M2b 把 `parse_cache/<id>.json` 的 `elements` 洗成了干净、带 `region`/`clause_no`/`suspect` 的富 IR（`schema_version=2`）。M2b-2 会在 M2c-1 前把缓存升级到 `schema_version=3`，补 `element_id`、bbox/page size、置信度聚合、`quality_flags`、`attached_to_element_id`，并保守修复块中部条款号与续文归属。但当前 ingest 仍走 M1 老路（`split_clauses` 逐页朴素切），**完全没消费富 elements**。M2c 要把这条 v3 扁平元素流变成**有层级的条款树**，供检索消费。M2c 整体太大，本 spec 只做第一刀——**结构化建树**。
+- 背景：M2b 把 `parse_cache/<id>.json` 的 `elements` 洗成了干净、带 `region`/`clause_no`/`suspect` 的富 IR（`schema_version=2`）。M2b-2 会在 M2c-1 前把缓存升级到 `schema_version=3`，补 `element_id`、bbox/page size、置信度聚合、`quality_flags`、`attached_to_element_id`，并只在高确定性块内显式条款边界处拆分，同时标记不确定块混排与续文归属。但当前 ingest 仍走 M1 老路（`split_clauses` 逐页朴素切），**完全没消费富 elements**。M2c 要把这条 v3 扁平元素流变成**有层级的条款树**，供检索消费。M2c 整体太大，本 spec 只做第一刀——**结构化建树**。
 
 ---
 
@@ -27,7 +27,7 @@ M2c-3  落库与接线（PG schema 扩展 + Milvus 标量 + 替换 ingest 的 sp
 ## 1. 一句话现状与目标
 
 - **现状**：M2c-1 计划消费 M2b-2 后的 `parse_cache` v3：一条扁平 `elements` 流，带 `element_id`、`clause_no`、`region`、`type`、`raw_label`、`title`、`text`、`bbox`、`quality_flags`、`attached_to_element_id`。`element.level` 是 app.py 写死的 1（假的），`type` 是 PP-Structure `block_label` 的子串映射（排版意义自洽，但**不表达逻辑层级**），`raw_label` 的 title/text 区分按排版判定、不可靠。
-- **目标**：消费 v3 `elements`，产出**抽象层级条款树**——每个节点带层级（1/2/3…）、原始号、标题、（叶子的）正文、页范围、父子关系、路径式 `node_id`；外加 `page_clause_map`。序列化到 `tree_cache`，并出 `treecheck` CLI 体检。**不生成三文本、不碰 PG/Milvus/embedding、不改检索；不再承担 PP-Structure 原始揉块修复，改为消费 M2b-2 的修复结果与质量标记。**
+- **目标**：消费 v3 `elements`，产出**抽象层级条款树**——每个节点带层级（1/2/3…）、原始号、标题、（叶子的）正文、页范围、父子关系、路径式 `node_id`；外加 `page_clause_map`。序列化到 `tree_cache`，并出 `treecheck` CLI 体检。**不生成三文本、不碰 PG/Milvus/embedding、不改检索；不再承担 PP-Structure 原始块边界问题，改为消费 M2b-2 的显式边界拆分、续文归属与质量标记。**
 
 ---
 
@@ -177,7 +177,7 @@ M2b 的 `tag_regions` 是按扁平 JTC5210 调的（靠"目次/附录/条文说�
 
 ## 10. 明确不解决（防范围蔓延）
 
-PP-Structure 的揉块埋号、跨页丢列项、区域乱码不再留到 M2c-1 之后，而是由前置的 M2b-2 处理：能保守拆分的先拆，能归属的先写 `attached_to_element_id`，不能修的进入 `quality_flags`。本 spec **只消费这些结果**：把已拆出的条款建进树，把归属续文并入对应节点，把 `quality_flags` 透传到节点/`treecheck`。本 spec 仍然**不生成三文本、不碰 PG/Milvus、不改检索、不自动补缺失文字**。
+PP-Structure 的块边界混乱、跨页丢列项、区域乱码不再留到 M2c-1 之后，而是由前置的 M2b-2 处理：只有高确定性显式条款边界才拆，能归属的续文先写 `attached_to_element_id`，不确定块混排和不能修的问题进入 `quality_flags`。本 spec **只消费这些结果**：把已拆出的条款建进树，把归属续文并入对应节点，把 `quality_flags` 透传到节点/`treecheck`。本 spec 仍然**不生成三文本、不碰 PG/Milvus、不改检索、不自动补缺失文字、不猜测块内尾巴归属**。
 
 ---
 
