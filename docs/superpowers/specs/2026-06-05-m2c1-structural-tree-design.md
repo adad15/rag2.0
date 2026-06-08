@@ -2,21 +2,22 @@
 
 - 日期：2026-06-05
 - 类型：子项目 spec（M2c 第一刀：结构化建树；三文本 / 落库另立 spec）
-- 来源：[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b-2 PP-Structure 精度修复 spec](2026-06-05-m2b-2-ppstructure-precision-repair-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §5.2、[总览路线图](2026-05-31-rag-overview-roadmap-design.md) M2
+- 来源：[M2b 解析质量 spec](2026-06-03-m2b-ocr-quality-design.md)、[M2b 进度与交接](../2026-06-04-m2b-progress-and-handoff.md) §5.2、[总览路线图](2026-05-31-rag-overview-roadmap-design.md) M2
 - 分支：V2.1
 - 状态：已与项目负责人确认设计，待写实现计划
-- 背景：M2b 把 `parse_cache/<id>.json` 的 `elements` 洗成了干净、带 `region`/`clause_no`/`suspect` 的富 IR（`schema_version=2`）。M2b-2 会在 M2c-1 前把缓存升级到 `schema_version=3`，补 `element_id`、bbox/page size、置信度聚合、`quality_flags`、`attached_to_element_id`，并只在高确定性块内显式条款边界处拆分，同时标记不确定块混排与续文归属。但当前 ingest 仍走 M1 老路（`split_clauses` 逐页朴素切），**完全没消费富 elements**。M2c 要把这条 v3 扁平元素流变成**有层级的条款树**，供检索消费。M2c 整体太大，本 spec 只做第一刀——**结构化建树**。
+- 背景：M2b 把 `parse_cache/<id>.json` 的 `elements` 洗成了干净、带 `region`/`clause_no`/`suspect` 的富 IR（`schema_version=2`）。原计划在 M2c-1 前插一层 M2b-2「PP-Structure 精度修复」（证据透传 + 块内显式边界拆分 + 质量门禁），但评估后认为 ROI 不划算（标记类工作无消费闭环、置信度聚合依赖未验证的引擎字段）而**取消**；M2c-1 直接消费 M2b 的 `schema_version=2` 缓存。当前 ingest 仍走 M1 老路（`split_clauses` 逐页朴素切），**完全没消费富 elements**。M2c 要把这条 v2 扁平元素流变成**有层级的条款树**，供检索消费。M2c 整体太大，本 spec 只做第一刀——**结构化建树**。
 
 ---
 
 ## 0. 在 M2c 几刀里的位置
 
 ```
-M2b-2  PP-Structure 精度修复（parse_cache v2 → v3，修复建树前输入）        前置
-M2c-1  结构化建树（v3 元素流 → 抽象层级条款树 + page_clause_map）—— 本 spec  纯 C++ 转换
+M2c-1  结构化建树（v2 元素流 → 抽象层级条款树 + page_clause_map）—— 本 spec  纯 C++ 转换
 M2c-2  三文本生成（atomic / retrieval / context）                          依赖 M2c-1
 M2c-3  落库与接线（PG schema 扩展 + Milvus 标量 + 替换 ingest 的 split_clauses） 依赖 M2c-1/2
 ```
+
+（原本前置一层 M2b-2「PP-Structure 精度修复」已取消，见背景；M2c-1 直接消费 M2b 的 v2 缓存。）
 
 拆分理由：建树器（作用域栈 + 多格式识别）是整个 M2c 的**核心与风险**；做成纯函数 + 多份文档 fixture 的单测，能把"识别每个标题是几级"这个最难的点单独打磨到对，不被落库/embedding 干扰。后面几层相对机械。
 
@@ -26,8 +27,8 @@ M2c-3  落库与接线（PG schema 扩展 + Milvus 标量 + 替换 ingest 的 sp
 
 ## 1. 一句话现状与目标
 
-- **现状**：M2c-1 计划消费 M2b-2 后的 `parse_cache` v3：一条扁平 `elements` 流，带 `element_id`、`clause_no`、`region`、`type`、`raw_label`、`title`、`text`、`bbox`、`quality_flags`、`attached_to_element_id`。`element.level` 是 app.py 写死的 1（假的），`type` 是 PP-Structure `block_label` 的子串映射（排版意义自洽，但**不表达逻辑层级**），`raw_label` 的 title/text 区分按排版判定、不可靠。
-- **目标**：消费 v3 `elements`，产出**抽象层级条款树**——每个节点带层级（1/2/3…）、原始号、标题、（叶子的）正文、页范围、父子关系、路径式 `node_id`；外加 `page_clause_map`。序列化到 `tree_cache`，并出 `treecheck` CLI 体检。**不生成三文本、不碰 PG/Milvus/embedding、不改检索；不再承担 PP-Structure 原始块边界问题，改为消费 M2b-2 的显式边界拆分、续文归属与质量标记。**
+- **现状**：M2c-1 消费 M2b 的 `parse_cache` v2：一条扁平 `elements` 流，带 `clause_no`、`region`、`type`、`raw_label`、`title`、`text`、`suspect`。`element.level` 是 app.py 写死的 1（假的），`type` 是 PP-Structure `block_label` 的子串映射（排版意义自洽，但**不表达逻辑层级**），`raw_label` 的 title/text 区分按排版判定、不可靠。
+- **目标**：消费 v2 `elements`，产出**抽象层级条款树**——每个节点带层级（1/2/3…）、原始号、标题、（叶子的）正文、图表题附件、页范围、父子关系、路径式 `node_id`；外加 `page_clause_map`。序列化到 `tree_cache`，并出 `treecheck` CLI 体检。**不生成三文本、不碰 PG/Milvus/embedding、不改检索。** PP-Structure 的原始块边界混乱（号埋在块中部）作为已知局限处理，见 §10。
 
 ---
 
@@ -39,6 +40,7 @@ M2c-3  落库与接线（PG schema 扩展 + Milvus 标量 + 替换 ingest 的 sp
 4. **作用域栈**：同一个号 `N` 在根是 L1、在 `T` 号作用域内是 L3——含义依赖作用域，故需阅读顺序维护作用域栈。
 5. **检索单元 = 分支终端号节点（条级叶子）**，预期落在三级标题（A=L3）；按格式可设更深预期（汇编 L4，兑现"条级"）。深度不齐的分支各取自己的终端，浅分支（如总则 `1.0.x`）不漏。
 6. **路径式 `node_id`**：汇编里 `2.1` 在每个试验内重号，裸号会撞车，故 `node_id` 用整条路径。
+7. **图表题不是检索主单元，而是条款附件**：`figure_title/chart_title/table_title` 或 `图/表/续表/附图/附表` 前缀不建树节点、不抠条款号；但不能直接丢弃，必须挂到最近的当前叶子，供 M2c-2 生成 `retrieval_text` 与后续附件回显使用。
 
 ---
 
@@ -58,9 +60,9 @@ struct TreeNode {
     std::vector<std::string> child_ids;
     bool is_leaf = false;    // 检索单元(L3 或最深级)
     bool has_table = false;  // 含表格(table_html 留给 M5)
+    bool has_figure = false; // 含图/图表题; 图片本体路径留给 M7/M8
+    std::vector<std::string> captions; // 图/表/图表题附件, M2c-2 并入 retrieval_text
     std::string suspect;     // 透传 M2b 的 suspect + 树级异常(如 "gap")
-    std::vector<std::string> quality_flags;       // 聚合来源元素的 quality_flags + 树级异常
-    std::vector<std::string> source_element_ids;  // 追溯到 parse_cache v3 elements
 };
 
 struct ClauseTree {
@@ -102,12 +104,14 @@ struct ClauseTree {
 4. **作用域栈走元素流**（阅读顺序）：
    - 文本/号命中 `T` 正则（`T\s*\d{4}[—\-]\d{4}`）→ 按表定级，压栈建节点；
    - 有 `clause_no` → 按表 + 当前作用域定级，弹栈到该级父、建节点、压栈；
-   - 无号文本 → 优先看 `attached_to_element_id`：若指向某个已建条款节点，则并入该节点；否则文本前缀命中"图/表/续表/附图/附表" → 当 caption（不入树，或挂当前叶子的 caption）；再否则并入当前叶子的 `text`；
+   - 无号文本 → 文本前缀命中"图/表/续表/附图/附表" 或 `is_caption=true` → 当 caption：**不建节点，但挂到当前叶子的 `captions`**；否则并入当前叶子的 `text`（含无号列项 / 续段）；
    - `type==Table/Formula` → 挂到当前叶子（`has_table=true`，`table_html` 留给 M5）；
    - **跳级/缺中间级**（如 L1 直接到 L3）→ 插虚拟节点（`number=""`）+ 标 `suspect="gap"`。
 5. **标叶子**：`is_leaf = 带正文且无子条款节点的终端号节点`（即该分支最深的号），聚合正文。映射表的"检索深度"（A=L3/B=L4）是**预期深度**，实际叶子按"分支终端"取——这样深度不齐的分支（如 `1.0.x` 只到 L2、`5.x.y` 到 L3）都能正确取到条级叶子，不漏总则类浅分支。
 6. **页信息**：每节点 `page_start/page_end`；构建 `page_clause_map`（页号 → 该页出现的叶子 `node_id`）。
 7. **序列化** `tree_cache/<id>.json` + `treecheck` 输出体检表。
+
+**Caption / 图片策略**：M2b 的 `is_caption` 只解决"不要把图表题误当条款"；M2c-1 进一步负责"不要把图表题丢掉"。树节点只保存 caption 文本与 `has_figure/has_table` 标记，不保存图片文件、不做视觉向量。M2c-2 生成 `retrieval_text` 时应把 `captions` 作为"相关图表"追加到条款检索文本；M2c-3 落库时可把 caption 写成条款附件。真正的 `bbox/image_path/visual` 检索仍后置到 M7/M8。
 
 ---
 
@@ -165,7 +169,7 @@ M2b 的 `tag_regions` 是按扁平 JTC5210 调的（靠"目次/附录/条文说�
 - `format_profile`：模式 → 层级映射（A/B 两表全模式覆盖）；
 - `toc_parser`：喂真实 JTC5210 目次 blob，断言识别出 A_decimal + 顶层骨架；喂含 `T` 号的 blob 断言 B_testno；
 - `tree_builder`（格式 A）：对 JTC5210 缓存断言树形（L1≈7 章；条级叶子≈95，其中 `N.0.K` 类约 13 在 L2、`N.M.K` 类约 82 在 L3）、`page_clause_map` 覆盖、虚拟节点；
-- 边界：缺中间级、无号续接段并入、caption 识别、表格挂载。
+- 边界：缺中间级、无号续接段并入、caption 挂载、表格挂载。
 
 **fixture 前提（关键）：**
 - 格式 A 可用现有 `12215131224082667446.json`（JTC5210）立即开工。
@@ -177,7 +181,14 @@ M2b 的 `tag_regions` 是按扁平 JTC5210 调的（靠"目次/附录/条文说�
 
 ## 10. 明确不解决（防范围蔓延）
 
-PP-Structure 的块边界混乱、列项缺失、区域乱码不再留到 M2c-1 之后，而是由前置的 M2b-2 处理：只有高确定性显式条款边界才拆，能归属的续文先写 `attached_to_element_id`，不确定块混排和不能修的问题进入 `quality_flags`。本 spec **只消费这些结果**：把已拆出的条款建进树，把归属续文并入对应节点，把 `quality_flags` 透传到节点/`treecheck`。本 spec 仍然**不生成三文本、不碰 PG/Milvus、不改检索、不自动补缺失文字、不猜测块内尾巴归属**。
+原计划由前置的 M2b-2 处理 PP-Structure 的块边界混乱 / 列项缺失 / 区域乱码，该层**已取消**（ROI 不划算）。这些引擎级问题在本 spec 里**作为已知局限接受**，不在建树时治：
+
+- **块中部埋号条款**：揉块"[上一条尾巴][块中部新条款号 N.M.K 正文]"中，`parse_clause_no`（只认块首）抠不到中部的号，该块被当无号正文**并入上一条**，于是这条埋号条款**不会成为独立树节点**（其文本仍在，但落在错误父条下）。交接文档判断真正受影响的真条款是少数，故先接受。
+- **列项缺失 / 区域乱码**：不自动标记（无人工复核闭环时标了也无人消费）。`suspect` 仅透传 M2b 已有的 seq/short。
+
+本 spec 仍然**不生成三文本、不碰 PG/Milvus、不改检索、不自动补缺失文字、不猜测块内尾巴归属**。
+
+> **未来选项（不进本期）**：若实测埋号条款影响显著，可在 `tree_builder` 走元素流时加一步「块中部扫号拆分」——复用 `parse_clause_no` 的守卫（命中点前为句号/分号/冒号、后跟中文标题、拒数值单位），把块中部的合法条款号拆成独立元素再建节点。这是当初 M2b-2 中唯一有真"修复"价值的点，作为可选增强保留在此备忘。
 
 ---
 

@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+paddlepaddle-gpu
+paddleocr
+pymupdf
+pillow
+numpy
