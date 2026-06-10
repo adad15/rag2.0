@@ -1,6 +1,10 @@
 #include <doctest/doctest.h>
 #include "retrieve/retrieval_chunk.h"
 
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+
 TEST_CASE("retrieval_chunk JSON round trip preserves cache and chunk fields") {
     RetrievalChunkCache cache;
     cache.standard_id = "sid";
@@ -226,4 +230,41 @@ TEST_CASE("retrieval chunks build context from the parent leaf group") {
     CHECK(c.context_text.find("边坡坍塌应按坍塌规模") != std::string::npos);
     CHECK(c.embedding_text.find("5.1.1 损坏类型") == std::string::npos);
     CHECK(c.embedding_text.find("5.1.3 边坡坍塌") == std::string::npos);
+}
+
+TEST_CASE("write_chunk_cache creates parent directories and writes readable JSON") {
+    RetrievalChunkCache cache;
+    cache.standard_id = "sid";
+    cache.standard_no = "JTC 5210-2018";
+
+    RetrievalChunk c;
+    c.chunk_id = "sid:5#main";
+    c.node_id = "sid:5";
+    c.standard_id = "sid";
+    c.standard_no = "JTC 5210-2018";
+    c.chunk_type = "body";
+    c.clause_no = "5";
+    c.title = "技术状况评定";
+    c.atomic_text = "5 技术状况评定\n正文";
+    c.embedding_text = "5 技术状况评定\n正文";
+    c.context_text = "路径：5 技术状况评定\n正文";
+    cache.chunks.push_back(c);
+
+    std::filesystem::path out = std::filesystem::temp_directory_path() /
+        "rag2_m2c2_chunk_cache_test" / "sid.json";
+    std::filesystem::remove(out);
+
+    write_chunk_cache(out.string(), cache);
+
+    REQUIRE(std::filesystem::exists(out));
+    std::ifstream f(out, std::ios::binary);
+    std::stringstream ss;
+    ss << f.rdbuf();
+    f.close();
+    RetrievalChunkCache round_trip = retrieval_chunk_cache_from_json(ss.str());
+    CHECK(round_trip.standard_id == "sid");
+    REQUIRE(round_trip.chunks.size() == 1);
+    CHECK(round_trip.chunks[0].chunk_id == "sid:5#main");
+
+    std::filesystem::remove(out);
 }

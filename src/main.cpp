@@ -13,6 +13,7 @@
 #include "parse/ocr_metrics.h"
 #include "structure/clause_tree.h"
 #include "structure/tree_builder.h"
+#include "retrieve/retrieval_chunk.h"
 #include "util/path_utf8.h"
 #include <memory>
 #include "embedding/cloud_embedding.h"
@@ -225,10 +226,74 @@ static int cmd_treecheck(const std::string& cache_path) {
     }
 }
 
+// 体检命令：读 tree_cache，生成检索 chunk，打印三文本统计，并写入 chunk_cache。
+static int cmd_chunkcheck(const std::string& tree_cache_path) {
+    try {
+        if (!std::filesystem::exists(tree_cache_path)) {
+            spdlog::error("树缓存文件不存在: {}", tree_cache_path);
+            return 1;
+        }
+
+        std::string js = read_file(tree_cache_path);
+        if (js.empty()) {
+            spdlog::error("树缓存文件为空: {}", tree_cache_path);
+            return 1;
+        }
+
+        ClauseTree tree = clause_tree_from_json(js);
+        RetrievalChunkCache cache = build_retrieval_chunk_cache(tree);
+
+        size_t atomic_chars = 0;
+        size_t embedding_chars = 0;
+        size_t context_chars = 0;
+        int with_caption = 0;
+        int with_formula = 0;
+        int with_table = 0;
+        int suspects = 0;
+        int empty_embedding = 0;
+        int long_embedding = 0;
+
+        for (const auto& c : cache.chunks) {
+            atomic_chars += c.atomic_text.size();
+            embedding_chars += c.embedding_text.size();
+            context_chars += c.context_text.size();
+            if (!c.captions.empty()) ++with_caption;
+            if (c.has_formula || !c.formulas.empty()) ++with_formula;
+            if (c.has_table) ++with_table;
+            if (!c.suspect.empty()) ++suspects;
+            if (c.embedding_text.empty()) ++empty_embedding;
+            if (c.embedding_text.size() > 2000) ++long_embedding;
+        }
+
+        size_t count = cache.chunks.size();
+        auto avg = [count](size_t total) -> size_t {
+            return count == 0 ? 0 : total / count;
+        };
+
+        std::string sid = tree.standard_id.empty() ? path_utf8::stem(tree_cache_path) : tree.standard_id;
+        std::string out = "data/chunk_cache/" + sid + ".json";
+        write_chunk_cache(out, cache);
+
+        spdlog::info("chunkcheck {} | standard_no={} format={}", sid, tree.standard_no, tree.format_profile);
+        spdlog::info("  chunks={}", count);
+        spdlog::info("  avg_atomic_chars={}", avg(atomic_chars));
+        spdlog::info("  avg_embedding_chars={}", avg(embedding_chars));
+        spdlog::info("  avg_context_chars={}", avg(context_chars));
+        spdlog::info("  with_caption={} with_formula={} with_table={}", with_caption, with_formula, with_table);
+        spdlog::info("  suspect={} empty_embedding={} long_embedding_over_2000={}",
+                     suspects, empty_embedding, long_embedding);
+        spdlog::info("  已写 {}", out);
+        return empty_embedding == 0 ? 0 : 1;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] chunkcheck: {}", e.what());
+        return 1;
+    }
+}
+
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
-        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck> [args]\n";
+        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck> [args]\n";
         return 1;
     }
     Config cfg = Config::from_json_file("config.json");
@@ -263,6 +328,10 @@ int main(int argc, char** argv) {
     if (cmd == "treecheck") {
         if (argc < 3) { std::cout << "usage: rag2 treecheck <parse_cache.json>\n"; return 1; }
         return cmd_treecheck(argv[2]);
+    }
+    if (cmd == "chunkcheck") {
+        if (argc < 3) { std::cout << "usage: rag2 chunkcheck <tree_cache.json>\n"; return 1; }
+        return cmd_chunkcheck(argv[2]);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;
