@@ -1,7 +1,9 @@
 #include "retrieve/retrieval_chunk.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -33,12 +35,148 @@ std::vector<std::string> string_array_value(const json& j, const char* key) {
     return out;
 }
 
+std::string trim_ascii_space(const std::string& s) {
+    size_t begin = 0;
+    while (begin < s.size() && (s[begin] == ' ' || s[begin] == '\t' || s[begin] == '\r' || s[begin] == '\n')) ++begin;
+    size_t end = s.size();
+    while (end > begin && (s[end - 1] == ' ' || s[end - 1] == '\t' || s[end - 1] == '\r' || s[end - 1] == '\n')) --end;
+    return s.substr(begin, end - begin);
+}
+
+void append_line(std::string& out, const std::string& line) {
+    std::string text = trim_ascii_space(line);
+    if (text.empty()) return;
+    if (!out.empty()) out += "\n";
+    out += text;
+}
+
+void append_section(std::string& out, const std::string& heading, const std::vector<std::string>& lines,
+                    size_t max_count, size_t max_chars) {
+    std::vector<std::string> kept;
+    size_t chars = 0;
+    for (const auto& raw : lines) {
+        std::string line = trim_ascii_space(raw);
+        if (line.empty()) continue;
+        if (std::find(kept.begin(), kept.end(), line) != kept.end()) continue;
+        if (kept.size() >= max_count) break;
+        if (chars + line.size() > max_chars) break;
+        chars += line.size();
+        kept.push_back(line);
+    }
+    if (kept.empty()) return;
+    if (!out.empty()) out += "\n\n";
+    out += heading;
+    for (const auto& line : kept) {
+        out += "\n";
+        out += line;
+    }
+}
+
+std::string node_label(const TreeNode& n) {
+    std::string label;
+    append_line(label, n.number + (n.title.empty() ? "" : " " + n.title));
+    if (label.empty()) append_line(label, n.title);
+    if (label.empty()) append_line(label, n.number);
+    return label;
+}
+
+std::map<std::string, const TreeNode*> index_nodes(const ClauseTree& tree) {
+    std::map<std::string, const TreeNode*> by_id;
+    for (const auto& n : tree.nodes) by_id[n.node_id] = &n;
+    return by_id;
+}
+
+std::vector<const TreeNode*> ancestor_chain(const TreeNode& n, const std::map<std::string, const TreeNode*>& by_id) {
+    std::vector<const TreeNode*> reversed;
+    std::string current = n.parent_id;
+    while (!current.empty()) {
+        auto it = by_id.find(current);
+        if (it == by_id.end()) break;
+        reversed.push_back(it->second);
+        current = it->second->parent_id;
+    }
+    std::reverse(reversed.begin(), reversed.end());
+    return reversed;
+}
+
+std::string path_text_for(const TreeNode& n, const std::map<std::string, const TreeNode*>& by_id) {
+    std::vector<std::string> labels;
+    for (const TreeNode* parent : ancestor_chain(n, by_id)) {
+        std::string label = node_label(*parent);
+        if (!label.empty()) labels.push_back(label);
+    }
+    std::string self = node_label(n);
+    if (!self.empty()) labels.push_back(self);
+
+    std::string out;
+    for (const auto& label : labels) {
+        if (!out.empty()) out += " > ";
+        out += label;
+    }
+    return out;
+}
+
+std::string compose_atomic_text(const TreeNode& n) {
+    std::string out;
+    append_line(out, node_label(n));
+    append_line(out, n.text);
+    append_section(out, "公式：", n.formulas, 5, 1200);
+    return out;
+}
+
+std::string compose_embedding_text(const TreeNode& n) {
+    std::string out;
+    append_line(out, node_label(n));
+    append_line(out, n.text);
+    append_section(out, "相关图表题：", n.captions, 3, 1200);
+    append_section(out, "公式：", n.formulas, 5, 1200);
+    return out;
+}
+
+std::string chunk_type_for(const TreeNode& n) {
+    if (n.node_id.find(":appendix:") != std::string::npos) return "appendix";
+    if (n.node_id.find(":explanation:") != std::string::npos) return "explanation";
+    return "body";
+}
+
+RetrievalChunk chunk_from_leaf(const ClauseTree& tree, const TreeNode& n,
+                               const std::map<std::string, const TreeNode*>& by_id) {
+    RetrievalChunk c;
+    c.chunk_id = n.node_id + "#main";
+    c.node_id = n.node_id;
+    c.standard_id = tree.standard_id;
+    c.standard_no = tree.standard_no;
+    c.chunk_type = chunk_type_for(n);
+    c.clause_no = n.number;
+    c.title = n.title;
+    c.path_text = path_text_for(n, by_id);
+    c.atomic_text = compose_atomic_text(n);
+    c.embedding_text = compose_embedding_text(n);
+    c.context_text = c.atomic_text;
+    c.captions = n.captions;
+    c.formulas = n.formulas;
+    c.page_start = n.page_start;
+    c.page_end = n.page_end;
+    c.has_table = n.has_table;
+    c.has_formula = n.has_formula;
+    c.has_figure = n.has_figure;
+    c.suspect = n.suspect;
+    return c;
+}
+
 }  // namespace
 
 RetrievalChunkCache build_retrieval_chunk_cache(const ClauseTree& tree) {
     RetrievalChunkCache cache;
     cache.standard_id = tree.standard_id;
     cache.standard_no = tree.standard_no;
+
+    auto by_id = index_nodes(tree);
+    for (const auto& n : tree.nodes) {
+        if (!n.is_leaf) continue;
+        cache.chunks.push_back(chunk_from_leaf(tree, n, by_id));
+    }
+
     return cache;
 }
 
