@@ -6,6 +6,8 @@ TEST_CASE("is_caption_label: 靠 raw_label 或前缀判图表题") {
     CHECK(is_caption_label("figure_title", "图3.0.3指标体系"));
     CHECK(is_caption_label("", "表 A-1路基损坏调查表"));     // 前缀兜底
     CHECK(is_caption_label("", "续表7.5.1"));                 // 前缀兜底
+    CHECK_FALSE(is_caption_label("vision_footnote", "图中：MQI——公路技术状况指数"));
+    CHECK_FALSE(is_caption_label("", "表中：PCI——路面损坏状况指数"));
     CHECK_FALSE(is_caption_label("paragraph_title", "5.2.1龟裂应按面积计算"));
 }
 
@@ -96,6 +98,27 @@ TEST_CASE("tag_regions: 正文里的'条文说明'文本块不误锁（须 Headi
     CHECK(els[2].region == Region::Body);          // 仍正文
     CHECK(els[3].region == Region::Explanation);   // Heading 条文说明 才切
     CHECK(els[4].region == Region::Explanation);
+}
+
+TEST_CASE("tag_regions: appendix 后的独立条文说明文本切到 explanation") {
+    auto H = [](const std::string& t){ ParseElement e; e.type=ElementType::Heading; e.title=t; e.source="ppstructure"; return e; };
+    auto T = [](const std::string& t){ ParseElement e; e.type=ElementType::Text; e.text=t; e.source="ppstructure"; return e; };
+    std::vector<ParseElement> els = {
+        H("1总则"),
+        H("附录C 路面弯沉标准值计算方法"),
+        T("C.0.4公路沥青路面结构性修复设计年限应根据设计文件确定。"),
+        T("条文说明"),
+        H("1总则"),
+        T("1.0.1本标准属于现行公路工程标准体系。"),
+    };
+    apply_clause_extraction(els);
+    tag_regions(els);
+    CHECK(els[0].region == Region::Body);
+    CHECK(els[1].region == Region::Appendix);
+    CHECK(els[2].region == Region::Appendix);
+    CHECK(els[3].region == Region::Explanation);
+    CHECK(els[4].region == Region::Explanation);
+    CHECK(els[5].region == Region::Explanation);
 }
 
 TEST_CASE("normalize_parsed_doc: 丢弃独立英文糊块、跑全链") {

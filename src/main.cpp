@@ -11,6 +11,9 @@
 #include "parse/ocr_backend.h"
 #include "parse/parse_cache.h"
 #include "parse/ocr_metrics.h"
+#include "structure/clause_tree.h"
+#include "structure/tree_builder.h"
+#include "util/path_utf8.h"
 #include <memory>
 #include "embedding/cloud_embedding.h"
 #include "ingest/ingest_pipeline.h"
@@ -19,6 +22,7 @@
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <sstream>
 
 static std::string read_file(const std::string& path) {
@@ -178,10 +182,53 @@ static int cmd_ocrcheck(const std::string& cache_path) {
     }
 }
 
+// 体检命令：读 parse_cache，构建条款树，打印统计，并写入 tree_cache。
+static int cmd_treecheck(const std::string& cache_path) {
+    try {
+        if (!std::filesystem::exists(cache_path)) {
+            spdlog::error("缓存文件不存在: {}", cache_path);
+            return 1;
+        }
+        std::string js = read_file(cache_path);
+        if (js.empty()) {
+            spdlog::error("缓存文件为空: {}", cache_path);
+            return 1;
+        }
+
+        ParsedDoc doc = parsed_doc_from_json(js);
+        std::string sid = path_utf8::stem(cache_path);
+        ClauseTree t = build_clause_tree(doc, sid);
+
+        std::map<int, int> level_hist;
+        int leaves = 0;
+        int suspects = 0;
+        for (const auto& n : t.nodes) {
+            ++level_hist[n.level];
+            if (n.is_leaf) ++leaves;
+            if (!n.suspect.empty()) ++suspects;
+        }
+
+        spdlog::info("treecheck {} | format={} standard_no={}", sid, t.format_profile, t.standard_no);
+        spdlog::info("  节点总数={} 叶子(检索单元)={} 可疑={}", t.nodes.size(), leaves, suspects);
+        for (const auto& kv : level_hist) {
+            spdlog::info("  L{} 数量={}", kv.first, kv.second);
+        }
+        spdlog::info("  page_clause_map 覆盖页数={}", t.page_clause_map.size());
+
+        std::string out = "data/tree_cache/" + sid + ".json";
+        write_tree_cache(out, t);
+        spdlog::info("  已写 {}", out);
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] treecheck: {}", e.what());
+        return 1;
+    }
+}
+
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
-        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck> [args]\n";
+        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck> [args]\n";
         return 1;
     }
     Config cfg = Config::from_json_file("config.json");
@@ -212,6 +259,10 @@ int main(int argc, char** argv) {
     if (cmd == "ocrcheck") {
         if (argc < 3) { std::cout << "usage: rag2 ocrcheck <parse_cache.json>\n"; return 1; }
         return cmd_ocrcheck(argv[2]);
+    }
+    if (cmd == "treecheck") {
+        if (argc < 3) { std::cout << "usage: rag2 treecheck <parse_cache.json>\n"; return 1; }
+        return cmd_treecheck(argv[2]);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;

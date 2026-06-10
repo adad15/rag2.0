@@ -103,12 +103,22 @@
     <ClCompile Include="..\tests\test_parse_cache_m2b.cpp" />
     <ClCompile Include="..\tests\test_m2b_integration.cpp" />
     <ClCompile Include="..\tests\test_ocr_metrics.cpp" />
+    <ClCompile Include="..\tests\test_clause_tree.cpp" />
+    <ClCompile Include="..\tests\test_format_profile.cpp" />
+    <ClCompile Include="..\tests\test_toc_parser.cpp" />
+    <ClCompile Include="..\tests\test_region_segmenter.cpp" />
+    <ClCompile Include="..\tests\test_tree_builder.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
     <ClCompile Include="..\src\parse\clause_no.cpp" />
     <ClCompile Include="..\src\parse\ocr_normalize.cpp" />
     <ClCompile Include="..\src\parse\ocr_metrics.cpp" />
     <ClCompile Include="..\src\parse\hybrid_parser.cpp" />
     <ClCompile Include="..\src\parse\parser_factory.cpp" />
+    <ClCompile Include="..\src\structure\clause_tree.cpp" />
+    <ClCompile Include="..\src\structure\format_profile.cpp" />
+    <ClCompile Include="..\src\structure\toc_parser.cpp" />
+    <ClCompile Include="..\src\structure\region_segmenter.cpp" />
+    <ClCompile Include="..\src\structure\tree_builder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -139,6 +149,11 @@
     <ClInclude Include="..\src\parse\ocr_metrics.h" />
     <ClInclude Include="..\src\parse\hybrid_parser.h" />
     <ClInclude Include="..\src\parse\parser_factory.h" />
+    <ClInclude Include="..\src\structure\clause_tree.h" />
+    <ClInclude Include="..\src\structure\format_profile.h" />
+    <ClInclude Include="..\src\structure\toc_parser.h" />
+    <ClInclude Include="..\src\structure\region_segmenter.h" />
+    <ClInclude Include="..\src\structure\tree_builder.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

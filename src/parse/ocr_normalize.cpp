@@ -10,6 +10,8 @@ static bool starts_with_trimmed(const std::string& s, const std::string& pre) {
 }
 
 bool is_caption_label(const std::string& raw_label, const std::string& title) {
+    if (starts_with_trimmed(title, "图中") || starts_with_trimmed(title, "表中"))
+        return false;
     if (raw_label == "table_title" || raw_label == "figure_title" || raw_label == "chart_title")
         return true;
     // 前缀兜底：图 / 表 / 续表 / 附图 / 附表（允许前导空白）
@@ -61,7 +63,7 @@ void tag_regions(std::vector<ParseElement>& els) {
         // 区域标题切换：必须是 Heading（独立章级标题）才切——避免正文里含"条文说明"的
         // text 块误触发(JTG 3432 实例:一个 text 块="条文说明" 曾把 99% 正文锁进 explanation)。
         const bool heading = (e.type == ElementType::Heading);
-        if (heading && starts_with_trimmed(t, "条文说明")) cur = Region::Explanation;
+        if ((heading || cur == Region::Appendix) && starts_with_trimmed(t, "条文说明")) cur = Region::Explanation;
         else if (heading && starts_with_trimmed(t, "附录")) cur = Region::Appendix;
         else if (!body_started && heading && starts_with_trimmed(t, "目次")) cur = Region::Toc;
 

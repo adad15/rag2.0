@@ -4,7 +4,7 @@
 
 **Goal（一句话）:** 把 M2b 产出的扁平 `parse_cache/<id>.json` 元素流，整理成一棵"抽象层级的条款树"（带页码映射），写到 `data/tree_cache/<id>.json`，并提供 `treecheck` 命令体检。
 
-**Architecture（大白话）:** 读缓存 → 先看目录判断这本是"普通规范"还是"试验合订本"、选对应规则 → 按阅读顺序走一遍元素，边走边用"我现在在谁底下"的栈把它们搭成上下级 → 最末一级带正文的当作检索单元（叶子）→ 给每条起一个带完整路径的唯一名字 → 存盘。**纯 C++ 转换，不碰数据库、不碰向量、不改检索。**
+**Architecture（大白话）:** 读缓存 → 先看目录判断这本是"普通规范"还是"试验合订本"、选对应规则 → 按阅读顺序走一遍元素，边走边用"我现在在谁底下"的栈把它们搭成上下级 → 达到该格式检索层级的节点当作检索单元（层级不足则取最深节点，层级过深则并入当前检索单元）→ 给每条起一个带完整路径的唯一名字 → 存盘。**纯 C++ 转换，不碰数据库、不碰向量、不改检索。**
 
 **Tech Stack:** C++17、doctest（测试）、nlohmann/json（读写 JSON）、spdlog（日志）、MSBuild + vcpkg。
 
@@ -62,6 +62,30 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 
 ---
 
+## 2026-06-08 回归修复任务：caption / 附录 / 表格公式 / 页全文公式 / 条文说明
+
+**背景：** JTC5210 真实 `parse_cache` 抽查确认，模型原始输出里已经包含正式附录、表格 HTML、公式/表达式文本和条文说明边界；其中部分公式主体只存在于 `pages[].text` 页全文，而没有进入 `elements[]` 结构化块。问题出在 M2b/M2c 归一化与建树规则没有完整消费这些信息。
+
+**Bug 与修复：**
+
+- [x] `图中/表中` 说明文本误入 `captions`：在 M2b `is_caption_label` 与 M2c `looks_like_caption` 双层排除，回归测试覆盖旧缓存里 `is_caption=true` 的遗留错误。
+- [x] 正式附录不入树：在 Appendix 区域识别 `附录A/B/C` 为 L1 节点，识别 `B.0.1/C.0.1` 等字母条款为附录子节点；附录 A 这类以表格为主体的内容至少形成可挂载节点。
+- [x] 表格/显式公式块不落 tree_cache：`TreeNode` 增加 `table_htmls`、`formulas`、`has_formula`；`Table` 保存 `table_html`，`Formula` 保存文本并并入节点 `text`，图片本体仍不进入本阶段缓存。
+- [x] `pages[].text` 有独立公式但 `elements[]` 缺公式块：`tree_builder` 从页全文按页内最近条款号回填独立公式行到对应 `TreeNode.text/formulas`，并置 `has_formula=true`；只处理无中文、含等号和数学标记的独立行，避免把普通内联数学表达式都升级成公式。
+- [x] `条文说明` 被 appendix 污染：`tag_regions` 处理 Appendix 后独立 `条文说明` 文本；`region_segmenter` 也做同样兜底，以便旧 parse_cache 不重跑 OCR 也能正确分组。
+
+**验证：**
+
+```powershell
+.\rag2.0.tests\x64\Debug\rag2.0.tests.exe -tc="tree_builder builds formal appendix roots and lettered appendix clauses"
+.\rag2.0.tests\x64\Debug\rag2.0.tests.exe -tc="tree_builder keeps table html and formula text as node attachments"
+.\rag2.0.tests\x64\Debug\rag2.0.tests.exe -tc="tree_builder backfills standalone formula lines from page text when elements omit them"
+.\rag2.0.tests\x64\Debug\rag2.0.tests.exe -tc="segment_regions promotes appendix-tagged explanation marker to explanation"
+.\rag2.0\x64\Debug\rag2.0.exe treecheck data\parse_cache\12215131224082667446.json
+```
+
+---
+
 ## Task 1: 树的数据结构 + JSON 互转
 
 **大白话:** 先把"一个节点长啥样""整棵树长啥样"定下来，并能存成 JSON、再读回来（往返不丢东西）。这是后面所有任务的地基。
@@ -83,7 +107,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 
 // 一个条款树节点。nodes 扁平存，靠 node_id / parent_id / child_ids 串联。
 struct TreeNode {
-    std::string node_id;     // 路径式唯一名: "<sid>:5/5.2/5.2.6" | "<sid>:4/T0306-1994/2/2.1"
+    std::string node_id;     // 路径式唯一名: "<sid>:5/5.2/5.2.6" | "<sid>:4/T0306-1994/2"
     int level = 0;           // 抽象层级 1/2/3...(由 format_profile 给)
     std::string number;      // 原始号: "5.2.6" | "T 0306—1994" | ""(虚拟节点)
     std::string title;       // 标题文本
@@ -92,7 +116,7 @@ struct TreeNode {
     int page_end = 0;
     std::string parent_id;
     std::vector<std::string> child_ids;
-    bool is_leaf = false;    // 检索单元(分支终端号节点)
+    bool is_leaf = false;    // 检索单元(格式定义检索层级, 或分支最深级)
     bool has_table = false;  // 含表格(table_html 留给后续 spec)
     bool has_figure = false; // 含图/图表题; 图片本体路径留给 M7/M8
     std::vector<std::string> captions; // 图/表/图表题附件, M2c-2 并入 retrieval_text
@@ -301,9 +325,10 @@ bool is_test_number(const std::string& s);
 // 把一个号翻译成抽象层级(1 起)。返回 0 表示不是结构号(不建节点)。
 //  - A_decimal: "5"->1, "5.1"->2, "5.1.1"->3; "N.0.K"(中段为0,占位)折叠少一级 -> "1.0.1"->2
 //  - B_testno : 试验号->2; 根作用域(in_test_scope=false)同 A; 试验内(true): "2"->3,"2.1"->4,"2.1.5"->5
+//                tree_builder 会把深于 retrieval_depth 的编号并入当前检索节点正文。
 int level_for(FormatProfile profile, const std::string& number, bool in_test_scope);
 
-// 该格式预期检索深度(A=3, B=4)。仅作参考, 实际叶子按"分支终端"取。
+// 该格式预期检索深度(A=3, B=3)。深于该深度的编号并入当前检索节点正文。
 int retrieval_depth(FormatProfile profile);
 
 FormatProfile profile_from_string(const std::string& s);
@@ -350,13 +375,13 @@ TEST_CASE("level_for B_testno: 试验号 + 作用域内重启编号") {
     CHECK(level_for(B, "4", false) == 1);            // 根的章
     CHECK(level_for(B, "2.1", false) == 2);          // 根下真实小节(如术语章)
     CHECK(level_for(B, "2", true) == 3);             // 试验内的节
-    CHECK(level_for(B, "2.1", true) == 4);           // 试验内的条
-    CHECK(level_for(B, "2.1.5", true) == 5);         // 试验内的款
+    CHECK(level_for(B, "2.1", true) == 4);           // 试验内细项, 建树时并入 L3
+    CHECK(level_for(B, "2.1.5", true) == 5);         // 更细项, 建树时并入 L3
 }
 
 TEST_CASE("retrieval_depth") {
     CHECK(retrieval_depth(FormatProfile::A_decimal) == 3);
-    CHECK(retrieval_depth(FormatProfile::B_testno) == 4);
+    CHECK(retrieval_depth(FormatProfile::B_testno) == 3);
 }
 ```
 
@@ -424,8 +449,8 @@ int level_for(FormatProfile profile, const std::string& number, bool in_test_sco
     return d + 1;                       // "5"->1, "5.1"->2, "5.1.1"->3
 }
 
-int retrieval_depth(FormatProfile profile) {
-    return profile == FormatProfile::B_testno ? 4 : 3;
+int retrieval_depth(FormatProfile /*profile*/) {
+    return 3; // A_decimal 与 B_testno 当前都以 L3 作为默认检索深度
 }
 
 FormatProfile profile_from_string(const std::string& s) {
@@ -1041,7 +1066,7 @@ for (const ParseElement* e : group.elements) {
 
 在 `build_clause_tree` 的 `return t;` 之前，加"标叶子"：
 ```cpp
-// 标叶子: 没有子节点的为分支终端(检索单元)
+// 标叶子: 深于检索层级的编号已被折叠后, 没有子节点的就是检索单元
 for (auto& n : t.nodes) n.is_leaf = n.child_ids.empty();
 ```
 
@@ -1152,7 +1177,7 @@ git commit -m "feat(m2c1): node page ranges + page_clause_map"
 
 ## Task 8: 合订本支持（格式 B：试验号 + 内部重启编号）
 
-**大白话:** 现在让建树器认合订本。看到 `T 0306—1994` 就建一个二级节点、并记住"我进了这个试验"；进去之后里头的 `1/2/3` 算三级、`2.1` 算四级；遇到下一个 `T` 号或回到根的章，就切换/退出试验。靠路径式名字保证几十个 `2.1` 不撞。
+**大白话:** 现在让建树器认合订本。看到 `T 0306—1994` 就建一个二级节点、并记住"我进了这个试验"；进去之后里头的 `1/2/3` 算三级并作为检索单元，`2.1/2.2` 等更细项只并入当前三级正文；遇到下一个 `T` 号或回到根的章，就切换/退出试验。靠路径式名字保证几十个试验里的 `2` 不撞。
 
 **Files:**
 - Modify: `src/structure/tree_builder.cpp`
@@ -1172,25 +1197,29 @@ TEST_CASE("格式B: 试验号建二级, 内部重启编号, 重号不撞") {
         body("4", "粗集料试验", 20),                       // 章 L1
         testno("T 0302—2024 粗集料的筛分试验", 20),         // 试验号 L2
         body("2", "仪具与材料", 20),                        // 试验内节 L3
-        body("2.1", "2.1 天平：感量……", 20),               // 试验内条 L4
+        body("2.1", "2.1 天平：感量……", 20),               // 试验内细项 L4, 并入 L3
         testno("T 0306—1994 粗集料含水率快速试验", 46),      // 另一个试验
         body("2", "仪具与材料", 46),                        // 又一个"2"
-        body("2.1", "2.1 天平：感量不大于……", 46),          // 又一个"2.1"
+        body("2.1", "2.1 天平：感量不大于……", 46),          // 又一个"2.1", 并入另一个 L3
     };
     ClauseTree t = build_clause_tree(d, "sid");
     CHECK(t.format_profile == "B_testno");
 
     // 试验号节点 number = 抽出的试验号(不含后面的名字); sanitize 去空格+破折号归一化为 ASCII
     const TreeNode* t0302 = find(t, "sid:4/T0302-2024");
-    // 路径式名字: 两个试验下的 2.1 不撞
-    const TreeNode* a = find(t, "sid:4/T0302-2024/2/2.1");
-    const TreeNode* b = find(t, "sid:4/T0306-1994/2/2.1");
+    // 路径式名字: 两个试验下的 2 不撞; 2.1 不单独建检索节点
+    const TreeNode* a = find(t, "sid:4/T0302-2024/2");
+    const TreeNode* b = find(t, "sid:4/T0306-1994/2");
     REQUIRE(t0302); REQUIRE(a); REQUIRE(b);
     CHECK(t0302->level == 2);
-    CHECK(a->level == 4);
-    CHECK(b->level == 4);
+    CHECK(a->level == 3);
+    CHECK(b->level == 3);
+    CHECK(find(t, "sid:4/T0302-2024/2/2.1") == nullptr);
+    CHECK(find(t, "sid:4/T0306-1994/2/2.1") == nullptr);
     CHECK(a->node_id != b->node_id);          // 不撞
     CHECK(a->is_leaf == true);
+    CHECK(a->text.find("2.1 天平") != std::string::npos);
+    CHECK(b->text.find("2.1 天平") != std::string::npos);
 }
 ```
 
@@ -1266,6 +1295,14 @@ for (const ParseElement* e : group.elements) {
         }
         continue;
     }
+    if (lvl > retrieval_depth(profile)) { // 深于检索层级: 并入当前检索节点, 不单独建节点
+        if (current_leaf >= 0) {
+            if (!t.nodes[current_leaf].text.empty()) t.nodes[current_leaf].text += "\n";
+            t.nodes[current_leaf].text += e->text;
+            if (e->page_no > t.nodes[current_leaf].page_end) t.nodes[current_leaf].page_end = e->page_no;
+        }
+        continue;
+    }
     // f) 弹栈到父
     while (!stack.empty() && stack.back().second >= lvl) stack.pop_back();
     int parent_idx = stack.empty() ? -1 : stack.back().first;
@@ -1279,7 +1316,7 @@ for (const ParseElement* e : group.elements) {
 }
 ```
 
-> 关键顺序：`level_for` 用 `in_test_scope` 的**旧值**，建完节点后再更新。试验号自身 `lvl==2`，挂在根的章下；其后续 `1/2/3` 在 `in_test_scope=true` 下算第 3 级、`2.1` 算第 4 级。
+> 关键顺序：`level_for` 用 `in_test_scope` 的**旧值**，建完节点后再更新。试验号自身 `lvl==2`，挂在根的章下；其后续 `1/2/3` 在 `in_test_scope=true` 下算第 3 级并建检索节点；`2.1` 算第 4 级，但深于 B 的检索深度，所以并入当前 L3 正文。
 
 - [ ] **Step 4: 跑测试确认通过**
 
@@ -1357,7 +1394,7 @@ int add(int parent_idx, int level, const std::string& number,
 }
 ```
 
-(2) 把 Task 8 循环里的 **f) 弹栈到父 + g) 建节点** 两段（从 `while (!stack.empty()...` 到 `current_leaf = idx;`）替换为下面这版（h) 更新试验作用域保持不变，仍在其后）：
+(2) 把 Task 8 循环里的 **f) 弹栈到父 + g) 建节点** 两段（从 `while (!stack.empty()...` 到 `current_leaf = idx;`）替换为下面这版（深于检索层级的并入分支保持在这段之前；h) 更新试验作用域保持不变，仍在其后）：
 
 ```cpp
     // f) 弹栈到父
@@ -1529,5 +1566,5 @@ Expected（量级核对，不必精确）：
 
 ## ⏭️ 后续（不在本计划内，仅备忘）
 
-- **格式 B 真实验收的前置（task-zero）**：需先 `ingest` 一本汇编规范（如集料试验规程汇编）生成 `parse_cache`，再 `treecheck` 它，核对 `format=B_testno`、L2=试验号、L4 叶子=条、重号不撞。本计划已用合成数据覆盖格式 B 的逻辑单测；真实验收等有缓存后补。
+- **格式 B 真实验收的前置（task-zero）**：需先 `ingest` 一本汇编规范（如集料试验规程汇编）生成 `parse_cache`，再 `treecheck` 它，核对 `format=B_testno`、L2=试验号、L3=试验内检索单元、`2.1/2.2` 等细项并入 L3 正文、重号不撞。本计划已用合成数据覆盖格式 B 的逻辑单测；真实验收等有缓存后补。
 - **M2c-2**（三文本）、**M2c-3**（PG/Milvus + 接进 ingest）、**M2c-4**（§4 引擎垃圾修复）各自另立计划。
