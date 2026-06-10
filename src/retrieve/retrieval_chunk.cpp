@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <regex>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -133,6 +134,52 @@ std::string compose_embedding_text(const TreeNode& n) {
     return out;
 }
 
+std::string normalize_dashes(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size();) {
+        if (i + 2 < s.size() &&
+            static_cast<unsigned char>(s[i]) == 0xE2 &&
+            static_cast<unsigned char>(s[i + 1]) == 0x80 &&
+            (static_cast<unsigned char>(s[i + 2]) == 0x94 ||
+             static_cast<unsigned char>(s[i + 2]) == 0x93)) {
+            out += '-';
+            i += 3;
+            continue;
+        }
+        out += s[i++];
+    }
+    return out;
+}
+
+std::string remove_ascii_spaces(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s) {
+        if (c != ' ' && c != '\t') out += c;
+    }
+    return out;
+}
+
+std::string extract_method_no_from_text(const std::string& s) {
+    static const std::regex re(R"(T\s*\d{4}\s*-\s*\d{4})");
+    std::smatch m;
+    std::string normalized = normalize_dashes(s);
+    if (!std::regex_search(normalized, m, re)) return "";
+    return remove_ascii_spaces(m.str(0));
+}
+
+std::string method_no_for(const TreeNode& n, const std::map<std::string, const TreeNode*>& by_id) {
+    std::string self = extract_method_no_from_text(n.number + " " + n.title + " " + n.node_id);
+    if (!self.empty()) return self;
+    std::vector<const TreeNode*> ancestors = ancestor_chain(n, by_id);
+    for (auto it = ancestors.rbegin(); it != ancestors.rend(); ++it) {
+        std::string found = extract_method_no_from_text((*it)->number + " " + (*it)->title + " " + (*it)->node_id);
+        if (!found.empty()) return found;
+    }
+    return "";
+}
+
 std::string chunk_type_for(const TreeNode& n) {
     if (n.node_id.find(":appendix:") != std::string::npos) return "appendix";
     if (n.node_id.find(":explanation:") != std::string::npos) return "explanation";
@@ -148,6 +195,7 @@ RetrievalChunk chunk_from_leaf(const ClauseTree& tree, const TreeNode& n,
     c.standard_no = tree.standard_no;
     c.chunk_type = chunk_type_for(n);
     c.clause_no = n.number;
+    c.method_no = method_no_for(n, by_id);
     c.title = n.title;
     c.path_text = path_text_for(n, by_id);
     c.atomic_text = compose_atomic_text(n);

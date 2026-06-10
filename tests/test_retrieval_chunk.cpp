@@ -140,3 +140,53 @@ TEST_CASE("build_retrieval_chunk_cache creates one dense-safe chunk per leaf") {
     REQUIRE(c.formulas.size() == 1);
     CHECK(c.formulas[0] == "MQI = SCI + PQI + BCI + TCI");
 }
+
+TEST_CASE("retrieval chunks keep T method numbers as metadata outside embedding text") {
+    ClauseTree tree;
+    tree.standard_id = "sid";
+    tree.standard_no = "JTG 3432-2024";
+    tree.format_profile = "B_testno";
+
+    TreeNode chapter = make_node("sid:4", "4", "集料试验", "", false);
+    chapter.child_ids = {"sid:4/T0302-2024"};
+
+    TreeNode method = make_node("sid:4/T0302-2024", "T 0302-2024", "集料筛分试验", "", false, "sid:4");
+    method.child_ids = {"sid:4/T0302-2024/2"};
+
+    TreeNode leaf = make_node("sid:4/T0302-2024/2", "2", "仪具与材料",
+                              "天平、标准筛、烘箱。", true, "sid:4/T0302-2024");
+
+    tree.nodes = {chapter, method, leaf};
+
+    RetrievalChunkCache cache = build_retrieval_chunk_cache(tree);
+
+    REQUIRE(cache.chunks.size() == 1);
+    const RetrievalChunk& c = cache.chunks[0];
+    CHECK(c.method_no == "T0302-2024");
+    CHECK(c.path_text == "4 集料试验 > T 0302-2024 集料筛分试验 > 2 仪具与材料");
+    CHECK(c.embedding_text.find("仪具与材料") != std::string::npos);
+    CHECK(c.embedding_text.find("天平") != std::string::npos);
+    CHECK(c.embedding_text.find("T0302") == std::string::npos);
+    CHECK(c.embedding_text.find("T 0302") == std::string::npos);
+    CHECK(c.embedding_text.find("集料筛分试验") == std::string::npos);
+    CHECK(c.embedding_text.find("JTG 3432") == std::string::npos);
+}
+
+TEST_CASE("retrieval chunks classify appendix and explanation chunks from node id") {
+    ClauseTree tree;
+    tree.standard_id = "sid";
+    tree.standard_no = "JTC 5210-2018";
+    tree.format_profile = "A_decimal";
+
+    TreeNode appendix = make_node("sid:appendix:B/B.0.1", "B.0.1", "路面跳车计算方法",
+                                  "路面跳车应根据纵断面高差确定。", true);
+    TreeNode explanation = make_node("sid:explanation:5/5.1/5.1.2", "5.1.2", "条文说明",
+                                     "本条说明路基沉降评定依据。", true);
+    tree.nodes = {appendix, explanation};
+
+    RetrievalChunkCache cache = build_retrieval_chunk_cache(tree);
+
+    REQUIRE(cache.chunks.size() == 2);
+    CHECK(cache.chunks[0].chunk_type == "appendix");
+    CHECK(cache.chunks[1].chunk_type == "explanation");
+}
