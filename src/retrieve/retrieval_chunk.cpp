@@ -186,6 +186,63 @@ std::string chunk_type_for(const TreeNode& n) {
     return "body";
 }
 
+std::string leaf_text_for_context(const TreeNode& n) {
+    std::string out;
+    append_line(out, node_label(n));
+    append_line(out, n.text);
+    return out;
+}
+
+void collect_leaf_descendants(const TreeNode& parent,
+                              const std::map<std::string, const TreeNode*>& by_id,
+                              std::vector<const TreeNode*>& out) {
+    for (const auto& child_id : parent.child_ids) {
+        auto it = by_id.find(child_id);
+        if (it == by_id.end()) continue;
+        const TreeNode* child = it->second;
+        if (child->is_leaf) {
+            out.push_back(child);
+        } else {
+            collect_leaf_descendants(*child, by_id, out);
+        }
+    }
+}
+
+std::vector<const TreeNode*> context_leaves_for(const TreeNode& n,
+                                                const std::map<std::string, const TreeNode*>& by_id) {
+    auto parent_it = by_id.find(n.parent_id);
+    if (parent_it == by_id.end()) return {&n};
+
+    std::vector<const TreeNode*> leaves;
+    collect_leaf_descendants(*parent_it->second, by_id, leaves);
+    if (leaves.empty()) return {&n};
+    return leaves;
+}
+
+std::string compose_context_text(const TreeNode& n, const std::map<std::string, const TreeNode*>& by_id) {
+    constexpr size_t max_chars = 6000;
+    std::string out = "路径：" + path_text_for(n, by_id);
+
+    std::vector<const TreeNode*> leaves = context_leaves_for(n, by_id);
+    for (const TreeNode* leaf : leaves) {
+        std::string part = leaf_text_for_context(*leaf);
+        if (part.empty()) continue;
+        if (out.size() + part.size() + 2 > max_chars && leaf->node_id != n.node_id) continue;
+        out += "\n\n";
+        out += part;
+    }
+
+    if (out.find(n.text) == std::string::npos) {
+        std::string current = leaf_text_for_context(n);
+        if (!current.empty()) {
+            out += "\n\n";
+            out += current;
+        }
+    }
+
+    return out;
+}
+
 RetrievalChunk chunk_from_leaf(const ClauseTree& tree, const TreeNode& n,
                                const std::map<std::string, const TreeNode*>& by_id) {
     RetrievalChunk c;
@@ -200,7 +257,7 @@ RetrievalChunk chunk_from_leaf(const ClauseTree& tree, const TreeNode& n,
     c.path_text = path_text_for(n, by_id);
     c.atomic_text = compose_atomic_text(n);
     c.embedding_text = compose_embedding_text(n);
-    c.context_text = c.atomic_text;
+    c.context_text = compose_context_text(n, by_id);
     c.captions = n.captions;
     c.formulas = n.formulas;
     c.page_start = n.page_start;

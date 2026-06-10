@@ -190,3 +190,40 @@ TEST_CASE("retrieval chunks classify appendix and explanation chunks from node i
     CHECK(cache.chunks[0].chunk_type == "appendix");
     CHECK(cache.chunks[1].chunk_type == "explanation");
 }
+
+TEST_CASE("retrieval chunks build context from the parent leaf group") {
+    ClauseTree tree;
+    tree.standard_id = "sid";
+    tree.standard_no = "JTC 5210-2018";
+    tree.format_profile = "A_decimal";
+
+    TreeNode chapter = make_node("sid:5", "5", "技术状况评定", "", false);
+    chapter.child_ids = {"sid:5/5.1"};
+
+    TreeNode parent = make_node("sid:5/5.1", "5.1", "路基", "", false, "sid:5");
+    parent.child_ids = {"sid:5/5.1/5.1.1", "sid:5/5.1/5.1.2", "sid:5/5.1/5.1.3"};
+
+    TreeNode before = make_node("sid:5/5.1/5.1.1", "5.1.1", "损坏类型",
+                                "路基损坏包括沉陷、坍塌、冲刷。", true, "sid:5/5.1");
+    TreeNode current = make_node("sid:5/5.1/5.1.2", "5.1.2", "路基沉降",
+                                 "路基沉降应根据沉降深度评定。", true, "sid:5/5.1");
+    TreeNode after = make_node("sid:5/5.1/5.1.3", "5.1.3", "边坡坍塌",
+                               "边坡坍塌应按坍塌规模评定。", true, "sid:5/5.1");
+
+    tree.nodes = {chapter, parent, before, current, after};
+
+    RetrievalChunkCache cache = build_retrieval_chunk_cache(tree);
+
+    REQUIRE(cache.chunks.size() == 3);
+    const RetrievalChunk& c = cache.chunks[1];
+    CHECK(c.node_id == "sid:5/5.1/5.1.2");
+    CHECK(c.context_text.find("路径：5 技术状况评定 > 5.1 路基 > 5.1.2 路基沉降") != std::string::npos);
+    CHECK(c.context_text.find("5.1.1 损坏类型") != std::string::npos);
+    CHECK(c.context_text.find("路基损坏包括沉陷") != std::string::npos);
+    CHECK(c.context_text.find("5.1.2 路基沉降") != std::string::npos);
+    CHECK(c.context_text.find("路基沉降应根据沉降深度") != std::string::npos);
+    CHECK(c.context_text.find("5.1.3 边坡坍塌") != std::string::npos);
+    CHECK(c.context_text.find("边坡坍塌应按坍塌规模") != std::string::npos);
+    CHECK(c.embedding_text.find("5.1.1 损坏类型") == std::string::npos);
+    CHECK(c.embedding_text.find("5.1.3 边坡坍塌") == std::string::npos);
+}
