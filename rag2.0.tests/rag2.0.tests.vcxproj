@@ -108,6 +108,7 @@
     <ClCompile Include="..\tests\test_toc_parser.cpp" />
     <ClCompile Include="..\tests\test_region_segmenter.cpp" />
     <ClCompile Include="..\tests\test_tree_builder.cpp" />
+    <ClCompile Include="..\tests\test_retrieval_chunk.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
     <ClCompile Include="..\src\parse\clause_no.cpp" />
     <ClCompile Include="..\src\parse\ocr_normalize.cpp" />
@@ -119,6 +120,7 @@
     <ClCompile Include="..\src\structure\toc_parser.cpp" />
     <ClCompile Include="..\src\structure\region_segmenter.cpp" />
     <ClCompile Include="..\src\structure\tree_builder.cpp" />
+    <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -138,6 +140,7 @@
     <ClInclude Include="..\src\retrieve\candidate.h" />
     <ClInclude Include="..\src\retrieve\retriever.h" />
     <ClInclude Include="..\src\retrieve\dense_retriever.h" />
+    <ClInclude Include="..\src\retrieve\retrieval_chunk.h" />
     <ClInclude Include="..\src\generate\context.h" />
     <ClInclude Include="..\src\generate\prompt_builder.h" />
     <ClInclude Include="..\src\generate\answer_pipeline.h" />

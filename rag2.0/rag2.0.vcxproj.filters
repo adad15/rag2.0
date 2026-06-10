@@ -44,6 +44,7 @@
     <ClCompile Include="..\src\ingest\ingest_pipeline.cpp"><Filter>源文件\ingest</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\standard_meta.cpp"><Filter>源文件\ingest</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
+    <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h"><Filter>头文件</Filter></ClInclude>
@@ -73,6 +74,7 @@
     <ClInclude Include="..\src\retrieve\candidate.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\dense_retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
+    <ClInclude Include="..\src\retrieve\retrieval_chunk.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\util\path_utf8.h"><Filter>头文件</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
