@@ -1,7 +1,7 @@
 #include <doctest/doctest.h>
 #include "parse/ocr_normalize.h"
 
-TEST_CASE("is_caption_label: 靠 raw_label 或前缀判图表题") {
+TEST_CASE("is_caption_label: 按图表编号前缀判图表题") {
     CHECK(is_caption_label("table_title", "表4.0.1公路技术状况等级划分标准"));
     CHECK(is_caption_label("figure_title", "图3.0.3指标体系"));
     CHECK(is_caption_label("", "表 A-1路基损坏调查表"));     // 前缀兜底
@@ -9,6 +9,10 @@ TEST_CASE("is_caption_label: 靠 raw_label 或前缀判图表题") {
     CHECK_FALSE(is_caption_label("vision_footnote", "图中：MQI——公路技术状况指数"));
     CHECK_FALSE(is_caption_label("", "表中：PCI——路面损坏状况指数"));
     CHECK_FALSE(is_caption_label("paragraph_title", "5.2.1龟裂应按面积计算"));
+    CHECK_FALSE(is_caption_label("figure_title", "2.2符号"));
+    CHECK_FALSE(is_caption_label("figure_title", "$L=1\\ 000\\sim2\\ 000mm$ （尺寸单位：mm）"));
+    CHECK_FALSE(is_caption_label("figure_title", "1-气孔；2-手柄"));
+    CHECK(is_caption_label("figure_title", "表T0501-1×x××取样单"));
 }
 
 TEST_CASE("apply_clause_extraction: 给非 caption 元素抠号、给 caption 打标") {
@@ -119,6 +123,52 @@ TEST_CASE("tag_regions: appendix 后的独立条文说明文本切到 explanatio
     CHECK(els[3].region == Region::Explanation);
     CHECK(els[4].region == Region::Explanation);
     CHECK(els[5].region == Region::Explanation);
+}
+
+TEST_CASE("tag_regions: B 型试验规程在下一个 T 编号标题处从条文说明切回正文") {
+    auto H = [](const std::string& t){ ParseElement e; e.type=ElementType::Heading; e.title=t; e.source="ppstructure"; return e; };
+    std::vector<ParseElement> els = {
+        H("目次"),
+        H("T0501—2005水泥取样方法.....6"),
+        H("1总则"),
+        H("T0501—2005 水泥取样方法"),
+        H("1目的、适用范围和引用标准"),
+        H("条文说明"),
+        H("1本方法参照相关标准编制。"),
+        H("T0502—2005水泥细度试验方法（筛析法）"),
+        H("1目的、适用范围和引用标准"),
+    };
+
+    apply_clause_extraction(els);
+    tag_regions(els);
+
+    CHECK(els[1].region == Region::Toc);
+    CHECK(els[3].region == Region::Body);
+    CHECK(els[5].region == Region::Explanation);
+    CHECK(els[6].region == Region::Explanation);
+    CHECK(els[7].region == Region::Body);
+    CHECK(els[8].region == Region::Body);
+}
+
+TEST_CASE("tag_regions: 试验规程目录里的 T 编号和前言数字列表不启动正文") {
+    auto H = [](const std::string& t){ ParseElement e; e.type=ElementType::Heading; e.title=t; e.source="ppstructure"; return e; };
+    auto T = [](const std::string& t){ ParseElement e; e.type=ElementType::Text; e.text=t; e.source="ppstructure"; return e; };
+    std::vector<ParseElement> els = {
+        H("5．增加水泥砂浆相关试验方法10项。"),
+        H("目次"),
+        T("T0501—2005水泥取样方法.....6\nT0502—2005水泥细度试验方法（筛析法）..9"),
+        H("1总则"),
+        H("T0501—2005 水泥取样方法"),
+    };
+
+    apply_clause_extraction(els);
+    tag_regions(els);
+
+    CHECK(els[0].region == Region::FrontMatter);
+    CHECK(els[1].region == Region::Toc);
+    CHECK(els[2].region == Region::Toc);
+    CHECK(els[3].region == Region::Body);
+    CHECK(els[4].region == Region::Body);
 }
 
 TEST_CASE("normalize_parsed_doc: 丢弃独立英文糊块、跑全链") {

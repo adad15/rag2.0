@@ -9,14 +9,29 @@ static bool starts_with_trimmed(const std::string& s, const std::string& pre) {
     return t.size() >= pre.size() && t.compare(0, pre.size(), pre) == 0;
 }
 
+static bool ascii_alnum(char c) {
+    return (c >= '0' && c <= '9') ||
+           (c >= 'A' && c <= 'Z') ||
+           (c >= 'a' && c <= 'z');
+}
+
+static bool caption_prefix_match(const std::string& s, const std::string& pre) {
+    size_t a = s.find_first_not_of(" \t\r");
+    if (a == std::string::npos || s.size() - a < pre.size()) return false;
+    if (s.compare(a, pre.size(), pre) != 0) return false;
+
+    size_t i = a + pre.size();
+    while (i < s.size() && (s[i] == ' ' || s[i] == '\t')) ++i;
+    return i < s.size() && ascii_alnum(s[i]);
+}
+
 bool is_caption_label(const std::string& raw_label, const std::string& title) {
+    (void)raw_label;
     if (starts_with_trimmed(title, "图中") || starts_with_trimmed(title, "表中"))
         return false;
-    if (raw_label == "table_title" || raw_label == "figure_title" || raw_label == "chart_title")
-        return true;
-    // 前缀兜底：图 / 表 / 续表 / 附图 / 附表（允许前导空白）
+    // PP-Structure 的 figure_title/table_title 会误标普通标题；最终以文本形态定性。
     static const char* prefixes[] = {"图", "表", "续表", "附图", "附表"};
-    for (auto p : prefixes) if (starts_with_trimmed(title, p)) return true;
+    for (auto p : prefixes) if (caption_prefix_match(title, p)) return true;
     return false;
 }
 
@@ -58,19 +73,33 @@ void tag_regions(std::vector<ParseElement>& els) {
     Region cur = Region::FrontMatter;
     bool body_started = false;
     auto title_of = [](const ParseElement& e){ return e.title.empty() ? e.text : e.title; };
+    auto single_numeric_chapter = [](const std::string& no) {
+        if (no.empty()) return false;
+        return std::all_of(no.begin(), no.end(), [](unsigned char c){ return c >= '0' && c <= '9'; });
+    };
+    auto test_method_no = [](const std::string& no) {
+        if (no.empty()) return false;
+        char first = no[0];
+        return (first == 'T' || first == 't') && no.find('-') != std::string::npos;
+    };
+    auto looks_like_toc_entry = [](const std::string& t) {
+        return t.find("...") != std::string::npos ||
+               t.find("\xE2\x80\xA6") != std::string::npos;
+    };
     for (auto& e : els) {
         std::string t = title_of(e);
         // 区域标题切换：必须是 Heading（独立章级标题）才切——避免正文里含"条文说明"的
         // text 块误触发(JTG 3432 实例:一个 text 块="条文说明" 曾把 99% 正文锁进 explanation)。
         const bool heading = (e.type == ElementType::Heading);
-        if ((heading || cur == Region::Appendix) && starts_with_trimmed(t, "条文说明")) cur = Region::Explanation;
+        if (body_started && heading && test_method_no(e.clause_no)) cur = Region::Body;
+        else if ((heading || cur == Region::Appendix) && starts_with_trimmed(t, "条文说明")) cur = Region::Explanation;
         else if (heading && starts_with_trimmed(t, "附录")) cur = Region::Appendix;
         else if (!body_started && heading && starts_with_trimmed(t, "目次")) cur = Region::Toc;
 
         // 首个合法单级章号（如 "1总则"）→ 正文开始。
         // 假设：正文首章总是单级编号（"1 xxx"）。若文档直接以多级号(如 1.1)起，将停留在前序区域。
         if (!body_started && e.type == ElementType::Heading && !e.is_caption
-            && !e.clause_no.empty() && e.clause_no.find('.') == std::string::npos) {
+            && single_numeric_chapter(e.clause_no) && !looks_like_toc_entry(t)) {
             body_started = true;
             cur = Region::Body;
         }

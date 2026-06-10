@@ -18,9 +18,11 @@ static bool rest_starts_like_unit(const std::string& rest) {
     return false;
 }
 
-// 号后是否紧跟非 ASCII 字符（汉字/全角等）。排除 "5 个"(空格)、"5a"(ASCII) 这类非章标题。
-static bool starts_with_nonascii(const std::string& s) {
-    return !s.empty() && (unsigned char)s[0] >= 0x80;
+// 号后是否紧跟 CJK 正文字符。排除 "5．增加..." 这类前言列表和 "5a" 这类非章标题。
+static bool starts_with_cjk(const std::string& s) {
+    if (s.empty()) return false;
+    unsigned char c = static_cast<unsigned char>(s[0]);
+    return c >= 0xE4 && c <= 0xE9;
 }
 
 static std::string ltrim(const std::string& s) {
@@ -50,7 +52,7 @@ ClauseNoResult parse_clause_no(const std::string& text, bool is_heading) {
         if (std::regex_match(s, m, single)) {
             std::string no = m[1].str();
             std::string rest = ltrim(m[2].str());
-            if (no != "0" && starts_with_nonascii(rest)) {
+            if (no != "0" && starts_with_cjk(rest)) {
                 out.matched = true; out.clause_no = no; out.rest = rest;
                 return out;
             }
@@ -63,7 +65,7 @@ ClauseNoResult parse_clause_no(const std::string& text, bool is_heading) {
         static const std::regex tmethod(R"(^([A-Za-z]{1,2})\s?(\d{3,5})((?:-|—)\d{2,4})?(.*)$)");
         if (std::regex_match(s, m, tmethod)) {
             std::string rest = ltrim(m[4].str());
-            if (starts_with_nonascii(rest)) {
+            if (starts_with_cjk(rest)) {
                 std::string suffix = m[3].str();                 // "-2024" / "—2024"(全角) / ""
                 if (suffix.size() >= 3 && (unsigned char)suffix[0] == 0xE2)
                     suffix = "-" + suffix.substr(3);             // 全角破折号 — 归一化为 '-'

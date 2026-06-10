@@ -83,6 +83,27 @@ static ParseElement test_number_node(const std::string& text, int page = 1) {
     return e;
 }
 
+static ParseElement explanation_text(const std::string& text, int page = 1) {
+    ParseElement e;
+    e.region = Region::Explanation;
+    e.type = ElementType::Text;
+    e.text = text;
+    e.page_no = page;
+    return e;
+}
+
+static ParseElement front_node(const std::string& no, const std::string& text, int page = 1) {
+    ParseElement e = body_node(no, text, page);
+    e.region = Region::FrontMatter;
+    return e;
+}
+
+static ParseElement toc_node(const std::string& no, const std::string& text, int page = 1) {
+    ParseElement e = body_node(no, text, page);
+    e.region = Region::Toc;
+    return e;
+}
+
 static const TreeNode* find_node(const ClauseTree& t, const std::string& id) {
     for (const auto& n : t.nodes) {
         if (n.node_id == id) return &n;
@@ -253,6 +274,26 @@ TEST_CASE("tree_builder treats figure-internal legend text as body text") {
     CHECK(c303->text.find("SCI") != std::string::npos);
 }
 
+TEST_CASE("tree_builder does not trust legacy caption flags on numbered headings") {
+    ParsedDoc d;
+    ParseElement bad = body_node("2.2", "符号", 11);
+    bad.type = ElementType::Heading;
+    bad.title = "2.2符号";
+    bad.raw_label = "figure_title";
+    bad.is_caption = true;
+    d.elements = {
+        body_node("2", "术语和符号", 8),
+        bad,
+    };
+
+    ClauseTree t = build_clause_tree(d, "sid");
+
+    const TreeNode* c22 = find_node(t, "sid:2/2.2");
+    REQUIRE(c22);
+    CHECK(c22->title == "符号");
+    CHECK(c22->captions.empty());
+}
+
 TEST_CASE("tree_builder records page ranges and page clause map") {
     ParsedDoc d;
     d.elements = {
@@ -306,6 +347,65 @@ TEST_CASE("tree_builder supports B_testno L3 retrieval units") {
     CHECK(b->text.find("2.1 balance") != std::string::npos);
 }
 
+TEST_CASE("tree_builder keeps B_testno parent across explanation groups") {
+    ParsedDoc d;
+    d.elements = {
+        body_node("3", "cement tests", 12),
+        test_number_node("T0501—2005 sampling method", 12),
+        body_node("1", "purpose", 12),
+        explanation_text("条文说明", 14),
+        explanation_text("本方法参照《水泥标准稠度用水量、凝结时间、安定性检验方法》（GB/T1346—2011）编制。", 14),
+        test_number_node("T0502—2005 fineness test", 15),
+        body_node("1", "purpose", 15),
+    };
+
+    ClauseTree t = build_clause_tree(d, "sid");
+
+    const TreeNode* t0501 = find_node(t, "sid:3/T0501-2005");
+    const TreeNode* t0502 = find_node(t, "sid:3/T0502-2005");
+    REQUIRE(t0501);
+    REQUIRE(t0502);
+    CHECK(t0501->parent_id == "sid:3");
+    CHECK(t0502->parent_id == "sid:3");
+    CHECK(find_node(t, "sid:T0502-2005") == nullptr);
+}
+
+TEST_CASE("tree_builder does not promote referenced GB/T or DL/T numbers to B_testno methods") {
+    ParsedDoc d;
+    d.elements = {
+        body_node("3", "cement tests", 12),
+        test_number_node("T0501—2005 sampling method", 12),
+        body_node("1", "purpose", 12),
+        explanation_text("本方法参照《水泥标准稠度用水量、凝结时间、安定性检验方法》（GB/T1346—2011）编制。", 14),
+        explanation_text("本方法参照《水工混凝土试验规程》（DL/T5150—2017）编制。", 279),
+    };
+
+    ClauseTree t = build_clause_tree(d, "sid");
+
+    CHECK(find_node(t, "sid:explanation:T1346-2011") == nullptr);
+    CHECK(find_node(t, "sid:explanation:T5150-2017") == nullptr);
+}
+
+TEST_CASE("tree_builder ignores front matter and TOC candidates when building nodes") {
+    ParsedDoc d;
+    d.elements = {
+        front_node("5", "．增加水泥砂浆相关试验方法10项。", 3),
+        toc_node("T0501-2005", "T0501—2005水泥取样方法.....6", 4),
+        toc_node("T0537-2020", "T0537—2020水泥混凝土拌合物水下抗分散性试验方法...118", 5),
+        body_node("1", "1总则", 7),
+        test_number_node("T0501—2005 水泥取样方法", 12),
+        body_node("1", "1目的、适用范围和引用标准", 12),
+    };
+
+    ClauseTree t = build_clause_tree(d, "sid");
+
+    CHECK(find_node(t, "sid:5") == nullptr);
+    CHECK(find_node(t, "sid:T0501-2005") == nullptr);
+    CHECK(find_node(t, "sid:T0537-2020") == nullptr);
+    CHECK(find_node(t, "sid:1"));
+    CHECK(find_node(t, "sid:1/T0501-2005"));
+}
+
 TEST_CASE("tree_builder builds formal appendix roots and lettered appendix clauses") {
     ParsedDoc d;
     d.elements = {
@@ -344,6 +444,71 @@ TEST_CASE("tree_builder builds formal appendix roots and lettered appendix claus
     CHECK(b001->text.find("B. 0.1") == std::string::npos);
     CHECK(b001->text.find("路面跳车") != std::string::npos);
     CHECK(c001->parent_id == "sid:appendix:C");
+}
+
+TEST_CASE("tree_builder separates explanation appendix node ids from body appendix") {
+    ParsedDoc d;
+    d.elements = {
+        appendix_heading("附录B 路面跳车计算方法", 36),
+        appendix_text("B.0.1路面跳车应根据路面纵断面高差确定。", 36),
+        explanation_text("条文说明", 54),
+        appendix_heading("附录B 路面跳车计算方法", 55),
+        appendix_text("B.0.1本标准采用10m路面纵断面高程作为路面跳车计算依据。", 55),
+    };
+
+    ClauseTree t = build_clause_tree(d, "sid");
+
+    const TreeNode* body_b = find_node(t, "sid:appendix:B");
+    const TreeNode* body_b001 = find_node(t, "sid:appendix:B/B.0.1");
+    const TreeNode* explanation_b = find_node(t, "sid:explanation:appendix:B");
+    const TreeNode* explanation_b001 = find_node(t, "sid:explanation:appendix:B/B.0.1");
+    REQUIRE(body_b);
+    REQUIRE(body_b001);
+    REQUIRE(explanation_b);
+    REQUIRE(explanation_b001);
+    CHECK(body_b->page_start == 36);
+    CHECK(explanation_b->page_start == 55);
+    CHECK(body_b001->parent_id == body_b->node_id);
+    CHECK(explanation_b001->parent_id == explanation_b->node_id);
+}
+
+TEST_CASE("tree_builder keeps node ids unique for repeated sibling numbers") {
+    ParsedDoc d;
+    d.elements = {
+        body_node("3", "cement tests", 12),
+        test_number_node("T0535—2020 washing test", 119),
+        body_node("5", "5 结果计算", 119),
+        body_node("5", "5 试验报告", 119),
+    };
+
+    ClauseTree t = build_clause_tree(d, "sid");
+
+    std::vector<std::string> repeated_ids;
+    for (const auto& n : t.nodes) {
+        if (n.parent_id == "sid:3/T0535-2020" && n.number == "5") {
+            repeated_ids.push_back(n.node_id);
+        }
+    }
+    REQUIRE(repeated_ids.size() == 2);
+    CHECK(repeated_ids[0] == "sid:3/T0535-2020/5");
+    CHECK(repeated_ids[1] != repeated_ids[0]);
+}
+
+TEST_CASE("tree_builder creates virtual appendix parent for orphan appendix clauses") {
+    ParsedDoc d;
+    d.elements = {
+        appendix_text("A.1技术要求", 67),
+    };
+
+    ClauseTree t = build_clause_tree(d, "sid");
+
+    const TreeNode* app_a = find_node(t, "sid:appendix:A");
+    const TreeNode* a1 = find_node(t, "sid:appendix:A/A.1");
+    REQUIRE(app_a);
+    REQUIRE(a1);
+    CHECK(app_a->suspect == "gap");
+    CHECK(app_a->level == 1);
+    CHECK(a1->parent_id == app_a->node_id);
 }
 
 TEST_CASE("tree_builder creates virtual gap nodes and preserves suspect") {

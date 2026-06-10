@@ -38,6 +38,23 @@ std::string sanitize(const std::string& s) {
     return out;
 }
 
+bool node_id_exists(const ClauseTree& t, const std::string& id) {
+    for (const auto& n : t.nodes) {
+        if (n.node_id == id) return true;
+    }
+    return false;
+}
+
+std::string unique_node_id(const ClauseTree& t, const std::string& base_id) {
+    if (!node_id_exists(t, base_id)) return base_id;
+    int suffix = 2;
+    std::string candidate;
+    do {
+        candidate = base_id + "~" + std::to_string(suffix++);
+    } while (node_id_exists(t, candidate));
+    return candidate;
+}
+
 std::string display_text(const ParseElement* e) {
     if (!e->text.empty()) return e->text;
     if (!e->title.empty()) return e->title;
@@ -67,6 +84,12 @@ char ascii_upper(char c) {
     return static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 }
 
+bool ascii_alnum(char c) {
+    return (c >= '0' && c <= '9') ||
+           (c >= 'A' && c <= 'Z') ||
+           (c >= 'a' && c <= 'z');
+}
+
 bool ascii_letter(char c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
@@ -75,37 +98,37 @@ bool ascii_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
-bool looks_like_caption(const ParseElement* e) {
-    const std::string text = display_text(e);
-    if (starts_with_bytes(text, "\xE5\x9B\xBE\xE4\xB8\xAD") ||
-        starts_with_bytes(text, "\xE8\xA1\xA8\xE4\xB8\xAD")) {
-        return false;
-    }
-    if (e->is_caption) return true;
-    if (e->raw_label == "figure_title" || e->raw_label == "chart_title" ||
-        e->raw_label == "table_title") {
-        return true;
-    }
-    return starts_with_bytes(text, "\xE5\x9B\xBE") ||
-           starts_with_bytes(text, "\xE8\xA1\xA8") ||
-           starts_with_bytes(text, "\xE7\xBB\xAD\xE8\xA1\xA8") ||
-           starts_with_bytes(text, "\xE9\x99\x84\xE5\x9B\xBE") ||
-           starts_with_bytes(text, "\xE9\x99\x84\xE8\xA1\xA8") ||
-           starts_with_bytes(text, "figure ") ||
-           starts_with_bytes(text, "table ");
+bool caption_prefix_match(const std::string& text, const std::string& prefix) {
+    std::string t = trim_ascii_space(text);
+    if (t.size() < prefix.size() || t.compare(0, prefix.size(), prefix) != 0) return false;
+    size_t i = prefix.size();
+    while (i < t.size() && (t[i] == ' ' || t[i] == '\t')) ++i;
+    return i < t.size() && ascii_alnum(t[i]);
 }
 
 bool text_looks_like_table_caption(const std::string& text) {
-    return starts_with_bytes(text, "\xE8\xA1\xA8") ||
-           starts_with_bytes(text, "\xE7\xBB\xAD\xE8\xA1\xA8") ||
-           starts_with_bytes(text, "\xE9\x99\x84\xE8\xA1\xA8") ||
-           starts_with_bytes(text, "table ");
+    const std::string t = trim_ascii_space(text);
+    return caption_prefix_match(t, "\xE8\xA1\xA8") ||
+           caption_prefix_match(t, "\xE7\xBB\xAD\xE8\xA1\xA8") ||
+           caption_prefix_match(t, "\xE9\x99\x84\xE8\xA1\xA8") ||
+           starts_with_bytes(t, "table ");
 }
 
 bool text_looks_like_figure_caption(const std::string& text) {
-    return starts_with_bytes(text, "\xE5\x9B\xBE") ||
-           starts_with_bytes(text, "\xE9\x99\x84\xE5\x9B\xBE") ||
-           starts_with_bytes(text, "figure ");
+    const std::string t = trim_ascii_space(text);
+    return caption_prefix_match(t, "\xE5\x9B\xBE") ||
+           caption_prefix_match(t, "\xE9\x99\x84\xE5\x9B\xBE") ||
+           starts_with_bytes(t, "figure ");
+}
+
+bool looks_like_caption(const ParseElement* e) {
+    const std::string text = display_text(e);
+    const std::string t = trim_ascii_space(text);
+    if (starts_with_bytes(t, "\xE5\x9B\xBE\xE4\xB8\xAD") ||
+        starts_with_bytes(t, "\xE8\xA1\xA8\xE4\xB8\xAD")) {
+        return false;
+    }
+    return text_looks_like_table_caption(t) || text_looks_like_figure_caption(t);
 }
 
 bool looks_like_figure_caption(const ParseElement* e) {
@@ -266,10 +289,10 @@ int appendix_level_for(const std::string& number) {
 }
 
 std::string extract_test_number(const std::string& s) {
-    static const std::regex re(R"(T\s*\d{4}\s*-\s*\d{4})");
+    static const std::regex re(R"(^\s*(T\s*\d{4}\s*-\s*\d{4}))");
     std::smatch m;
     std::string norm = normalize_dashes(s);
-    if (std::regex_search(norm, m, re)) return m.str(0);
+    if (std::regex_search(norm, m, re)) return m[1].str();
     return "";
 }
 
@@ -361,11 +384,12 @@ void backfill_formulas_from_pages(ClauseTree& t, const ParsedDoc& doc) {
     }
 }
 
-std::string sid_for_region(const std::string& standard_id, Region region) {
+std::string sid_for_region(const std::string& standard_id, Region region, bool explanation_context = false) {
     switch (region) {
         case Region::Explanation:
             return standard_id + ":explanation";
         case Region::Appendix:
+            if (explanation_context) return standard_id + ":explanation:appendix";
             return standard_id + ":appendix";
         default:
             return standard_id;
@@ -387,12 +411,14 @@ struct Builder {
         n.page_start = page;
         n.page_end = page;
 
+        std::string base_id;
         if (parent_idx >= 0) {
             n.parent_id = t.nodes[parent_idx].node_id;
-            n.node_id = n.parent_id + "/" + sanitize(number);
+            base_id = n.parent_id + "/" + sanitize(number);
         } else {
-            n.node_id = sid + ":" + sanitize(number);
+            base_id = sid + ":" + sanitize(number);
         }
+        n.node_id = unique_node_id(t, base_id);
 
         int idx = static_cast<int>(t.nodes.size());
         t.nodes.push_back(std::move(n));
@@ -401,11 +427,18 @@ struct Builder {
     }
 };
 
-void build_group(ClauseTree& t, const RegionGroup& group, const std::string& sid, FormatProfile profile) {
-    Builder b{t, sid};
+struct BuildState {
     std::vector<std::pair<int, int>> stack;
     int current_node = -1;
     bool in_test_scope = false;
+};
+
+void build_group(ClauseTree& t, const RegionGroup& group, const std::string& sid,
+                 FormatProfile profile, BuildState& state) {
+    Builder b{t, sid};
+    auto& stack = state.stack;
+    int& current_node = state.current_node;
+    bool& in_test_scope = state.in_test_scope;
 
     for (const ParseElement* e : group.elements) {
         if (looks_like_caption(e)) {
@@ -456,7 +489,7 @@ void build_group(ClauseTree& t, const RegionGroup& group, const std::string& sid
         int parent_idx = stack.empty() ? -1 : stack.back().first;
         int parent_level = stack.empty() ? 0 : stack.back().second;
 
-        if (lvl - parent_level >= 2 && decimal_depth(number) >= 1) {
+        if (lvl - parent_level >= 2) {
             std::string mid = parent_number_for_gap(number);
             if (!mid.empty()) {
                 int virtual_level = lvl - 1;
@@ -489,8 +522,19 @@ ClauseTree build_clause_tree(const ParsedDoc& doc, const std::string& standard_i
     FormatProfile profile = toc.detected ? toc.profile : detect_format_from_body(doc);
     t.format_profile = profile_to_string(profile);
 
+    BuildState body_state;
+    bool explanation_context = false;
     for (const auto& group : segment_regions(doc)) {
-        build_group(t, group, sid_for_region(standard_id, group.region), profile);
+        if (group.region == Region::Body) {
+            explanation_context = false;
+            body_state.current_node = -1;
+            body_state.in_test_scope = false;
+            build_group(t, group, sid_for_region(standard_id, group.region), profile, body_state);
+        } else {
+            BuildState state;
+            build_group(t, group, sid_for_region(standard_id, group.region, explanation_context), profile, state);
+            if (group.region == Region::Explanation) explanation_context = true;
+        }
     }
 
     backfill_formulas_from_pages(t, doc);
