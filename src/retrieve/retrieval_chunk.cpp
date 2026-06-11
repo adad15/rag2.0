@@ -223,16 +223,20 @@ std::string compose_context_text(const TreeNode& n, const std::map<std::string, 
     constexpr size_t max_chars = 6000;
     std::string out = "路径：" + path_text_for(n, by_id);
 
+    // 不能用 out.find(n.text) 判断当前叶子是否已拼入：拼入的是裁剪后的文本，
+    // 原文首尾带空白时查找会失配，导致当前叶子重复出现。
+    bool current_included = false;
     std::vector<const TreeNode*> leaves = context_leaves_for(n, by_id);
     for (const TreeNode* leaf : leaves) {
         std::string part = leaf_text_for_context(*leaf);
         if (part.empty()) continue;
         if (out.size() + part.size() + 2 > max_chars && leaf->node_id != n.node_id) continue;
+        if (leaf->node_id == n.node_id) current_included = true;
         out += "\n\n";
         out += part;
     }
 
-    if (out.find(n.text) == std::string::npos) {
+    if (!current_included) {
         std::string current = leaf_text_for_context(n);
         if (!current.empty()) {
             out += "\n\n";

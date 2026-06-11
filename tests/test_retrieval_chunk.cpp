@@ -232,6 +232,38 @@ TEST_CASE("retrieval chunks build context from the parent leaf group") {
     CHECK(c.embedding_text.find("5.1.3 边坡坍塌") == std::string::npos);
 }
 
+TEST_CASE("context text includes the current leaf exactly once even with trailing whitespace") {
+    ClauseTree tree;
+    tree.standard_id = "sid";
+    tree.standard_no = "JTC 5210-2018";
+    tree.format_profile = "A_decimal";
+
+    TreeNode chapter = make_node("sid:5", "5", "技术状况评定", "", false);
+    chapter.child_ids = {"sid:5/5.1"};
+
+    TreeNode parent = make_node("sid:5/5.1", "5.1", "路基", "", false, "sid:5");
+    parent.child_ids = {"sid:5/5.1/5.1.1", "sid:5/5.1/5.1.2"};
+
+    TreeNode before = make_node("sid:5/5.1/5.1.1", "5.1.1", "损坏类型",
+                                "路基损坏包括沉陷、坍塌、冲刷。", true, "sid:5/5.1");
+    // OCR 树的正文首尾常带空白，去重判断必须对裁剪差异免疫
+    TreeNode current = make_node("sid:5/5.1/5.1.2", "5.1.2", "路基沉降",
+                                 "路基沉降应根据沉降深度评定。 ", true, "sid:5/5.1");
+
+    tree.nodes = {chapter, parent, before, current};
+
+    RetrievalChunkCache cache = build_retrieval_chunk_cache(tree);
+
+    REQUIRE(cache.chunks.size() == 2);
+    const RetrievalChunk& c = cache.chunks[1];
+    CHECK(c.node_id == "sid:5/5.1/5.1.2");
+
+    const std::string needle = "路基沉降应根据沉降深度评定。";
+    size_t first = c.context_text.find(needle);
+    REQUIRE(first != std::string::npos);
+    CHECK(c.context_text.find(needle, first + needle.size()) == std::string::npos);
+}
+
 TEST_CASE("write_chunk_cache creates parent directories and writes readable JSON") {
     RetrievalChunkCache cache;
     cache.standard_id = "sid";
