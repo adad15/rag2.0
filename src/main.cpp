@@ -339,6 +339,11 @@ static int cmd_chunkload(const Config& cfg, const std::string& chunk_cache_path)
                      r.chunk_count, r.embedded_count, r.deleted_count);
         if (r.embedded_count < r.chunk_count) {
             spdlog::warn("部分 chunk 未完成 embedding，重跑 chunkload 可全量修复");
+            if (r.embedded_count == 0) {
+                spdlog::warn("若重跑后仍为 0，可能是旧结构 collection（主键 node_id）残留，"
+                             "需先 drop 该 collection 再重跑（一次性升级步骤，"
+                             "见 docs/superpowers/plans/2026-06-11-m2c3-chunk-persistence.md Task 6）");
+            }
             return 1;
         }
         return 0;
