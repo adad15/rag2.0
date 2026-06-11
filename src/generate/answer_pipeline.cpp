@@ -12,6 +12,8 @@ ContextFragment fragment_from_chunk(int idx, const RetrievalChunkRow& chunk,
     f.clause_no = chunk.clause_no;
     f.path = chunk.path_text;
     f.is_mandatory = false;   // 强制性条文识别留 M5
+    // context_text 自带"路径：…"首行，与 f.path 在 prompt JSON 中重复一次；
+    // 去重属 M5 prompt 改版范围
     f.text = chunk.context_text;
     return f;
 }
