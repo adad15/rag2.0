@@ -21,6 +21,8 @@ CREATE INDEX IF NOT EXISTS idx_clause_standard ON clause_nodes(standard_id);
 
 CREATE TABLE IF NOT EXISTS retrieval_chunks (
     chunk_id       TEXT PRIMARY KEY,
+    -- node_id 是对树节点的软引用，特意不加外键：M2c-3 起 clause_nodes 停写，
+    -- 新灌标准的 node_id 不会出现在该表中
     node_id        TEXT,
     standard_id    TEXT REFERENCES standards(standard_id),
     chunk_type     TEXT,
