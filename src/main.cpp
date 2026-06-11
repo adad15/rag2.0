@@ -107,7 +107,12 @@ static int cmd_ingest(const Config& cfg) {
         HybridParser parser = make_parser(cfg, poppler, backend);
 
         auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection);
-        spdlog::info("ingest 完成: standard_id={}, clauses={}", r.standard_id, r.clause_count);
+        spdlog::info("ingest 完成: standard_id={}, chunks={}", r.standard_id, r.clause_count);
+        if (r.embedded_count < r.clause_count) {
+            spdlog::warn("部分 chunk 未完成 embedding（{}/{}），重跑 ingest 或 chunkload 可修复",
+                         r.embedded_count, r.clause_count);
+            return 1;
+        }
         return 0;
     } catch (const std::exception& e) {
         spdlog::error("[FAIL] ingest 失败: {}", e.what());

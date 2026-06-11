@@ -44,6 +44,7 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
     IngestResult result;
     result.standard_id = standard_id;
     result.clause_count = r.chunk_count;
+    result.embedded_count = r.embedded_count;
     spdlog::info("入库完成: chunks={} embedded={} deleted_old={} (standard_id={})",
                  r.chunk_count, r.embedded_count, r.deleted_count, standard_id);
     return result;

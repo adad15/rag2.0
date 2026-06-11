@@ -7,7 +7,8 @@
 
 struct IngestResult {
     std::string standard_id;
-    int clause_count = 0;
+    int clause_count = 0;    // M2c-3 起表示 chunk 数
+    int embedded_count = 0;  // 成功 embed 并写入 Milvus 的 chunk 数
 };
 
 // M2c-3：解析 1 份文件（带 parse_cache）→ 建条款树 → 生成受控 chunk
