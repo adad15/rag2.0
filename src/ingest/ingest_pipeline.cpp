@@ -52,7 +52,7 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
 
             // 修订①：M1 只嵌条款正文（去掉占位文件名/条款号噪声）；M2 有真元数据后再升级为正规 retrieval_text
             std::vector<float> vec = embed.embed(c.text);
-            mv.insert(collection, node_id, standard_id, vec);
+            mv.insert(collection, node_id, node_id, standard_id, vec);
 
             ++result.clause_count;
         }

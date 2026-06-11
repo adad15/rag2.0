@@ -7,15 +7,24 @@ using nlohmann::json;
 
 namespace milvus {
 
-std::string build_insert_body(const std::string& collection, const std::string& node_id,
-                              const std::string& standard_id, const std::vector<float>& dense) {
+std::string build_insert_body(const std::string& collection, const std::string& chunk_id,
+                              const std::string& node_id, const std::string& standard_id,
+                              const std::vector<float>& dense) {
     json row;
+    row["chunk_id"] = chunk_id;
     row["node_id"] = node_id;
     row["standard_id"] = standard_id;
     row["dense"] = dense;
     json body;
     body["collectionName"] = collection;
     body["data"] = json::array({row});
+    return body.dump();
+}
+
+std::string build_delete_body(const std::string& collection, const std::string& standard_id) {
+    json body;
+    body["collectionName"] = collection;
+    body["filter"] = "standard_id == \"" + standard_id + "\"";
     return body.dump();
 }
 
@@ -56,11 +65,13 @@ void MilvusRest::ensure_collection(const std::string& collection, int dim) {
                 return;
         }
     }
-    // 快速建集合 + 自定义 schema（主键 node_id varchar，dense 向量）
+    // 快速建集合 + 自定义 schema（主键 chunk_id varchar，dense 向量）
     json schema;
     schema["autoID"] = false;
     schema["fields"] = json::array({
-        { {"fieldName","node_id"}, {"dataType","VarChar"}, {"isPrimary",true},
+        { {"fieldName","chunk_id"}, {"dataType","VarChar"}, {"isPrimary",true},
+          {"elementTypeParams", { {"max_length", 256} }} },
+        { {"fieldName","node_id"}, {"dataType","VarChar"},
           {"elementTypeParams", { {"max_length", 256} }} },
         { {"fieldName","standard_id"}, {"dataType","VarChar"},
           {"elementTypeParams", { {"max_length", 128} }} },
@@ -80,18 +91,38 @@ void MilvusRest::ensure_collection(const std::string& collection, int dim) {
         throw std::runtime_error("milvus create collection failed: " + res.body + res.error);
 }
 
-void MilvusRest::insert(const std::string& collection, const std::string& node_id,
-                        const std::string& standard_id, const std::vector<float>& dense) {
-    auto body = build_insert_body(collection, node_id, standard_id, dense);
+void MilvusRest::insert(const std::string& collection, const std::string& chunk_id,
+                        const std::string& node_id, const std::string& standard_id,
+                        const std::vector<float>& dense) {
+    auto body = build_insert_body(collection, chunk_id, node_id, standard_id, dense);
     auto res = http::post_json(base_url_, "/v2/vectordb/entities/insert", body,
                                auth_headers(token_));
     if (!res.ok())
         throw std::runtime_error("milvus insert failed: " + res.body + res.error);
 }
 
+void MilvusRest::delete_by_standard(const std::string& collection,
+                                    const std::string& standard_id) {
+    auto body = build_delete_body(collection, standard_id);
+    auto res = http::post_json(base_url_, "/v2/vectordb/entities/delete", body,
+                               auth_headers(token_));
+    if (!res.ok())
+        throw std::runtime_error("milvus delete failed: " + res.body + res.error);
+}
+
+void MilvusRest::drop_collection(const std::string& collection) {
+    json body;
+    body["collectionName"] = collection;
+    auto res = http::post_json(base_url_, "/v2/vectordb/collections/drop", body.dump(),
+                               auth_headers(token_));
+    if (!res.ok())
+        throw std::runtime_error("milvus drop collection failed: " + res.body + res.error);
+}
+
 std::vector<Hit> MilvusRest::search(const std::string& collection,
                                     const std::vector<float>& query, int top_k) {
-    auto body = build_search_body(collection, query, top_k, {"node_id", "standard_id"});
+    auto body = build_search_body(collection, query, top_k,
+                                  {"chunk_id", "node_id", "standard_id"});
     auto res = http::post_json(base_url_, "/v2/vectordb/entities/search", body,
                                auth_headers(token_));
     if (!res.ok())
@@ -100,6 +131,7 @@ std::vector<Hit> MilvusRest::search(const std::string& collection,
     std::vector<Hit> hits;
     for (auto& item : j["data"]) {
         Hit h;
+        h.chunk_id = item.value("chunk_id", "");
         h.node_id = item.value("node_id", "");
         h.standard_id = item.value("standard_id", "");
         h.score = item.value("distance", 0.0f);
