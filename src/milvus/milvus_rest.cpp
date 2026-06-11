@@ -24,6 +24,8 @@ std::string build_insert_body(const std::string& collection, const std::string& 
 std::string build_delete_body(const std::string& collection, const std::string& standard_id) {
     json body;
     body["collectionName"] = collection;
+    // standard_id 一律是 std::to_string(hash(file_path)) 生成的十进制数字串，
+    // 不含引号/转义字符；若来源放宽需在此加校验或转义
     body["filter"] = "standard_id == \"" + standard_id + "\"";
     return body.dump();
 }

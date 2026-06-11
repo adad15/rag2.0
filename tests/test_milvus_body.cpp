@@ -26,8 +26,8 @@ TEST_CASE("build_insert_body wraps one row with chunk scalars and dense vector")
 }
 
 TEST_CASE("build_delete_body filters by standard id") {
-    std::string body = milvus::build_delete_body("clause_text", "s1");
+    std::string body = milvus::build_delete_body("clause_text", "12215131224082667446");
     auto j = nlohmann::json::parse(body);
     CHECK(j["collectionName"] == "clause_text");
-    CHECK(j["filter"] == "standard_id == \"s1\"");
+    CHECK(j["filter"] == "standard_id == \"12215131224082667446\"");
 }
