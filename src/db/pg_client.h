@@ -21,6 +21,30 @@ struct StandardRow {
     std::string file_path;
 };
 
+// retrieval_chunks 表的一行。captions_json/formulas_json 是 JSON 数组文本，
+// 序列化在 chunk_loader 的纯函数里做，db 层只透传。
+struct RetrievalChunkRow {
+    std::string chunk_id;
+    std::string node_id;
+    std::string standard_id;
+    std::string chunk_type;
+    std::string clause_no;
+    std::string method_no;
+    std::string title;
+    std::string path_text;
+    std::string atomic_text;
+    std::string embedding_text;
+    std::string context_text;
+    std::string captions_json = "[]";
+    std::string formulas_json = "[]";
+    int page_start = 0;
+    int page_end = 0;
+    bool has_table = false;
+    bool has_formula = false;
+    bool has_figure = false;
+    std::string suspect;
+};
+
 class PgClient {
 public:
     explicit PgClient(std::string conninfo);
@@ -33,6 +57,10 @@ public:
     // 按 node_id 回查（契约：Milvus 命中后以 PG 为权威源）
     std::optional<ClauseRow> get_clause(const std::string& node_id);
     std::optional<StandardRow> get_standard(const std::string& standard_id);
+    // M2c-3：retrieval_chunks 落库与回查。先删后插的幂等键是 standard_id。
+    int delete_chunks_by_standard(const std::string& standard_id);  // 返回删除行数
+    void insert_chunk(const RetrievalChunkRow& row);
+    std::optional<RetrievalChunkRow> get_chunk(const std::string& chunk_id);
 private:
     std::string conninfo_;
 };

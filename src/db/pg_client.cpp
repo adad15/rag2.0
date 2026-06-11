@@ -74,3 +74,66 @@ std::optional<StandardRow> PgClient::get_standard(const std::string& standard_id
     s.file_path = row[4].c_str();
     return s;
 }
+
+int PgClient::delete_chunks_by_standard(const std::string& standard_id) {
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    auto r = tx.exec("DELETE FROM retrieval_chunks WHERE standard_id=$1",
+                     pqxx::params{standard_id});
+    tx.commit();
+    return static_cast<int>(r.affected_rows());
+}
+
+void PgClient::insert_chunk(const RetrievalChunkRow& c) {
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    tx.exec(
+        "INSERT INTO retrieval_chunks(chunk_id,node_id,standard_id,chunk_type,"
+        "clause_no,method_no,title,path_text,atomic_text,embedding_text,context_text,"
+        "captions,formulas,page_start,page_end,has_table,has_formula,has_figure,suspect) "
+        "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19) "
+        "ON CONFLICT (chunk_id) DO UPDATE SET "
+        "node_id=EXCLUDED.node_id, standard_id=EXCLUDED.standard_id, "
+        "chunk_type=EXCLUDED.chunk_type, clause_no=EXCLUDED.clause_no, "
+        "method_no=EXCLUDED.method_no, title=EXCLUDED.title, path_text=EXCLUDED.path_text, "
+        "atomic_text=EXCLUDED.atomic_text, embedding_text=EXCLUDED.embedding_text, "
+        "context_text=EXCLUDED.context_text, captions=EXCLUDED.captions, "
+        "formulas=EXCLUDED.formulas, page_start=EXCLUDED.page_start, "
+        "page_end=EXCLUDED.page_end, has_table=EXCLUDED.has_table, "
+        "has_formula=EXCLUDED.has_formula, has_figure=EXCLUDED.has_figure, "
+        "suspect=EXCLUDED.suspect",
+        pqxx::params{c.chunk_id, c.node_id, c.standard_id, c.chunk_type,
+                     c.clause_no, c.method_no, c.title, c.path_text,
+                     c.atomic_text, c.embedding_text, c.context_text,
+                     c.captions_json, c.formulas_json, c.page_start, c.page_end,
+                     c.has_table, c.has_formula, c.has_figure, c.suspect});
+    tx.commit();
+}
+
+std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id) {
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    auto r = tx.exec(
+        "SELECT chunk_id,node_id,standard_id,COALESCE(chunk_type,''),"
+        "COALESCE(clause_no,''),COALESCE(method_no,''),COALESCE(title,''),"
+        "COALESCE(path_text,''),COALESCE(atomic_text,''),COALESCE(embedding_text,''),"
+        "COALESCE(context_text,''),COALESCE(captions::text,'[]'),"
+        "COALESCE(formulas::text,'[]'),COALESCE(page_start,0),COALESCE(page_end,0),"
+        "COALESCE(has_table,FALSE),COALESCE(has_formula,FALSE),"
+        "COALESCE(has_figure,FALSE),COALESCE(suspect,'') "
+        "FROM retrieval_chunks WHERE chunk_id=$1", pqxx::params{chunk_id});
+    if (r.empty()) return std::nullopt;
+    auto row = r[0];
+    RetrievalChunkRow c;
+    c.chunk_id = row[0].c_str(); c.node_id = row[1].c_str();
+    c.standard_id = row[2].c_str(); c.chunk_type = row[3].c_str();
+    c.clause_no = row[4].c_str(); c.method_no = row[5].c_str();
+    c.title = row[6].c_str(); c.path_text = row[7].c_str();
+    c.atomic_text = row[8].c_str(); c.embedding_text = row[9].c_str();
+    c.context_text = row[10].c_str(); c.captions_json = row[11].c_str();
+    c.formulas_json = row[12].c_str(); c.page_start = row[13].as<int>();
+    c.page_end = row[14].as<int>(); c.has_table = row[15].as<bool>();
+    c.has_formula = row[16].as<bool>(); c.has_figure = row[17].as<bool>();
+    c.suspect = row[18].c_str();
+    return c;
+}
