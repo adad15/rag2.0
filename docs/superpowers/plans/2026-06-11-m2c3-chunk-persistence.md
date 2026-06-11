@@ -93,7 +93,7 @@ Modify:
 
 PG methods need a live database, so this task has no unit tests (consistent with the rest of `pg_client.cpp`). Correctness is covered by the Task 6 live smoke and by compile-time use in Tasks 3/5.
 
-- [ ] **Step 1: Append the table to `src/db/schema.sql`**
+- [x] **Step 1: Append the table to `src/db/schema.sql`**
 
 Append at end of file:
 
@@ -125,7 +125,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_standard ON retrieval_chunks(standard_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_node ON retrieval_chunks(node_id);
 ```
 
-- [ ] **Step 2: Add the row struct and method declarations to `src/db/pg_client.h`**
+- [x] **Step 2: Add the row struct and method declarations to `src/db/pg_client.h`**
 
 After the `StandardRow` struct, add:
 
@@ -164,7 +164,7 @@ Inside `class PgClient`, after `get_standard`, add:
     std::optional<RetrievalChunkRow> get_chunk(const std::string& chunk_id);
 ```
 
-- [ ] **Step 3: Implement the three methods in `src/db/pg_client.cpp`**
+- [x] **Step 3: Implement the three methods in `src/db/pg_client.cpp`**
 
 Append at end of file:
 
@@ -233,7 +233,7 @@ std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id
 }
 ```
 
-- [ ] **Step 4: Build and run all tests (must stay green)**
+- [x] **Step 4: Build and run all tests (must stay green)**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -242,7 +242,7 @@ std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id
 
 Expected: build succeeds, all existing tests pass (additive change, no callers yet).
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```powershell
 git add src/db/schema.sql src/db/pg_client.h src/db/pg_client.cpp
@@ -259,7 +259,7 @@ git commit -m "feat(m2c3): add retrieval_chunks table and pg chunk crud"
 - Modify: `src/milvus/milvus_rest.cpp`
 - Modify: `src/ingest/ingest_pipeline.cpp` (call-site adaptation only; full rewrite is Task 4)
 
-- [ ] **Step 1: Update the failing body-builder tests**
+- [x] **Step 1: Update the failing body-builder tests**
 
 In `tests/test_milvus_body.cpp`, replace the existing `build_insert_body` test case with:
 
@@ -289,7 +289,7 @@ TEST_CASE("build_delete_body filters by standard id") {
 
 Leave the `build_search_body` test unchanged (its signature does not change).
 
-- [ ] **Step 2: Build and verify the new tests fail**
+- [x] **Step 2: Build and verify the new tests fail**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -297,7 +297,7 @@ Leave the `build_search_body` test unchanged (its signature does not change).
 
 Expected: build FAILS — `build_insert_body` has no 5-argument overload and `build_delete_body` does not exist.
 
-- [ ] **Step 3: Update `src/milvus/milvus_rest.h`**
+- [x] **Step 3: Update `src/milvus/milvus_rest.h`**
 
 Replace the `Hit` struct with:
 
@@ -334,7 +334,7 @@ In `class MilvusRest`, replace the `insert` declaration and add two methods:
     void drop_collection(const std::string& collection);
 ```
 
-- [ ] **Step 4: Update `src/milvus/milvus_rest.cpp`**
+- [x] **Step 4: Update `src/milvus/milvus_rest.cpp`**
 
 Replace `build_insert_body` with:
 
@@ -434,7 +434,7 @@ and inside the result loop:
         hits.push_back(h);
 ```
 
-- [ ] **Step 5: Adapt the old ingest call site (placeholder until Task 4)**
+- [x] **Step 5: Adapt the old ingest call site (placeholder until Task 4)**
 
 In `src/ingest/ingest_pipeline.cpp`, the line:
 
@@ -450,7 +450,7 @@ becomes (chunk_id 暂用 node_id 占位，Task 4 整体重写该文件):
 
 `src/retrieve/dense_retriever.cpp` still reads `h.node_id`, which still exists — no change needed in this task.
 
-- [ ] **Step 6: Build and run the milvus body tests**
+- [x] **Step 6: Build and run the milvus body tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -461,7 +461,7 @@ becomes (chunk_id 暂用 node_id 占位，Task 4 整体重写该文件):
 
 Expected: both new cases PASS, full suite PASS.
 
-- [ ] **Step 7: Commit Task 2**
+- [x] **Step 7: Commit Task 2**
 
 ```powershell
 git add tests/test_milvus_body.cpp src/milvus/milvus_rest.h src/milvus/milvus_rest.cpp src/ingest/ingest_pipeline.cpp
@@ -481,7 +481,7 @@ git commit -m "feat(m2c3): milvus chunk schema with delete by standard"
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj`
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj.filters`
 
-- [ ] **Step 1: Write the failing `chunk_to_row` test**
+- [x] **Step 1: Write the failing `chunk_to_row` test**
 
 Create `tests/test_chunk_loader.cpp`:
 
@@ -554,7 +554,7 @@ TEST_CASE("chunk_to_row serializes empty captions and formulas as empty json arr
 }
 ```
 
-- [ ] **Step 2: Add project entries**
+- [x] **Step 2: Add project entries**
 
 In `rag2.0/rag2.0.vcxproj`, next to `<ClCompile Include="..\src\ingest\ingest_pipeline.cpp" />` add:
 
@@ -592,7 +592,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters`, add (reusing the filters that `t
 <ClCompile Include="..\src\ingest\chunk_loader.cpp"><Filter>被测源码</Filter></ClCompile>
 ```
 
-- [ ] **Step 3: Build and verify failure**
+- [x] **Step 3: Build and verify failure**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -600,7 +600,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters`, add (reusing the filters that `t
 
 Expected: build FAILS — `ingest/chunk_loader.h` does not exist.
 
-- [ ] **Step 4: Create `src/ingest/chunk_loader.h`**
+- [x] **Step 4: Create `src/ingest/chunk_loader.h`**
 
 ```cpp
 #pragma once
@@ -631,7 +631,7 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache,
                             const std::string& collection);
 ```
 
-- [ ] **Step 5: Create `src/ingest/chunk_loader.cpp`**
+- [x] **Step 5: Create `src/ingest/chunk_loader.cpp`**
 
 ```cpp
 #include "ingest/chunk_loader.h"
@@ -690,7 +690,7 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache, PgClient& pg,
 }
 ```
 
-- [ ] **Step 6: Build and run the chunk loader tests**
+- [x] **Step 6: Build and run the chunk loader tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -699,7 +699,7 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache, PgClient& pg,
 
 Expected: both `chunk_to_row` cases PASS.
 
-- [ ] **Step 7: Commit Task 3**
+- [x] **Step 7: Commit Task 3**
 
 ```powershell
 git add src/ingest/chunk_loader.h src/ingest/chunk_loader.cpp tests/test_chunk_loader.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj rag2.0.tests/rag2.0.tests.vcxproj.filters
@@ -716,7 +716,7 @@ git commit -m "feat(m2c3): add chunk loader with delete-then-insert"
 
 No existing test references `ingest_file` (verified), so the rewrite is covered by compilation plus the full suite staying green. `clause_splitter` and its tests stay untouched.
 
-- [ ] **Step 1: Update the doc comment in `src/ingest/ingest_pipeline.h`**
+- [x] **Step 1: Update the doc comment in `src/ingest/ingest_pipeline.h`**
 
 Replace:
 
@@ -734,7 +734,7 @@ with:
 // IngestResult.clause_count 自本刀起表示 chunk 数。
 ```
 
-- [ ] **Step 2: Rewrite `src/ingest/ingest_pipeline.cpp`**
+- [x] **Step 2: Rewrite `src/ingest/ingest_pipeline.cpp`**
 
 Replace the whole file with:
 
@@ -791,7 +791,7 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
 }
 ```
 
-- [ ] **Step 3: Build and run all tests**
+- [x] **Step 3: Build and run all tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -800,7 +800,7 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
 
 Expected: build succeeds, all tests pass (`split_clauses` is no longer called by ingest but `clause_splitter` tests still pass on the module itself).
 
-- [ ] **Step 4: Commit Task 4**
+- [x] **Step 4: Commit Task 4**
 
 ```powershell
 git add src/ingest/ingest_pipeline.h src/ingest/ingest_pipeline.cpp
@@ -818,7 +818,7 @@ git commit -m "feat(m2c3): ingest via tree and controlled chunks"
 - Modify: `src/retrieve/dense_retriever.cpp`
 - Modify: `src/retrieve/candidate.h`
 
-- [ ] **Step 1: Write the failing `fragment_from_chunk` test**
+- [x] **Step 1: Write the failing `fragment_from_chunk` test**
 
 Append to `tests/test_context.cpp`:
 
@@ -863,7 +863,7 @@ TEST_CASE("fragment_from_chunk tolerates missing standard row") {
 }
 ```
 
-- [ ] **Step 2: Build and verify failure**
+- [x] **Step 2: Build and verify failure**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -871,7 +871,7 @@ TEST_CASE("fragment_from_chunk tolerates missing standard row") {
 
 Expected: build FAILS — `fragment_from_chunk` is not declared.
 
-- [ ] **Step 3: Declare `fragment_from_chunk` in `src/generate/answer_pipeline.h`**
+- [x] **Step 3: Declare `fragment_from_chunk` in `src/generate/answer_pipeline.h`**
 
 Replace the file content with:
 
@@ -900,7 +900,7 @@ std::string answer_query(const std::string& question,
                          int top_k);
 ```
 
-- [ ] **Step 4: Rewrite `src/generate/answer_pipeline.cpp`**
+- [x] **Step 4: Rewrite `src/generate/answer_pipeline.cpp`**
 
 Replace the file content with:
 
@@ -947,7 +947,7 @@ std::string answer_query(const std::string& question, Retriever& retriever, PgCl
 }
 ```
 
-- [ ] **Step 5: Switch `DenseRetriever` to chunk ids**
+- [x] **Step 5: Switch `DenseRetriever` to chunk ids**
 
 In `src/retrieve/dense_retriever.cpp`, replace:
 
@@ -979,7 +979,7 @@ struct Candidate {
     std::string clause_id;   // == retrieval_chunks.chunk_id（M3 统一改名）
 ```
 
-- [ ] **Step 6: Build and run the new tests plus full suite**
+- [x] **Step 6: Build and run the new tests plus full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -989,7 +989,7 @@ struct Candidate {
 
 Expected: both `fragment_from_chunk` cases PASS, full suite PASS.
 
-- [ ] **Step 7: Commit Task 5**
+- [x] **Step 7: Commit Task 5**
 
 ```powershell
 git add tests/test_context.cpp src/generate/answer_pipeline.h src/generate/answer_pipeline.cpp src/retrieve/dense_retriever.cpp src/retrieve/candidate.h
@@ -1003,7 +1003,7 @@ git commit -m "feat(m2c3): answer pipeline reads retrieval chunks"
 **Files:**
 - Modify: `src/main.cpp`
 
-- [ ] **Step 1: Add the include**
+- [x] **Step 1: Add the include**
 
 In `src/main.cpp`, near `#include "ingest/ingest_pipeline.h"` add:
 
@@ -1013,7 +1013,7 @@ In `src/main.cpp`, near `#include "ingest/ingest_pipeline.h"` add:
 
 (`retrieve/retrieval_chunk.h` is already included via Task M2c-2.)
 
-- [ ] **Step 2: Add `cmd_chunkload` after `cmd_chunkcheck`**
+- [x] **Step 2: Add `cmd_chunkload` after `cmd_chunkcheck`**
 
 ```cpp
 // 落库命令：读 chunk_cache，按 standard_id 先删后插写入 PG + Milvus。
@@ -1069,7 +1069,7 @@ static int cmd_chunkload(const Config& cfg, const std::string& chunk_cache_path)
 }
 ```
 
-- [ ] **Step 3: Wire the command in `main`**
+- [x] **Step 3: Wire the command in `main`**
 
 Replace the usage line:
 
@@ -1094,7 +1094,7 @@ After the `chunkcheck` command block, add:
     }
 ```
 
-- [ ] **Step 4: Build and run the full suite**
+- [x] **Step 4: Build and run the full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -1103,7 +1103,7 @@ After the `chunkcheck` command block, add:
 
 Expected: build succeeds, all tests pass.
 
-- [ ] **Step 5: Live smoke (only if services are configured)**
+- [x] **Step 5: Live smoke (only if services are configured)**
 
 First check connectivity:
 
@@ -1136,7 +1136,7 @@ Expected:
 - Third run (re-load of the first cache): `deleted_old=157`, `embedded=157` — delete-then-insert idempotency confirmed.
 - Both queries return answers citing `clause_no`/`path` from chunk metadata.
 
-- [ ] **Step 6: Commit Task 6**
+- [x] **Step 6: Commit Task 6**
 
 ```powershell
 git add src/main.cpp
@@ -1169,13 +1169,13 @@ Spec acceptance items not verifiable without live services (chunkload idempotenc
 
 ## Self-Review Checklist
 
-- [ ] Spec §2 decisions all implemented: chunkload+ingest shared loader (Tasks 3/4/6), delete-then-insert (Task 3), reused collection name with chunk_id PK (Task 2), in-place query rewiring (Task 5), clause_nodes kept but unwritten (Task 4).
-- [ ] Spec §3 schema matches Task 1 SQL column-for-column.
-- [ ] Spec §4 Milvus changes covered by Task 2 (insert/delete/drop/search/ensure).
-- [ ] Spec §5 loader API matches Task 3 (`ChunkLoadResult` with deleted_count, `chunk_to_row` pure).
-- [ ] Spec §6 ingest rewrite matches Task 4 step list.
-- [ ] Spec §7 query wiring matches Task 5 (`context_text` as LLM text).
-- [ ] Spec §8 CLI behavior matches Task 6 (placeholder standards row, exit codes).
-- [ ] Spec §9 error handling: cache errors exit 1, per-chunk embed warn-and-skip, partial load returns 1.
-- [ ] Spec §10 test strategy mapped: milvus bodies (Task 2), chunk_to_row (Task 3), fragment_from_chunk (Task 5); loader call-order logic is exercised structurally (delete called before inserts in a 40-line function) — no live-network unit test by design.
-- [ ] Spec §11 non-goals untouched: no BM25, no batching, no spec_tables, no version management.
+- [x] Spec §2 decisions all implemented: chunkload+ingest shared loader (Tasks 3/4/6), delete-then-insert (Task 3), reused collection name with chunk_id PK (Task 2), in-place query rewiring (Task 5), clause_nodes kept but unwritten (Task 4).
+- [x] Spec §3 schema matches Task 1 SQL column-for-column.
+- [x] Spec §4 Milvus changes covered by Task 2 (insert/delete/drop/search/ensure).
+- [x] Spec §5 loader API matches Task 3 (`ChunkLoadResult` with deleted_count, `chunk_to_row` pure).
+- [x] Spec §6 ingest rewrite matches Task 4 step list.
+- [x] Spec §7 query wiring matches Task 5 (`context_text` as LLM text).
+- [x] Spec §8 CLI behavior matches Task 6 (placeholder standards row, exit codes).
+- [x] Spec §9 error handling: cache errors exit 1, per-chunk embed warn-and-skip, partial load returns 1.
+- [x] Spec §10 test strategy mapped: milvus bodies (Task 2), chunk_to_row (Task 3), fragment_from_chunk (Task 5); loader call-order logic is exercised structurally (delete called before inserts in a 40-line function) — no live-network unit test by design.
+- [x] Spec §11 non-goals untouched: no BM25, no batching, no spec_tables, no version management.
