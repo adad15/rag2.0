@@ -61,6 +61,7 @@ TEST_CASE("chunk_to_row serializes empty captions and formulas as empty json arr
     RetrievalChunk c;
     c.chunk_id = "sid:1#main";
     RetrievalChunkRow row = chunk_to_row(c);
+    CHECK(row.chunk_id == "sid:1#main");
     CHECK(row.captions_json == "[]");
     CHECK(row.formulas_json == "[]");
 }

@@ -9,7 +9,7 @@
 
 struct ChunkLoadResult {
     int chunk_count = 0;     // cache 中 chunk 总数
-    int embedded_count = 0;  // 成功 embed 并写入 Milvus 的数量
+    int embedded_count = 0;  // 成功 embed 并写入 Milvus 的数量（两步均成功才计入）
     int deleted_count = 0;   // 先删后插阶段删除的 PG 旧 chunk 行数
 };
 

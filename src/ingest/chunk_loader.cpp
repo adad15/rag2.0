@@ -35,9 +35,11 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache, PgClient& pg,
     ChunkLoadResult result;
     result.chunk_count = static_cast<int>(cache.chunks.size());
 
-    // 幂等：先删两个库里这份标准的旧数据，再插入
-    result.deleted_count = pg.delete_chunks_by_standard(cache.standard_id);
+    // 幂等：先删两个库里这份标准的旧数据，再插入。
+    // 先删 Milvus：若它失败，PG 旧行完好，旧数据仍可查；反序则会留下
+    // 指向空行的陈旧向量挤占检索名额。任一失败重跑即可修复。
     mv.delete_by_standard(collection, cache.standard_id);
+    result.deleted_count = pg.delete_chunks_by_standard(cache.standard_id);
 
     for (const auto& c : cache.chunks) {
         pg.insert_chunk(chunk_to_row(c));
