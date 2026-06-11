@@ -41,6 +41,7 @@
     <ClCompile Include="..\src\generate\answer_pipeline.cpp"><Filter>源文件\generate</Filter></ClCompile>
     <ClCompile Include="..\src\embedding\cloud_embedding.cpp"><Filter>源文件\embedding</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\clause_splitter.cpp"><Filter>源文件\ingest</Filter></ClCompile>
+    <ClCompile Include="..\src\ingest\chunk_loader.cpp"><Filter>源文件\ingest</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\ingest_pipeline.cpp"><Filter>源文件\ingest</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\standard_meta.cpp"><Filter>源文件\ingest</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
@@ -69,6 +70,7 @@
     <ClInclude Include="..\src\embedding\embedding_client.h"><Filter>头文件\embedding</Filter></ClInclude>
     <ClInclude Include="..\src\embedding\cloud_embedding.h"><Filter>头文件\embedding</Filter></ClInclude>
     <ClInclude Include="..\src\ingest\clause_splitter.h"><Filter>头文件\ingest</Filter></ClInclude>
+    <ClInclude Include="..\src\ingest\chunk_loader.h"><Filter>头文件\ingest</Filter></ClInclude>
     <ClInclude Include="..\src\ingest\ingest_pipeline.h"><Filter>头文件\ingest</Filter></ClInclude>
     <ClInclude Include="..\src\ingest\standard_meta.h"><Filter>头文件\ingest</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\candidate.h"><Filter>头文件\retrieve</Filter></ClInclude>

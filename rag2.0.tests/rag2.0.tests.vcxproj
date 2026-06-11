@@ -109,6 +109,8 @@
     <ClCompile Include="..\tests\test_region_segmenter.cpp" />
     <ClCompile Include="..\tests\test_tree_builder.cpp" />
     <ClCompile Include="..\tests\test_retrieval_chunk.cpp" />
+    <ClCompile Include="..\tests\test_chunk_loader.cpp" />
+    <ClCompile Include="..\src\ingest\chunk_loader.cpp" />
     <ClCompile Include="..\src\parse\ppstructure_backend.cpp" />
     <ClCompile Include="..\src\parse\clause_no.cpp" />
     <ClCompile Include="..\src\parse\ocr_normalize.cpp" />

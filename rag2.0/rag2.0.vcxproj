@@ -85,6 +85,7 @@
     <ClCompile Include="..\src\generate\deepseek_client.cpp" />
     <ClCompile Include="..\src\embedding\cloud_embedding.cpp" />
     <ClCompile Include="..\src\ingest\clause_splitter.cpp" />
+    <ClCompile Include="..\src\ingest\chunk_loader.cpp" />
     <ClCompile Include="..\src\ingest\ingest_pipeline.cpp" />
     <ClCompile Include="..\src\ingest\standard_meta.cpp" />
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp" />
@@ -117,6 +118,7 @@
     <ClInclude Include="..\src\embedding\embedding_client.h" />
     <ClInclude Include="..\src\embedding\cloud_embedding.h" />
     <ClInclude Include="..\src\ingest\clause_splitter.h" />
+    <ClInclude Include="..\src\ingest\chunk_loader.h" />
     <ClInclude Include="..\src\ingest\ingest_pipeline.h" />
     <ClInclude Include="..\src\ingest\standard_meta.h" />
     <ClInclude Include="..\src\retrieve\candidate.h" />
