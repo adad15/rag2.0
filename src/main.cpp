@@ -18,6 +18,7 @@
 #include <memory>
 #include "embedding/cloud_embedding.h"
 #include "ingest/ingest_pipeline.h"
+#include "ingest/chunk_loader.h"
 #include "retrieve/dense_retriever.h"
 #include "generate/answer_pipeline.h"
 #include <spdlog/spdlog.h>
@@ -295,10 +296,62 @@ static int cmd_chunkcheck(const std::string& tree_cache_path) {
     }
 }
 
+// 落库命令：读 chunk_cache，按 standard_id 先删后插写入 PG + Milvus。
+// embedding 只吃 embedding_text。部分失败返回 1，重跑即可全量修复。
+static int cmd_chunkload(const Config& cfg, const std::string& chunk_cache_path) {
+    try {
+        if (!std::filesystem::exists(chunk_cache_path)) {
+            spdlog::error("chunk 缓存文件不存在: {}", chunk_cache_path);
+            return 1;
+        }
+        std::string js = read_file(chunk_cache_path);
+        if (js.empty()) {
+            spdlog::error("chunk 缓存文件为空: {}", chunk_cache_path);
+            return 1;
+        }
+        RetrievalChunkCache cache = retrieval_chunk_cache_from_json(js);
+        if (cache.chunks.empty()) {
+            spdlog::error("chunk 缓存中没有 chunk: {}", chunk_cache_path);
+            return 1;
+        }
+
+        PgClient pg(cfg.pg_conninfo);
+        pg.apply_schema(read_file("src/db/schema.sql"));   // 幂等建表
+        milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
+        CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
+                             cfg.embed_key, cfg.embed_dim);
+
+        // standards 占位行，保证 retrieval_chunks 外键成立（ingest 全链路会写真行覆盖）
+        if (!pg.get_standard(cache.standard_id)) {
+            StandardRow s;
+            s.standard_id = cache.standard_id;
+            s.standard_no = cache.standard_no;
+            s.standard_name = cache.standard_no;
+            s.status = "现行";
+            pg.upsert_standard(s);
+        }
+
+        mv.ensure_collection(cfg.milvus_collection, embed.dim());
+        ChunkLoadResult r = load_chunks(cache, pg, mv, embed, cfg.milvus_collection);
+
+        spdlog::info("chunkload {} | standard_no={}", cache.standard_id, cache.standard_no);
+        spdlog::info("  chunks={} embedded={} deleted_old={}",
+                     r.chunk_count, r.embedded_count, r.deleted_count);
+        if (r.embedded_count < r.chunk_count) {
+            spdlog::warn("部分 chunk 未完成 embedding，重跑 chunkload 可全量修复");
+            return 1;
+        }
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] chunkload: {}", e.what());
+        return 1;
+    }
+}
+
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
-        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck> [args]\n";
+        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck|chunkload> [args]\n";
         return 1;
     }
     Config cfg = Config::from_json_file("config.json");
@@ -337,6 +390,12 @@ int main(int argc, char** argv) {
     if (cmd == "chunkcheck") {
         if (argc < 3) { std::cout << "usage: rag2 chunkcheck <tree_cache.json>\n"; return 1; }
         return cmd_chunkcheck(argv[2]);
+    }
+    if (cmd == "chunkload") {
+        if (argc < 3) { std::cout << "usage: rag2 chunkload <chunk_cache.json>\n"; return 1; }
+        auto missing = cfg.missing_required();
+        if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
+        return cmd_chunkload(cfg, argv[2]);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;
