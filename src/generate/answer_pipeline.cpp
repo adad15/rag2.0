@@ -1,7 +1,20 @@
 #include "generate/answer_pipeline.h"
-#include "generate/context.h"
 #include "generate/prompt_builder.h"
 #include <vector>
+
+ContextFragment fragment_from_chunk(int idx, const RetrievalChunkRow& chunk,
+                                    const std::optional<StandardRow>& std_row) {
+    ContextFragment f;
+    f.source_id = "S" + std::to_string(idx);
+    f.standard_no = std_row ? std_row->standard_no : "";
+    f.standard_name = std_row ? std_row->standard_name : "";
+    f.status = std_row ? std_row->status : "";
+    f.clause_no = chunk.clause_no;
+    f.path = chunk.path_text;
+    f.is_mandatory = false;   // 强制性条文识别留 M5
+    f.text = chunk.context_text;
+    return f;
+}
 
 std::string answer_query(const std::string& question, Retriever& retriever, PgClient& pg,
                          deepseek::DeepSeekClient& ds, int top_k) {
@@ -12,21 +25,11 @@ std::string answer_query(const std::string& question, Retriever& retriever, PgCl
     std::vector<ContextFragment> fragments;
     int idx = 1;
     for (auto& c : candidates) {
-        // 底座原则：以 PG 回查为权威源
-        auto clause = pg.get_clause(c.clause_id);
-        if (!clause) continue;
-        auto std_row = pg.get_standard(clause->standard_id);
-
-        ContextFragment f;
-        f.source_id = "S" + std::to_string(idx++);
-        f.standard_no = std_row ? std_row->standard_no : "";
-        f.standard_name = std_row ? std_row->standard_name : "";
-        f.status = std_row ? std_row->status : "";
-        f.clause_no = clause->clause_no;
-        f.path = clause->path;
-        f.is_mandatory = false;   // M1 未识别强制性，M2 补
-        f.text = clause->text;
-        fragments.push_back(std::move(f));
+        // 底座原则：以 PG 回查为权威源（M2c-3 起权威源是 retrieval_chunks）
+        auto chunk = pg.get_chunk(c.clause_id);
+        if (!chunk) continue;
+        auto std_row = pg.get_standard(chunk->standard_id);
+        fragments.push_back(fragment_from_chunk(idx++, *chunk, std_row));
     }
     if (fragments.empty())
         return "检索命中但回查规范原文为空，无法作答。";

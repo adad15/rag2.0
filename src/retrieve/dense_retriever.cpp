@@ -11,7 +11,7 @@ std::vector<Candidate> DenseRetriever::retrieve(const std::string& query, int to
     for (auto& h : hits) {
         Candidate c;
         c.standard_id = h.standard_id;
-        c.clause_id = h.node_id;   // 归一化键
+        c.clause_id = h.chunk_id;  // M2c-3 起归一化键为 retrieval_chunks.chunk_id
         c.score = h.score;
         c.source = "dense";
         out.push_back(c);
