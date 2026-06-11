@@ -10,8 +10,10 @@ struct IngestResult {
     int clause_count = 0;
 };
 
-// 解析 1 份文件 → 切分条款 → 写 PG → 生成向量 → 写 Milvus。
-// standard_no/standard_name 在 M1 用文件名占位（M2 由元数据抽取替换）。
+// M2c-3：解析 1 份文件（带 parse_cache）→ 建条款树 → 生成受控 chunk
+// → 写 PG retrieval_chunks → embed embedding_text → 写 Milvus。
+// 同时落 tree_cache/chunk_cache 副产品，与 treecheck/chunkcheck 产物一致。
+// IngestResult.clause_count 自本刀起表示 chunk 数。
 IngestResult ingest_file(const std::string& file_path,
                          Parser& parser,
                          PgClient& pg,
