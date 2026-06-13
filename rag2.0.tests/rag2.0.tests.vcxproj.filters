@@ -28,7 +28,9 @@
     <ClCompile Include="..\tests\test_method_no.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_query_analysis.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_retrieval_filter.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_rrf.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\chunk_loader.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\retrieve\rrf.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\config.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\logging.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\http\http_client.cpp"><Filter>被测源码</Filter></ClCompile>
