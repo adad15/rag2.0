@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
-#include <regex>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
