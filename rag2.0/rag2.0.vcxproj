@@ -105,6 +105,7 @@
     <ClCompile Include="..\src\structure\toc_parser.cpp" />
     <ClCompile Include="..\src\structure\region_segmenter.cpp" />
     <ClCompile Include="..\src\structure\tree_builder.cpp" />
+    <ClCompile Include="..\src\query\query_analysis.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -143,6 +144,7 @@
     <ClInclude Include="..\src\structure\toc_parser.h" />
     <ClInclude Include="..\src\structure\region_segmenter.h" />
     <ClInclude Include="..\src\structure\tree_builder.h" />
+    <ClInclude Include="..\src\query\query_analysis.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql" />

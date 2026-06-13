@@ -125,6 +125,8 @@
     <ClCompile Include="..\src\structure\region_segmenter.cpp" />
     <ClCompile Include="..\src\structure\tree_builder.cpp" />
     <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp" />
+    <ClCompile Include="..\src\query\query_analysis.cpp" />
+    <ClCompile Include="..\tests\test_query_analysis.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
