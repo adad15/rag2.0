@@ -12,7 +12,7 @@ ContextFragment fragment_from_chunk(int idx,
                                     const RetrievalChunkRow& chunk,
                                     const std::optional<StandardRow>& std_row);
 
-// query → 检索候选（clause_id 即 chunk_id）→ 回查 PG retrieval_chunks
+// query → 检索候选（chunk_id）→ 回查 PG retrieval_chunks
 // → 组装 ContextFragment → DeepSeek 生成带溯源回答。
 // 候选为空时直接返回拒答提示（不调用模型）。
 std::string answer_query(const std::string& question,

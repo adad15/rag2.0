@@ -28,7 +28,7 @@ std::string answer_query(const std::string& question, Retriever& retriever, PgCl
     int idx = 1;
     for (auto& c : candidates) {
         // 底座原则：以 PG 回查为权威源（M2c-3 起权威源是 retrieval_chunks）
-        auto chunk = pg.get_chunk(c.clause_id);
+        auto chunk = pg.get_chunk(c.chunk_id);
         if (!chunk) continue;
         auto std_row = pg.get_standard(chunk->standard_id);
         fragments.push_back(fragment_from_chunk(idx++, *chunk, std_row));
