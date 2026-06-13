@@ -137,3 +137,60 @@ std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id
     c.suspect = row[18].c_str();
     return c;
 }
+
+std::string PgClient::find_standard_by_code(const std::string& code) {
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    // 库内 standard_no 是带空格全称（"…（JTC 5210-2018）"），去空格后与裸代号子串匹配
+    auto r = tx.exec(
+        "SELECT standard_id FROM standards "
+        "WHERE REPLACE(standard_no,' ','') LIKE $1 "
+        "ORDER BY (status='现行') DESC LIMIT 1",
+        pqxx::params{"%" + code + "%"});
+    return r.empty() ? "" : std::string(r[0][0].c_str());
+}
+
+std::vector<RetrievalChunkRow> PgClient::chunks_by_method(const std::string& method_prefix,
+                                                          const std::string& standard_id) {
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    pqxx::result r;
+    if (standard_id.empty()) {
+        r = tx.exec(
+            "SELECT chunk_id,standard_id FROM retrieval_chunks "
+            "WHERE method_no LIKE $1 ORDER BY clause_no",
+            pqxx::params{method_prefix + "%"});
+    } else {
+        r = tx.exec(
+            "SELECT chunk_id,standard_id FROM retrieval_chunks "
+            "WHERE method_no LIKE $1 AND standard_id=$2 ORDER BY clause_no",
+            pqxx::params{method_prefix + "%", standard_id});
+    }
+    std::vector<RetrievalChunkRow> out;
+    for (auto row : r) {
+        RetrievalChunkRow c;
+        c.chunk_id = row[0].c_str();
+        c.standard_id = row[1].c_str();
+        out.push_back(std::move(c));
+    }
+    return out;
+}
+
+std::vector<std::string> PgClient::chunk_ids_by_clause(const std::string& clause_no,
+                                                       const std::string& standard_id) {
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    pqxx::result r;
+    if (standard_id.empty()) {
+        r = tx.exec(
+            "SELECT chunk_id FROM retrieval_chunks WHERE clause_no=$1",
+            pqxx::params{clause_no});
+    } else {
+        r = tx.exec(
+            "SELECT chunk_id FROM retrieval_chunks WHERE clause_no=$1 AND standard_id=$2",
+            pqxx::params{clause_no, standard_id});
+    }
+    std::vector<std::string> out;
+    for (auto row : r) out.push_back(row[0].c_str());
+    return out;
+}

@@ -108,6 +108,7 @@
     <ClCompile Include="..\src\structure\region_segmenter.cpp" />
     <ClCompile Include="..\src\structure\tree_builder.cpp" />
     <ClCompile Include="..\src\query\query_analysis.cpp" />
+    <ClCompile Include="..\src\retrieve\pg_exact_retriever.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
@@ -149,6 +150,7 @@
     <ClInclude Include="..\src\structure\region_segmenter.h" />
     <ClInclude Include="..\src\structure\tree_builder.h" />
     <ClInclude Include="..\src\query\query_analysis.h" />
+    <ClInclude Include="..\src\retrieve\pg_exact_retriever.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql" />

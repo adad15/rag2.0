@@ -61,6 +61,14 @@ public:
     int delete_chunks_by_standard(const std::string& standard_id);  // 返回删除行数
     void insert_chunk(const RetrievalChunkRow& row);
     std::optional<RetrievalChunkRow> get_chunk(const std::string& chunk_id);
+    // M3a 精确路：归一化裸代号 → standard_id（现行优先；未找到返回空）
+    std::string find_standard_by_code(const std::string& code);
+    // 方法号前缀匹配取该方法全部 chunk（只填 chunk_id/standard_id，按 clause_no 排序）
+    std::vector<RetrievalChunkRow> chunks_by_method(const std::string& method_prefix,
+                                                    const std::string& standard_id);
+    // 条款号精确命中（standard_id 可空），返回 chunk_id 列表
+    std::vector<std::string> chunk_ids_by_clause(const std::string& clause_no,
+                                                 const std::string& standard_id);
 private:
     std::string conninfo_;
 };
