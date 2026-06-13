@@ -90,6 +90,7 @@
     <ClCompile Include="..\src\ingest\standard_meta.cpp" />
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp" />
     <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp" />
+    <ClCompile Include="..\src\retrieve\retrieval_filter.cpp" />
     <ClCompile Include="..\src\generate\prompt_builder.cpp" />
     <ClCompile Include="..\src\generate\answer_pipeline.cpp" />
     <ClCompile Include="..\src\main.cpp" />
@@ -127,6 +128,7 @@
     <ClInclude Include="..\src\retrieve\retriever.h" />
     <ClInclude Include="..\src\retrieve\dense_retriever.h" />
     <ClInclude Include="..\src\retrieve\retrieval_chunk.h" />
+    <ClInclude Include="..\src\retrieve\retrieval_filter.h" />
     <ClInclude Include="..\src\generate\context.h" />
     <ClInclude Include="..\src\generate\prompt_builder.h" />
     <ClInclude Include="..\src\generate\answer_pipeline.h" />

@@ -84,6 +84,7 @@
     <ClCompile Include="..\src\ingest\ingest_pipeline.cpp" />
     <ClCompile Include="..\src\ingest\standard_meta.cpp" />
     <ClCompile Include="..\src\retrieve\dense_retriever.cpp" />
+    <ClCompile Include="..\src\retrieve\retrieval_filter.cpp" />
     <ClCompile Include="..\src\generate\prompt_builder.cpp" />
     <ClCompile Include="..\src\generate\answer_pipeline.cpp" />
     <ClCompile Include="..\tests\test_main.cpp" />
@@ -127,6 +128,7 @@
     <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp" />
     <ClCompile Include="..\src\query\query_analysis.cpp" />
     <ClCompile Include="..\tests\test_query_analysis.cpp" />
+    <ClCompile Include="..\tests\test_retrieval_filter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
