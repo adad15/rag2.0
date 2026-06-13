@@ -31,13 +31,15 @@ std::string build_delete_body(const std::string& collection, const std::string& 
 }
 
 std::string build_search_body(const std::string& collection, const std::vector<float>& query,
-                              int top_k, const std::vector<std::string>& output_fields) {
+                              int top_k, const std::vector<std::string>& output_fields,
+                              const std::string& filter_expr) {
     json body;
     body["collectionName"] = collection;
     body["data"] = json::array({query});
     body["annsField"] = "dense";
     body["limit"] = top_k;
     body["outputFields"] = output_fields;
+    if (!filter_expr.empty()) body["filter"] = filter_expr;
     return body.dump();
 }
 
@@ -122,9 +124,10 @@ void MilvusRest::drop_collection(const std::string& collection) {
 }
 
 std::vector<Hit> MilvusRest::search(const std::string& collection,
-                                    const std::vector<float>& query, int top_k) {
+                                    const std::vector<float>& query, int top_k,
+                                    const std::string& filter_expr) {
     auto body = build_search_body(collection, query, top_k,
-                                  {"chunk_id", "node_id", "standard_id"});
+                                  {"chunk_id", "node_id", "standard_id"}, filter_expr);
     auto res = http::post_json(base_url_, "/v2/vectordb/entities/search", body,
                                auth_headers(token_));
     if (!res.ok())

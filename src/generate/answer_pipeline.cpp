@@ -1,5 +1,6 @@
 #include "generate/answer_pipeline.h"
 #include "generate/prompt_builder.h"
+#include "retrieve/retrieval_filter.h"
 #include <vector>
 
 ContextFragment fragment_from_chunk(int idx, const RetrievalChunkRow& chunk,
@@ -20,7 +21,7 @@ ContextFragment fragment_from_chunk(int idx, const RetrievalChunkRow& chunk,
 
 std::string answer_query(const std::string& question, Retriever& retriever, PgClient& pg,
                          deepseek::DeepSeekClient& ds, int top_k) {
-    auto candidates = retriever.retrieve(question, top_k);
+    auto candidates = retriever.retrieve(question, RetrievalFilter{}, top_k);
     if (candidates.empty())
         return "未检索到相关规范依据，无法作答。";
 

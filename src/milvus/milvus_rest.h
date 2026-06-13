@@ -22,7 +22,8 @@ std::string build_delete_body(const std::string& collection,
 std::string build_search_body(const std::string& collection,
                               const std::vector<float>& query,
                               int top_k,
-                              const std::vector<std::string>& output_fields);
+                              const std::vector<std::string>& output_fields,
+                              const std::string& filter_expr = "");
 
 class MilvusRest {
 public:
@@ -38,7 +39,8 @@ public:
     // 一次性升级/测试清理用
     void drop_collection(const std::string& collection);
     std::vector<Hit> search(const std::string& collection,
-                            const std::vector<float>& query, int top_k);
+                            const std::vector<float>& query, int top_k,
+                            const std::string& filter_expr = "");
 private:
     std::string base_url_;
     std::string token_;

@@ -6,7 +6,8 @@
 class DenseRetriever : public Retriever {
 public:
     DenseRetriever(milvus::MilvusRest& mv, EmbeddingClient& embed, std::string collection);
-    std::vector<Candidate> retrieve(const std::string& query, int top_k) override;
+    std::vector<Candidate> retrieve(const std::string& query,
+                                    const RetrievalFilter& filter, int top_k) override;
 private:
     milvus::MilvusRest& mv_;
     EmbeddingClient& embed_;

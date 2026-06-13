@@ -31,3 +31,20 @@ TEST_CASE("build_delete_body filters by standard id") {
     CHECK(j["collectionName"] == "clause_text");
     CHECK(j["filter"] == "standard_id == \"12215131224082667446\"");
 }
+
+TEST_CASE("build_search_body includes filter when provided") {
+    std::vector<float> vec = {0.1f, 0.2f};
+    std::string body = milvus::build_search_body(
+        "clause_text", vec, 5, {"chunk_id", "node_id", "standard_id"},
+        "standard_id == \"S1\"");
+    auto j = nlohmann::json::parse(body);
+    CHECK(j["filter"] == "standard_id == \"S1\"");
+}
+
+TEST_CASE("build_search_body omits filter key when expression is empty") {
+    std::vector<float> vec = {0.1f, 0.2f};
+    std::string body = milvus::build_search_body(
+        "clause_text", vec, 5, {"chunk_id"}, "");
+    auto j = nlohmann::json::parse(body);
+    CHECK_FALSE(j.contains("filter"));
+}
