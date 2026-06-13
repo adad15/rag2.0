@@ -117,6 +117,8 @@
     <ClCompile Include="..\src\parse\ocr_metrics.cpp" />
     <ClCompile Include="..\src\parse\hybrid_parser.cpp" />
     <ClCompile Include="..\src\parse\parser_factory.cpp" />
+    <ClCompile Include="..\src\parse\method_no.cpp" />
+    <ClCompile Include="..\tests\test_method_no.cpp" />
     <ClCompile Include="..\src\structure\clause_tree.cpp" />
     <ClCompile Include="..\src\structure\format_profile.cpp" />
     <ClCompile Include="..\src\structure\toc_parser.cpp" />

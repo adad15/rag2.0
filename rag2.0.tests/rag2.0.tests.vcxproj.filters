@@ -25,6 +25,7 @@
     <ClCompile Include="..\tests\test_ocr_metrics.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_retrieval_chunk.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_chunk_loader.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_method_no.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\chunk_loader.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\config.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\logging.cpp"><Filter>被测源码</Filter></ClCompile>
@@ -48,6 +49,7 @@
     <ClCompile Include="..\src\parse\hybrid_parser.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\parse\parser_factory.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\parse\method_no.cpp"><Filter>被测源码</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h"><Filter>头文件</Filter></ClInclude>

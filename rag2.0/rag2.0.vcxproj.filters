@@ -36,6 +36,7 @@
     <ClCompile Include="..\src\parse\ocr_metrics.cpp"><Filter>源文件\parse</Filter></ClCompile>
     <ClCompile Include="..\src\parse\hybrid_parser.cpp"><Filter>源文件\parse</Filter></ClCompile>
     <ClCompile Include="..\src\parse\parser_factory.cpp"><Filter>源文件\parse</Filter></ClCompile>
+    <ClCompile Include="..\src\parse\method_no.cpp"><Filter>源文件\parse</Filter></ClCompile>
     <ClCompile Include="..\src\generate\deepseek_client.cpp"><Filter>源文件\generate</Filter></ClCompile>
     <ClCompile Include="..\src\generate\prompt_builder.cpp"><Filter>源文件\generate</Filter></ClCompile>
     <ClCompile Include="..\src\generate\answer_pipeline.cpp"><Filter>源文件\generate</Filter></ClCompile>
@@ -63,6 +64,7 @@
     <ClInclude Include="..\src\parse\ocr_metrics.h"><Filter>头文件\parse</Filter></ClInclude>
     <ClInclude Include="..\src\parse\hybrid_parser.h"><Filter>头文件\parse</Filter></ClInclude>
     <ClInclude Include="..\src\parse\parser_factory.h"><Filter>头文件\parse</Filter></ClInclude>
+    <ClInclude Include="..\src\parse\method_no.h"><Filter>头文件\parse</Filter></ClInclude>
     <ClInclude Include="..\src\generate\deepseek_client.h"><Filter>头文件\generate</Filter></ClInclude>
     <ClInclude Include="..\src\generate\context.h"><Filter>头文件\generate</Filter></ClInclude>
     <ClInclude Include="..\src\generate\prompt_builder.h"><Filter>头文件\generate</Filter></ClInclude>
