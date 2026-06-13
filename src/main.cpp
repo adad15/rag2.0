@@ -127,11 +127,11 @@ static int cmd_query(const Config& cfg, const std::string& question) {
         milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
         CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
                              cfg.embed_key, cfg.embed_dim);
-        DenseRetriever retriever(mv, embed, cfg.milvus_collection);
         deepseek::DeepSeekClient ds(cfg.deepseek_base_url, cfg.deepseek_path,
                                     cfg.deepseek_model, cfg.deepseek_key);
 
-        std::string ans = answer_query(question, retriever, pg, ds, /*top_k=*/5);
+        std::string ans = answer_query(question, mv, embed, pg, ds,
+                                       cfg.milvus_collection, /*top_k=*/5);
         std::cout << "\n===== 回答 =====\n" << ans << "\n";
         return 0;
     } catch (const std::exception& e) {

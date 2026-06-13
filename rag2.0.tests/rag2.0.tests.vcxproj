@@ -131,6 +131,8 @@
     <ClCompile Include="..\tests\test_retrieval_filter.cpp" />
     <ClCompile Include="..\src\retrieve\rrf.cpp" />
     <ClCompile Include="..\tests\test_rrf.cpp" />
+    <ClCompile Include="..\src\retrieve\text_search.cpp" />
+    <ClCompile Include="..\src\retrieve\pg_exact_retriever.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />

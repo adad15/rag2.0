@@ -1,6 +1,6 @@
 #include "generate/answer_pipeline.h"
 #include "generate/prompt_builder.h"
-#include "retrieve/retrieval_filter.h"
+#include "retrieve/text_search.h"
 #include <vector>
 
 ContextFragment fragment_from_chunk(int idx, const RetrievalChunkRow& chunk,
@@ -19,17 +19,19 @@ ContextFragment fragment_from_chunk(int idx, const RetrievalChunkRow& chunk,
     return f;
 }
 
-std::string answer_query(const std::string& question, Retriever& retriever, PgClient& pg,
-                         deepseek::DeepSeekClient& ds, int top_k) {
-    auto candidates = retriever.retrieve(question, RetrievalFilter{}, top_k);
+std::string answer_query(const std::string& question, milvus::MilvusRest& mv,
+                         EmbeddingClient& embed, PgClient& pg,
+                         deepseek::DeepSeekClient& ds, const std::string& collection,
+                         int top_k) {
+    auto candidates = text_retrieve(question, mv, embed, pg, collection,
+                                    /*per_path_k=*/top_k * 4, top_k);
     if (candidates.empty())
         return "未检索到相关规范依据，无法作答。";
 
     std::vector<ContextFragment> fragments;
     int idx = 1;
     for (auto& c : candidates) {
-        // 底座原则：以 PG 回查为权威源（M2c-3 起权威源是 retrieval_chunks）
-        auto chunk = pg.get_chunk(c.chunk_id);
+        auto chunk = pg.get_chunk(c.chunk_id);   // 底座原则：以 PG 回查为权威源
         if (!chunk) continue;
         auto std_row = pg.get_standard(chunk->standard_id);
         fragments.push_back(fragment_from_chunk(idx++, *chunk, std_row));
