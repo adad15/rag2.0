@@ -95,14 +95,14 @@ Mechanical rename done first so later new code can reference `chunk_id`.
 - Modify: `src/retrieve/dense_retriever.cpp`
 - Modify: `src/generate/answer_pipeline.cpp`
 
-- [ ] **Step 1: Confirm the only references**
+- [x] **Step 1: Confirm the only references**
 
 ```powershell
 .\rag2.0.tests\x64\Debug\rag2.0.tests.exe --version *> $null   # noop, ensure shell ok
 ```
 Use Grep for `clause_id` across `src` and `tests`. Expected matches only in `candidate.h`, `dense_retriever.cpp`, `answer_pipeline.cpp`. If any other file matches, update it the same way in this task.
 
-- [ ] **Step 2: Edit `src/retrieve/candidate.h`**
+- [x] **Step 2: Edit `src/retrieve/candidate.h`**
 
 Replace the struct so the field is `chunk_id`:
 
@@ -119,7 +119,7 @@ struct Candidate {
 };
 ```
 
-- [ ] **Step 3: Edit `src/retrieve/dense_retriever.cpp`**
+- [x] **Step 3: Edit `src/retrieve/dense_retriever.cpp`**
 
 Change the assignment line:
 
@@ -127,7 +127,7 @@ Change the assignment line:
         c.chunk_id = h.chunk_id;   // M3a 起归一化键为 retrieval_chunks.chunk_id
 ```
 
-- [ ] **Step 4: Edit `src/generate/answer_pipeline.cpp`**
+- [x] **Step 4: Edit `src/generate/answer_pipeline.cpp`**
 
 In `answer_query`, change the lookup:
 
@@ -135,7 +135,7 @@ In `answer_query`, change the lookup:
         auto chunk = pg.get_chunk(c.chunk_id);
 ```
 
-- [ ] **Step 5: Build and run full suite**
+- [x] **Step 5: Build and run full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -144,7 +144,7 @@ In `answer_query`, change the lookup:
 
 Expected: build succeeds, **104** tests pass (mechanical rename, no behavior change).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/retrieve/candidate.h src/retrieve/dense_retriever.cpp src/generate/answer_pipeline.cpp
@@ -168,7 +168,7 @@ Extract the inlined method-number functions from `retrieval_chunk.cpp` into a sh
 - Modify: `rag2.0/rag2.0.vcxproj`, `rag2.0/rag2.0.vcxproj.filters`
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj`, `rag2.0.tests/rag2.0.tests.vcxproj.filters`
 
-- [ ] **Step 1: Write the failing test `tests/test_method_no.cpp`**
+- [x] **Step 1: Write the failing test `tests/test_method_no.cpp`**
 
 ```cpp
 #include <doctest/doctest.h>
@@ -194,7 +194,7 @@ TEST_CASE("extract_method_no returns empty when no method number") {
 }
 ```
 
-- [ ] **Step 2: Add project entries**
+- [x] **Step 2: Add project entries**
 
 In `rag2.0/rag2.0.vcxproj`, next to the other `src\parse` `ClCompile` entries add:
 
@@ -231,7 +231,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters` add:
 <ClCompile Include="..\src\parse\method_no.cpp"><Filter>被测源码</Filter></ClCompile>
 ```
 
-- [ ] **Step 3: Build and verify failure**
+- [x] **Step 3: Build and verify failure**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -239,7 +239,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters` add:
 
 Expected: build FAILS — `parse/method_no.h` does not exist.
 
-- [ ] **Step 4: Create `src/parse/method_no.h`**
+- [x] **Step 4: Create `src/parse/method_no.h`**
 
 ```cpp
 #pragma once
@@ -251,7 +251,7 @@ Expected: build FAILS — `parse/method_no.h` does not exist.
 std::string extract_method_no(const std::string& text);
 ```
 
-- [ ] **Step 5: Create `src/parse/method_no.cpp`**
+- [x] **Step 5: Create `src/parse/method_no.cpp`**
 
 ```cpp
 #include "parse/method_no.h"
@@ -300,7 +300,7 @@ std::string extract_method_no(const std::string& text) {
 }
 ```
 
-- [ ] **Step 6: Refactor `src/retrieve/retrieval_chunk.cpp` to use the shared function**
+- [x] **Step 6: Refactor `src/retrieve/retrieval_chunk.cpp` to use the shared function**
 
 Add the include near the top (after the existing includes):
 
@@ -325,7 +325,7 @@ std::string method_no_for(const TreeNode& n, const std::map<std::string, const T
 }
 ```
 
-- [ ] **Step 7: Build and run the method_no tests plus full suite**
+- [x] **Step 7: Build and run the method_no tests plus full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -335,7 +335,7 @@ std::string method_no_for(const TreeNode& n, const std::map<std::string, const T
 
 Expected: 4 new cases pass; full suite **108** pass (104 + 4). The existing "retrieval chunks keep T method numbers..." case still passes (ingest behavior preserved).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add src/parse/method_no.h src/parse/method_no.cpp tests/test_method_no.cpp src/retrieve/retrieval_chunk.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj rag2.0.tests/rag2.0.tests.vcxproj.filters
@@ -356,7 +356,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 - Modify: `rag2.0/rag2.0.vcxproj`, `rag2.0/rag2.0.vcxproj.filters`
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj`, `rag2.0.tests/rag2.0.tests.vcxproj.filters`
 
-- [ ] **Step 1: Write the failing test `tests/test_query_analysis.cpp`**
+- [x] **Step 1: Write the failing test `tests/test_query_analysis.cpp`**
 
 ```cpp
 #include <doctest/doctest.h>
@@ -398,7 +398,7 @@ TEST_CASE("analyze_query does not treat a single-level number as a clause") {
 }
 ```
 
-- [ ] **Step 2: Add project entries (and new VS filter folders for query)**
+- [x] **Step 2: Add project entries (and new VS filter folders for query)**
 
 In `rag2.0/rag2.0.vcxproj` add (near other source / header groups):
 
@@ -439,7 +439,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters` add:
 <ClCompile Include="..\src\query\query_analysis.cpp"><Filter>被测源码</Filter></ClCompile>
 ```
 
-- [ ] **Step 3: Build and verify failure**
+- [x] **Step 3: Build and verify failure**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -447,7 +447,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters` add:
 
 Expected: build FAILS — `query/query_analysis.h` does not exist.
 
-- [ ] **Step 4: Create `src/query/query_analysis.h`**
+- [x] **Step 4: Create `src/query/query_analysis.h`**
 
 ```cpp
 #pragma once
@@ -464,7 +464,7 @@ struct QueryAnalysis {
 QueryAnalysis analyze_query(const std::string& question);
 ```
 
-- [ ] **Step 5: Create `src/query/query_analysis.cpp`**
+- [x] **Step 5: Create `src/query/query_analysis.cpp`**
 
 ```cpp
 #include "query/query_analysis.h"
@@ -510,7 +510,7 @@ QueryAnalysis analyze_query(const std::string& question) {
 }
 ```
 
-- [ ] **Step 6: Build and run the query_analysis tests plus full suite**
+- [x] **Step 6: Build and run the query_analysis tests plus full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -520,7 +520,7 @@ QueryAnalysis analyze_query(const std::string& question) {
 
 Expected: 5 new cases pass; full suite **113** pass (108 + 5).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/query/query_analysis.h src/query/query_analysis.cpp tests/test_query_analysis.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj rag2.0.tests/rag2.0.tests.vcxproj.filters
@@ -541,7 +541,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 - Modify: `rag2.0/rag2.0.vcxproj`, `rag2.0/rag2.0.vcxproj.filters`
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj`, `rag2.0.tests/rag2.0.tests.vcxproj.filters`
 
-- [ ] **Step 1: Write the failing test `tests/test_retrieval_filter.cpp`**
+- [x] **Step 1: Write the failing test `tests/test_retrieval_filter.cpp`**
 
 ```cpp
 #include <doctest/doctest.h>
@@ -559,7 +559,7 @@ TEST_CASE("to_milvus_expr builds a standard_id predicate when set") {
 }
 ```
 
-- [ ] **Step 2: Add project entries**
+- [x] **Step 2: Add project entries**
 
 In `rag2.0/rag2.0.vcxproj`:
 
@@ -593,7 +593,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters`:
 <ClCompile Include="..\src\retrieve\retrieval_filter.cpp"><Filter>被测源码</Filter></ClCompile>
 ```
 
-- [ ] **Step 3: Build and verify failure**
+- [x] **Step 3: Build and verify failure**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -601,7 +601,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters`:
 
 Expected: build FAILS — `retrieve/retrieval_filter.h` does not exist.
 
-- [ ] **Step 4: Create `src/retrieve/retrieval_filter.h`**
+- [x] **Step 4: Create `src/retrieve/retrieval_filter.h`**
 
 ```cpp
 #pragma once
@@ -616,7 +616,7 @@ struct RetrievalFilter {
 std::string to_milvus_expr(const RetrievalFilter& f);
 ```
 
-- [ ] **Step 5: Create `src/retrieve/retrieval_filter.cpp`**
+- [x] **Step 5: Create `src/retrieve/retrieval_filter.cpp`**
 
 ```cpp
 #include "retrieve/retrieval_filter.h"
@@ -629,7 +629,7 @@ std::string to_milvus_expr(const RetrievalFilter& f) {
 }
 ```
 
-- [ ] **Step 6: Build and run the filter tests plus full suite**
+- [x] **Step 6: Build and run the filter tests plus full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -639,7 +639,7 @@ std::string to_milvus_expr(const RetrievalFilter& f) {
 
 Expected: 2 new cases pass; full suite **115** pass (113 + 2).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/retrieve/retrieval_filter.h src/retrieve/retrieval_filter.cpp tests/test_retrieval_filter.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj rag2.0.tests/rag2.0.tests.vcxproj.filters
@@ -660,7 +660,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 - Modify: `rag2.0/rag2.0.vcxproj`, `rag2.0/rag2.0.vcxproj.filters`
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj`, `rag2.0.tests/rag2.0.tests.vcxproj.filters`
 
-- [ ] **Step 1: Write the failing test `tests/test_rrf.cpp`**
+- [x] **Step 1: Write the failing test `tests/test_rrf.cpp`**
 
 ```cpp
 #include <doctest/doctest.h>
@@ -729,7 +729,7 @@ TEST_CASE("pin_exact_clause respects top_k after pinning") {
 }
 ```
 
-- [ ] **Step 2: Add project entries**
+- [x] **Step 2: Add project entries**
 
 In `rag2.0/rag2.0.vcxproj`:
 
@@ -763,7 +763,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters`:
 <ClCompile Include="..\src\retrieve\rrf.cpp"><Filter>被测源码</Filter></ClCompile>
 ```
 
-- [ ] **Step 3: Build and verify failure**
+- [x] **Step 3: Build and verify failure**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -771,7 +771,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters`:
 
 Expected: build FAILS — `retrieve/rrf.h` does not exist.
 
-- [ ] **Step 4: Create `src/retrieve/rrf.h`**
+- [x] **Step 4: Create `src/retrieve/rrf.h`**
 
 ```cpp
 #pragma once
@@ -792,7 +792,7 @@ std::vector<Candidate> pin_exact_clause(const std::vector<Candidate>& fused,
                                         int top_k);
 ```
 
-- [ ] **Step 5: Create `src/retrieve/rrf.cpp`**
+- [x] **Step 5: Create `src/retrieve/rrf.cpp`**
 
 ```cpp
 #include "retrieve/rrf.h"
@@ -873,7 +873,7 @@ std::vector<Candidate> pin_exact_clause(const std::vector<Candidate>& fused,
 }
 ```
 
-- [ ] **Step 6: Build and run the rrf tests plus full suite**
+- [x] **Step 6: Build and run the rrf tests plus full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -884,7 +884,7 @@ std::vector<Candidate> pin_exact_clause(const std::vector<Candidate>& fused,
 
 Expected: 6 new cases pass; full suite **121** pass (115 + 6).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/retrieve/rrf.h src/retrieve/rrf.cpp tests/test_rrf.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj rag2.0.tests/rag2.0.tests.vcxproj.filters
@@ -908,7 +908,7 @@ Evolve the `Retriever` contract to carry a `RetrievalFilter`, push the filter in
 - Modify: `tests/test_milvus_body.cpp`
 - Modify: `src/generate/answer_pipeline.cpp`
 
-- [ ] **Step 1: Add the failing filter request-body test**
+- [x] **Step 1: Add the failing filter request-body test**
 
 Append to `tests/test_milvus_body.cpp`:
 
@@ -931,7 +931,7 @@ TEST_CASE("build_search_body omits filter key when expression is empty") {
 }
 ```
 
-- [ ] **Step 2: Build and verify failure**
+- [x] **Step 2: Build and verify failure**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -939,7 +939,7 @@ TEST_CASE("build_search_body omits filter key when expression is empty") {
 
 Expected: build FAILS — `build_search_body` has no 5-argument overload.
 
-- [ ] **Step 3: Update `src/milvus/milvus_rest.h`**
+- [x] **Step 3: Update `src/milvus/milvus_rest.h`**
 
 Change the `build_search_body` declaration to add an optional filter:
 
@@ -959,7 +959,7 @@ Change the `MilvusRest::search` declaration to add an optional filter:
                             const std::string& filter_expr = "");
 ```
 
-- [ ] **Step 4: Update `src/milvus/milvus_rest.cpp`**
+- [x] **Step 4: Update `src/milvus/milvus_rest.cpp`**
 
 Replace `build_search_body` with:
 
@@ -1004,7 +1004,7 @@ std::vector<Hit> MilvusRest::search(const std::string& collection,
 }
 ```
 
-- [ ] **Step 5: Evolve the contract in `src/retrieve/retriever.h`**
+- [x] **Step 5: Evolve the contract in `src/retrieve/retriever.h`**
 
 ```cpp
 #pragma once
@@ -1024,7 +1024,7 @@ public:
 };
 ```
 
-- [ ] **Step 6: Adapt `src/retrieve/dense_retriever.h`**
+- [x] **Step 6: Adapt `src/retrieve/dense_retriever.h`**
 
 ```cpp
 #pragma once
@@ -1044,7 +1044,7 @@ private:
 };
 ```
 
-- [ ] **Step 7: Adapt `src/retrieve/dense_retriever.cpp`**
+- [x] **Step 7: Adapt `src/retrieve/dense_retriever.cpp`**
 
 ```cpp
 #include "retrieve/dense_retriever.h"
@@ -1070,7 +1070,7 @@ std::vector<Candidate> DenseRetriever::retrieve(const std::string& query,
 }
 ```
 
-- [ ] **Step 8: Keep the one existing caller compiling (`src/generate/answer_pipeline.cpp`)**
+- [x] **Step 8: Keep the one existing caller compiling (`src/generate/answer_pipeline.cpp`)**
 
 In `answer_query`, change the retrieve call to pass a default empty filter (behavior identical — this caller is fully rewritten in Task 8):
 
@@ -1078,7 +1078,7 @@ In `answer_query`, change the retrieve call to pass a default empty filter (beha
     auto candidates = retriever.retrieve(question, RetrievalFilter{}, top_k);
 ```
 
-- [ ] **Step 9: Build and run the milvus body tests plus full suite**
+- [x] **Step 9: Build and run the milvus body tests plus full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -1088,7 +1088,7 @@ In `answer_query`, change the retrieve call to pass a default empty filter (beha
 
 Expected: 2 new cases pass; full suite **123** pass (121 + 2). Behavior unchanged (single dense path, empty filter).
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```powershell
 git add src/retrieve/retriever.h src/retrieve/dense_retriever.h src/retrieve/dense_retriever.cpp src/milvus/milvus_rest.h src/milvus/milvus_rest.cpp tests/test_milvus_body.cpp src/generate/answer_pipeline.cpp
@@ -1110,7 +1110,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 No unit tests (live PG required); covered by Task 8 live smoke. The tests project does NOT need `pg_exact_retriever.cpp` yet — nothing tests-compiled references it until Task 8 (which adds it to the tests project).
 
-- [ ] **Step 1: Declare the three lookup methods in `src/db/pg_client.h`**
+- [x] **Step 1: Declare the three lookup methods in `src/db/pg_client.h`**
 
 Inside `class PgClient`, after `get_chunk`, add:
 
@@ -1125,7 +1125,7 @@ Inside `class PgClient`, after `get_chunk`, add:
                                                  const std::string& standard_id);
 ```
 
-- [ ] **Step 2: Implement them in `src/db/pg_client.cpp`**
+- [x] **Step 2: Implement them in `src/db/pg_client.cpp`**
 
 Append at end of file:
 
@@ -1188,7 +1188,7 @@ std::vector<std::string> PgClient::chunk_ids_by_clause(const std::string& clause
 }
 ```
 
-- [ ] **Step 3: Create `src/retrieve/pg_exact_retriever.h`**
+- [x] **Step 3: Create `src/retrieve/pg_exact_retriever.h`**
 
 ```cpp
 #pragma once
@@ -1208,7 +1208,7 @@ private:
 };
 ```
 
-- [ ] **Step 4: Create `src/retrieve/pg_exact_retriever.cpp`**
+- [x] **Step 4: Create `src/retrieve/pg_exact_retriever.cpp`**
 
 ```cpp
 #include "retrieve/pg_exact_retriever.h"
@@ -1234,7 +1234,7 @@ std::vector<Candidate> PgExactRetriever::retrieve(const std::string& /*query*/,
 }
 ```
 
-- [ ] **Step 5: Add project entries (main project only)**
+- [x] **Step 5: Add project entries (main project only)**
 
 In `rag2.0/rag2.0.vcxproj`:
 
@@ -1254,7 +1254,7 @@ In `rag2.0/rag2.0.vcxproj.filters`:
 <ClInclude Include="..\src\retrieve\pg_exact_retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
 ```
 
-- [ ] **Step 6: Build and run the full suite**
+- [x] **Step 6: Build and run the full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -1263,7 +1263,7 @@ In `rag2.0/rag2.0.vcxproj.filters`:
 
 Expected: build succeeds, **123** tests pass (additive; no new tests).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/db/pg_client.h src/db/pg_client.cpp src/retrieve/pg_exact_retriever.h src/retrieve/pg_exact_retriever.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters
@@ -1285,7 +1285,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 - Modify: `rag2.0/rag2.0.vcxproj`, `rag2.0/rag2.0.vcxproj.filters`
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj` (link new sources pulled in by `answer_pipeline.cpp`)
 
-- [ ] **Step 1: Create `src/retrieve/text_search.h`**
+- [x] **Step 1: Create `src/retrieve/text_search.h`**
 
 ```cpp
 #pragma once
@@ -1306,7 +1306,7 @@ std::vector<Candidate> text_retrieve(const std::string& question,
                                      int per_path_k, int top_k);
 ```
 
-- [ ] **Step 2: Create `src/retrieve/text_search.cpp`**
+- [x] **Step 2: Create `src/retrieve/text_search.cpp`**
 
 ```cpp
 #include "retrieve/text_search.h"
@@ -1351,7 +1351,7 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
 }
 ```
 
-- [ ] **Step 3: Rewrite `src/generate/answer_pipeline.h`**
+- [x] **Step 3: Rewrite `src/generate/answer_pipeline.h`**
 
 ```cpp
 #pragma once
@@ -1379,7 +1379,7 @@ std::string answer_query(const std::string& question,
                          int top_k);
 ```
 
-- [ ] **Step 4: Rewrite `src/generate/answer_pipeline.cpp`**
+- [x] **Step 4: Rewrite `src/generate/answer_pipeline.cpp`**
 
 ```cpp
 #include "generate/answer_pipeline.h"
@@ -1429,7 +1429,7 @@ std::string answer_query(const std::string& question, milvus::MilvusRest& mv,
 }
 ```
 
-- [ ] **Step 5: Update `src/main.cpp` `cmd_query`**
+- [x] **Step 5: Update `src/main.cpp` `cmd_query`**
 
 Replace the body of `cmd_query` with (drops the `DenseRetriever` construction):
 
@@ -1456,7 +1456,7 @@ static int cmd_query(const Config& cfg, const std::string& question) {
 
 If `#include "retrieve/dense_retriever.h"` in `main.cpp` is now unused, leave it (harmless) — `answer_pipeline.h` no longer needs it but removing risks an unrelated edit.
 
-- [ ] **Step 6: Register new sources**
+- [x] **Step 6: Register new sources**
 
 In `rag2.0/rag2.0.vcxproj`:
 
@@ -1485,7 +1485,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj`, the tests project compiles `answer_pipel
 
 (`dense_retriever.cpp`, `rrf.cpp`, `query_analysis.cpp`, `retrieval_filter.cpp`, `pg_client.cpp`, `milvus_rest.cpp` are already in the tests project.)
 
-- [ ] **Step 7: Build and run the full suite**
+- [x] **Step 7: Build and run the full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -1494,7 +1494,7 @@ In `rag2.0.tests/rag2.0.tests.vcxproj`, the tests project compiles `answer_pipel
 
 Expected: build succeeds, **123** tests pass (no new unit tests; `fragment_from_chunk` tests in `test_context.cpp` still pass — signature unchanged).
 
-- [ ] **Step 8: Live end-to-end smoke (only if services configured)**
+- [x] **Step 8: Live end-to-end smoke (only if services configured)**
 
 Check connectivity first:
 
@@ -1519,7 +1519,7 @@ Expected:
 - Q4: behaves as before M3a (plain dense).
 - Q5: a warn line "库中未找到…回退全库检索" appears; still answers (no crash).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```powershell
 git add src/retrieve/text_search.h src/retrieve/text_search.cpp src/generate/answer_pipeline.h src/generate/answer_pipeline.cpp src/main.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj
@@ -1550,15 +1550,15 @@ Expected:
 
 ## Self-Review Checklist
 
-- [ ] Spec §2.1 编号分角色: clause pin (Task 5 `pin_exact_clause` + Task 8 wiring), method path (Task 7 `PgExactRetriever` + Task 8 RRF), standard narrowing (Task 4 filter + Task 6 dense + Task 8 `find_standard_by_code`).
-- [ ] Spec §2.2 contract evolution: Task 6.
-- [ ] Spec §2.3 chunk_id rename: Task 1.
-- [ ] Spec §2.4 lenient fallback: Task 8 warn-and-continue on unknown standard code.
-- [ ] Spec §3 query understanding incl. shared method_no: Tasks 2 + 3.
-- [ ] Spec §4.1–4.5 filter/contract/dense/milvus: Tasks 4 + 6.
-- [ ] Spec §4.6–4.7 PgExactRetriever + PgClient methods: Task 7.
-- [ ] Spec §4.8–4.9 rrf + pin: Task 5.
-- [ ] Spec §4.10 answer_query + main wiring: Task 8.
-- [ ] Spec §7 test strategy: query_analysis (T3), method_no (T2), rrf+pin (T5), filter (T4), build_search_body filter (T6); PG methods unit-untested by design.
-- [ ] Spec §6 non-goals untouched: no Milvus schema change, no BM25/synonyms/status/wants_table/access_level/rerank.
-- [ ] Type consistency: `Candidate.chunk_id`, `RetrievalFilter.standard_id`, `analyze_query`→`QueryAnalysis{clean_text,standard_code,clause_no,method_no}`, `rrf_fuse`/`pin_exact_clause`, `text_retrieve`, `answer_query` new signature — consistent across tasks.
+- [x] Spec §2.1 编号分角色: clause pin (Task 5 `pin_exact_clause` + Task 8 wiring), method path (Task 7 `PgExactRetriever` + Task 8 RRF), standard narrowing (Task 4 filter + Task 6 dense + Task 8 `find_standard_by_code`).
+- [x] Spec §2.2 contract evolution: Task 6.
+- [x] Spec §2.3 chunk_id rename: Task 1.
+- [x] Spec §2.4 lenient fallback: Task 8 warn-and-continue on unknown standard code.
+- [x] Spec §3 query understanding incl. shared method_no: Tasks 2 + 3.
+- [x] Spec §4.1–4.5 filter/contract/dense/milvus: Tasks 4 + 6.
+- [x] Spec §4.6–4.7 PgExactRetriever + PgClient methods: Task 7.
+- [x] Spec §4.8–4.9 rrf + pin: Task 5.
+- [x] Spec §4.10 answer_query + main wiring: Task 8.
+- [x] Spec §7 test strategy: query_analysis (T3), method_no (T2), rrf+pin (T5), filter (T4), build_search_body filter (T6); PG methods unit-untested by design.
+- [x] Spec §6 non-goals untouched: no Milvus schema change, no BM25/synonyms/status/wants_table/access_level/rerank.
+- [x] Type consistency: `Candidate.chunk_id`, `RetrievalFilter.standard_id`, `analyze_query`→`QueryAnalysis{clean_text,standard_code,clause_no,method_no}`, `rrf_fuse`/`pin_exact_clause`, `text_retrieve`, `answer_query` new signature — consistent across tasks.
