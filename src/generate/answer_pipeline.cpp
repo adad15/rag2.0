@@ -34,6 +34,9 @@ std::string answer_query(const std::string& question, milvus::MilvusRest& mv,
         auto chunk = pg.get_chunk(c.chunk_id);   // 底座原则：以 PG 回查为权威源
         if (!chunk) continue;
         auto std_row = pg.get_standard(chunk->standard_id);
+        // 默认只回现行：dense/BM25 路已在 Milvus 标量过滤，但 PG 方法号/条款号路
+        // 不经 Milvus，须在此兜底剔除作废标准（M6 引入真作废数据后生效）
+        if (std_row && std_row->status != "现行") continue;
         fragments.push_back(fragment_from_chunk(idx++, *chunk, std_row));
     }
     if (fragments.empty())
