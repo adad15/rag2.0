@@ -20,10 +20,10 @@ ContextFragment fragment_from_chunk(int idx, const RetrievalChunkRow& chunk,
 }
 
 std::string answer_query(const std::string& question, milvus::MilvusRest& mv,
-                         EmbeddingClient& embed, PgClient& pg,
+                         EmbeddingClient& embed, PgClient& pg, const SynonymDict& syn,
                          deepseek::DeepSeekClient& ds, const std::string& collection,
                          int top_k) {
-    auto candidates = text_retrieve(question, mv, embed, pg, collection,
+    auto candidates = text_retrieve(question, mv, embed, pg, syn, collection,
                                     /*per_path_k=*/top_k * 4, top_k);
     if (candidates.empty())
         return "未检索到相关规范依据，无法作答。";

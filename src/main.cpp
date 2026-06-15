@@ -21,6 +21,7 @@
 #include "ingest/chunk_loader.h"
 #include "retrieve/dense_retriever.h"
 #include "generate/answer_pipeline.h"
+#include "query/synonyms.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <fstream>
@@ -146,8 +147,10 @@ static int cmd_query(const Config& cfg, const std::string& question) {
                              cfg.embed_key, cfg.embed_dim);
         deepseek::DeepSeekClient ds(cfg.deepseek_base_url, cfg.deepseek_path,
                                     cfg.deepseek_model, cfg.deepseek_key);
+        SynonymDict syn;
+        syn.load_from_file("config/synonyms.txt");
 
-        std::string ans = answer_query(question, mv, embed, pg, ds,
+        std::string ans = answer_query(question, mv, embed, pg, syn, ds,
                                        cfg.milvus_collection, /*top_k=*/5);
         std::cout << "\n===== 回答 =====\n" << ans << "\n";
         return 0;
