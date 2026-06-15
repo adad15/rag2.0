@@ -25,6 +25,22 @@ std::string build_search_body(const std::string& collection,
                               const std::vector<std::string>& output_fields,
                               const std::string& filter_expr = "");
 
+// 全文检索（BM25）集合专用 body-builders
+std::string build_insert_full_body(const std::string& collection,
+                                   const std::string& chunk_id,
+                                   const std::string& node_id,
+                                   const std::string& standard_id,
+                                   const std::string& status,
+                                   const std::string& text,
+                                   const std::vector<float>& dense);
+std::string build_bm25_body(const std::string& collection,
+                            const std::string& query_text,
+                            int top_k,
+                            const std::vector<std::string>& output_fields,
+                            const std::string& filter_expr = "");
+std::string build_text_collection_body(const std::string& collection, int dim,
+                                       const std::vector<std::string>& user_dict);
+
 class MilvusRest {
 public:
     MilvusRest(std::string base_url, std::string token);
@@ -41,6 +57,17 @@ public:
     std::vector<Hit> search(const std::string& collection,
                             const std::vector<float>& query, int top_k,
                             const std::string& filter_expr = "");
+
+    // 全文检索（BM25）集合操作
+    void ensure_collection_text(const std::string& collection, int dim,
+                                const std::vector<std::string>& user_dict);
+    void insert_full(const std::string& collection, const std::string& chunk_id,
+                     const std::string& node_id, const std::string& standard_id,
+                     const std::string& status, const std::string& text,
+                     const std::vector<float>& dense);
+    std::vector<Hit> search_bm25(const std::string& collection,
+                                 const std::string& query_text,
+                                 int top_k, const std::string& filter_expr = "");
 private:
     std::string base_url_;
     std::string token_;

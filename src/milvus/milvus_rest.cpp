@@ -145,4 +145,130 @@ std::vector<Hit> MilvusRest::search(const std::string& collection,
     return hits;
 }
 
+std::string build_insert_full_body(const std::string& collection, const std::string& chunk_id,
+                                   const std::string& node_id, const std::string& standard_id,
+                                   const std::string& status, const std::string& text,
+                                   const std::vector<float>& dense) {
+    json row;
+    row["chunk_id"] = chunk_id;
+    row["node_id"] = node_id;
+    row["standard_id"] = standard_id;
+    row["status"] = status;
+    row["text"] = text;        // sparse 由 BM25 Function 自动生成，不传
+    row["dense"] = dense;
+    json body;
+    body["collectionName"] = collection;
+    body["data"] = json::array({row});
+    return body.dump();
+}
+
+std::string build_bm25_body(const std::string& collection, const std::string& query_text,
+                            int top_k, const std::vector<std::string>& output_fields,
+                            const std::string& filter_expr) {
+    json body;
+    body["collectionName"] = collection;
+    body["data"] = json::array({query_text});   // 原始文本，Milvus 分词 + BM25
+    body["annsField"] = "sparse";
+    body["limit"] = top_k;
+    body["outputFields"] = output_fields;
+    if (!filter_expr.empty()) body["filter"] = filter_expr;
+    return body.dump();
+}
+
+std::string build_text_collection_body(const std::string& collection, int dim,
+                                       const std::vector<std::string>& user_dict) {
+    json analyzer_params;
+    analyzer_params["tokenizer"] = { {"type", "jieba"}, {"dict", user_dict} };
+
+    json schema;
+    schema["autoID"] = false;
+    schema["fields"] = json::array({
+        { {"fieldName","chunk_id"}, {"dataType","VarChar"}, {"isPrimary",true},
+          {"elementTypeParams", { {"max_length", 256} }} },
+        { {"fieldName","node_id"}, {"dataType","VarChar"},
+          {"elementTypeParams", { {"max_length", 256} }} },
+        { {"fieldName","standard_id"}, {"dataType","VarChar"},
+          {"elementTypeParams", { {"max_length", 128} }} },
+        { {"fieldName","status"}, {"dataType","VarChar"},
+          {"elementTypeParams", { {"max_length", 32} }} },
+        { {"fieldName","text"}, {"dataType","VarChar"},
+          {"elementTypeParams", { {"max_length", 8192}, {"enable_analyzer", true},
+                                  {"analyzer_params", analyzer_params} }} },
+        { {"fieldName","dense"}, {"dataType","FloatVector"},
+          {"elementTypeParams", { {"dim", dim} }} },
+        { {"fieldName","sparse"}, {"dataType","SparseFloatVector"} }
+    });
+    schema["functions"] = json::array({
+        { {"name","bm25_fn"}, {"type","BM25"},
+          {"inputFieldNames", json::array({"text"})},
+          {"outputFieldNames", json::array({"sparse"})} }
+    });
+
+    json index = json::array({
+        { {"fieldName","dense"}, {"indexName","dense_idx"}, {"metricType","COSINE"} },
+        { {"fieldName","sparse"}, {"indexName","sparse_idx"}, {"metricType","BM25"},
+          {"indexType","SPARSE_INVERTED_INDEX"} }
+    });
+
+    json body;
+    body["collectionName"] = collection;
+    body["schema"] = schema;
+    body["indexParams"] = index;
+    return body.dump();
+}
+
+void MilvusRest::ensure_collection_text(const std::string& collection, int dim,
+                                        const std::vector<std::string>& user_dict) {
+    {
+        json q; q["collectionName"] = collection;
+        auto has = http::post_json(base_url_, "/v2/vectordb/collections/has", q.dump(),
+                                   auth_headers(token_));
+        if (has.ok()) {
+            auto j = json::parse(has.body, nullptr, false);
+            if (!j.is_discarded() && j.contains("data") &&
+                j["data"].contains("has") && j["data"]["has"].get<bool>())
+                return;
+        }
+    }
+    auto body = build_text_collection_body(collection, dim, user_dict);
+    auto res = http::post_json(base_url_, "/v2/vectordb/collections/create", body,
+                               auth_headers(token_));
+    if (!res.ok())
+        throw std::runtime_error("milvus create text collection failed: " + res.body + res.error);
+}
+
+void MilvusRest::insert_full(const std::string& collection, const std::string& chunk_id,
+                             const std::string& node_id, const std::string& standard_id,
+                             const std::string& status, const std::string& text,
+                             const std::vector<float>& dense) {
+    auto body = build_insert_full_body(collection, chunk_id, node_id, standard_id,
+                                       status, text, dense);
+    auto res = http::post_json(base_url_, "/v2/vectordb/entities/insert", body,
+                               auth_headers(token_));
+    if (!res.ok())
+        throw std::runtime_error("milvus insert_full failed: " + res.body + res.error);
+}
+
+std::vector<Hit> MilvusRest::search_bm25(const std::string& collection,
+                                         const std::string& query_text, int top_k,
+                                         const std::string& filter_expr) {
+    auto body = build_bm25_body(collection, query_text, top_k,
+                                {"chunk_id", "node_id", "standard_id"}, filter_expr);
+    auto res = http::post_json(base_url_, "/v2/vectordb/entities/search", body,
+                               auth_headers(token_));
+    if (!res.ok())
+        throw std::runtime_error("milvus search_bm25 failed: " + res.body + res.error);
+    auto j = json::parse(res.body);
+    std::vector<Hit> hits;
+    for (auto& item : j["data"]) {
+        Hit h;
+        h.chunk_id = item.value("chunk_id", "");
+        h.node_id = item.value("node_id", "");
+        h.standard_id = item.value("standard_id", "");
+        h.score = item.value("distance", 0.0f);
+        hits.push_back(h);
+    }
+    return hits;
+}
+
 }  // namespace milvus
