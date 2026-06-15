@@ -73,7 +73,7 @@ Modify:
 - Create: `src/query/synonyms.h`, `src/query/synonyms.cpp`, `config/synonyms.txt`, `tests/test_synonyms.cpp`
 - Modify: 4 project files
 
-- [ ] **Step 1: Write `tests/test_synonyms.cpp`**
+- [x] **Step 1: Write `tests/test_synonyms.cpp`**
 
 ```cpp
 #include <doctest/doctest.h>
@@ -112,16 +112,16 @@ TEST_CASE("SynonymDict skips blank and comment lines") {
 }
 ```
 
-- [ ] **Step 2: Register project files**
+- [x] **Step 2: Register project files**
 
 `rag2.0/rag2.0.vcxproj`: `<ClCompile Include="..\src\query\synonyms.cpp" />`, `<ClInclude Include="..\src\query\synonyms.h" />`.
 `rag2.0/rag2.0.vcxproj.filters`: `<ClCompile Include="..\src\query\synonyms.cpp"><Filter>源文件\query</Filter></ClCompile>`, `<ClInclude Include="..\src\query\synonyms.h"><Filter>头文件\query</Filter></ClInclude>`.
 `rag2.0.tests/rag2.0.tests.vcxproj`: `<ClCompile Include="..\src\query\synonyms.cpp" />`, `<ClCompile Include="..\tests\test_synonyms.cpp" />`.
 `rag2.0.tests/rag2.0.tests.vcxproj.filters`: `<ClCompile Include="..\tests\test_synonyms.cpp"><Filter>测试</Filter></ClCompile>`, `<ClCompile Include="..\src\query\synonyms.cpp"><Filter>被测源码</Filter></ClCompile>`.
 
-- [ ] **Step 3: Build, expect FAIL** (`query/synonyms.h` missing).
+- [x] **Step 3: Build, expect FAIL** (`query/synonyms.h` missing).
 
-- [ ] **Step 4: Create `src/query/synonyms.h`**
+- [x] **Step 4: Create `src/query/synonyms.h`**
 
 ```cpp
 #pragma once
@@ -142,7 +142,7 @@ private:
 };
 ```
 
-- [ ] **Step 5: Create `src/query/synonyms.cpp`**
+- [x] **Step 5: Create `src/query/synonyms.cpp`**
 
 ```cpp
 #include "query/synonyms.h"
@@ -199,7 +199,7 @@ std::string SynonymDict::expand(const std::string& query) const {
 }
 ```
 
-- [ ] **Step 6: Create `config/synonyms.txt`**
+- [x] **Step 6: Create `config/synonyms.txt`**
 
 ```text
 # 每行一组同义词，逗号分隔，查询侧 BM25 扩展用
@@ -212,7 +212,7 @@ std::string SynonymDict::expand(const std::string& query) const {
 延度,延伸度
 ```
 
-- [ ] **Step 7: Build + tests**
+- [x] **Step 7: Build + tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -221,7 +221,7 @@ std::string SynonymDict::expand(const std::string& query) const {
 ```
 Expected: 4 new cases pass; full suite **126** (122 + 4).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add src/query/synonyms.h src/query/synonyms.cpp config/synonyms.txt tests/test_synonyms.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj rag2.0.tests/rag2.0.tests.vcxproj.filters
@@ -239,7 +239,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 **Files:**
 - Modify: `src/retrieve/retrieval_filter.h`, `src/retrieve/retrieval_filter.cpp`, `tests/test_retrieval_filter.cpp`
 
-- [ ] **Step 1: Update `tests/test_retrieval_filter.cpp`** — replace the two existing cases and add a third:
+- [x] **Step 1: Update `tests/test_retrieval_filter.cpp`** — replace the two existing cases and add a third:
 
 ```cpp
 #include <doctest/doctest.h>
@@ -271,9 +271,9 @@ TEST_CASE("to_milvus_expr with only standard_id and empty status") {
 }
 ```
 
-- [ ] **Step 2: Build, expect FAIL** (default still produces empty/standard-only).
+- [x] **Step 2: Build, expect FAIL** (default still produces empty/standard-only).
 
-- [ ] **Step 3: Update `src/retrieve/retrieval_filter.h`**
+- [x] **Step 3: Update `src/retrieve/retrieval_filter.h`**
 
 ```cpp
 #pragma once
@@ -291,7 +291,7 @@ struct RetrievalFilter {
 std::string to_milvus_expr(const RetrievalFilter& f);
 ```
 
-- [ ] **Step 4: Update `src/retrieve/retrieval_filter.cpp`**
+- [x] **Step 4: Update `src/retrieve/retrieval_filter.cpp`**
 
 ```cpp
 #include "retrieve/retrieval_filter.h"
@@ -310,7 +310,7 @@ std::string to_milvus_expr(const RetrievalFilter& f) {
 }
 ```
 
-- [ ] **Step 5: Build + tests**
+- [x] **Step 5: Build + tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -319,7 +319,7 @@ std::string to_milvus_expr(const RetrievalFilter& f) {
 ```
 Expected: 4 cases pass (2 updated + 2 new); full suite **128** (126 + 2 net new). The old "empty filter" and "standard_id predicate" cases are replaced, not added.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/retrieve/retrieval_filter.h src/retrieve/retrieval_filter.cpp tests/test_retrieval_filter.cpp
@@ -339,7 +339,7 @@ Add three pure body-builders and their `MilvusRest` methods for the full-text co
 **Files:**
 - Modify: `src/milvus/milvus_rest.h`, `src/milvus/milvus_rest.cpp`, `tests/test_milvus_body.cpp`
 
-- [ ] **Step 1: Add failing body tests** — append to `tests/test_milvus_body.cpp`:
+- [x] **Step 1: Add failing body tests** — append to `tests/test_milvus_body.cpp`:
 
 ```cpp
 TEST_CASE("build_insert_full_body carries status and text, not sparse") {
@@ -398,9 +398,9 @@ TEST_CASE("build_text_collection_body declares text analyzer, sparse, and BM25 f
 }
 ```
 
-- [ ] **Step 2: Build, expect FAIL** (the three builders don't exist).
+- [x] **Step 2: Build, expect FAIL** (the three builders don't exist).
 
-- [ ] **Step 3: Declare in `src/milvus/milvus_rest.h`** — add the pure builders next to the existing ones:
+- [x] **Step 3: Declare in `src/milvus/milvus_rest.h`** — add the pure builders next to the existing ones:
 
 ```cpp
 std::string build_insert_full_body(const std::string& collection,
@@ -434,7 +434,7 @@ and in `class MilvusRest` add:
                                  int top_k, const std::string& filter_expr = "");
 ```
 
-- [ ] **Step 4: Implement in `src/milvus/milvus_rest.cpp`** — add the builders and methods:
+- [x] **Step 4: Implement in `src/milvus/milvus_rest.cpp`** — add the builders and methods:
 
 ```cpp
 std::string build_insert_full_body(const std::string& collection, const std::string& chunk_id,
@@ -566,7 +566,7 @@ std::vector<Hit> MilvusRest::search_bm25(const std::string& collection,
 
 > Note: if `<map>` is needed for `auth_headers` it is already included by the existing file. The `auth_headers`/`http::post_json` helpers already exist — match their current usage exactly (read the file).
 
-- [ ] **Step 5: Build + tests**
+- [x] **Step 5: Build + tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -577,7 +577,7 @@ std::vector<Hit> MilvusRest::search_bm25(const std::string& collection,
 ```
 Expected: 3 new cases pass; full suite **131** (128 + 3).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/milvus/milvus_rest.h src/milvus/milvus_rest.cpp tests/test_milvus_body.cpp
@@ -596,7 +596,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 - Create: `src/retrieve/bm25_retriever.h`, `src/retrieve/bm25_retriever.cpp`
 - Modify: `rag2.0/rag2.0.vcxproj` + `.filters` (main project only; tests project gets it in Task 6 when `text_search.cpp`/`answer_pipeline.cpp` link it)
 
-- [ ] **Step 1: Create `src/retrieve/bm25_retriever.h`**
+- [x] **Step 1: Create `src/retrieve/bm25_retriever.h`**
 
 ```cpp
 #pragma once
@@ -617,7 +617,7 @@ private:
 };
 ```
 
-- [ ] **Step 2: Create `src/retrieve/bm25_retriever.cpp`**
+- [x] **Step 2: Create `src/retrieve/bm25_retriever.cpp`**
 
 ```cpp
 #include "retrieve/bm25_retriever.h"
@@ -643,12 +643,12 @@ std::vector<Candidate> Bm25Retriever::retrieve(const std::string& query,
 }
 ```
 
-- [ ] **Step 3: Register (main project only)**
+- [x] **Step 3: Register (main project only)**
 
 `rag2.0/rag2.0.vcxproj`: `<ClCompile Include="..\src\retrieve\bm25_retriever.cpp" />`, `<ClInclude Include="..\src\retrieve\bm25_retriever.h" />`.
 `rag2.0/rag2.0.vcxproj.filters`: `<ClCompile Include="..\src\retrieve\bm25_retriever.cpp"><Filter>源文件\retrieve</Filter></ClCompile>`, `<ClInclude Include="..\src\retrieve\bm25_retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>`.
 
-- [ ] **Step 4: Build + tests**
+- [x] **Step 4: Build + tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -656,7 +656,7 @@ std::vector<Candidate> Bm25Retriever::retrieve(const std::string& query,
 ```
 Expected: build succeeds, **131** (additive, no new tests; `to_milvus_expr` available via retriever.h→retrieval_filter.h).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/retrieve/bm25_retriever.h src/retrieve/bm25_retriever.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters
@@ -680,7 +680,7 @@ Rewire ingest/chunkload to the full-text collection: write `status` + `text` via
 
 No unit tests (live). Build-green + Task 7 live smoke cover it.
 
-- [ ] **Step 1: `load_chunks` gains a status param — `src/ingest/chunk_loader.h`**
+- [x] **Step 1: `load_chunks` gains a status param — `src/ingest/chunk_loader.h`**
 
 Change the declaration:
 
@@ -695,7 +695,7 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache,
                             const std::string& status);
 ```
 
-- [ ] **Step 2: `src/ingest/chunk_loader.cpp`** — use `insert_full`:
+- [x] **Step 2: `src/ingest/chunk_loader.cpp`** — use `insert_full`:
 
 In `load_chunks`, change the signature to match the header and replace the insert call inside the loop:
 
@@ -724,7 +724,7 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache, PgClient& pg,
 }
 ```
 
-- [ ] **Step 3: `ingest_file` gains user_dict — `src/ingest/ingest_pipeline.h`**
+- [x] **Step 3: `ingest_file` gains user_dict — `src/ingest/ingest_pipeline.h`**
 
 Change the declaration (add `user_dict` before the defaulted `cache_dir`):
 
@@ -741,7 +741,7 @@ IngestResult ingest_file(const std::string& file_path,
 
 Add `#include <vector>` if not present.
 
-- [ ] **Step 4: `src/ingest/ingest_pipeline.cpp`** — use full-text collection + pass status:
+- [x] **Step 4: `src/ingest/ingest_pipeline.cpp`** — use full-text collection + pass status:
 
 Change the signature to match, and replace the two Milvus/load lines:
 
@@ -785,7 +785,7 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
 }
 ```
 
-- [ ] **Step 5: `src/main.cpp`** — add a dict-loading helper and rewire both commands.
+- [x] **Step 5: `src/main.cpp`** — add a dict-loading helper and rewire both commands.
 
 Near the existing `read_file` helper, add:
 
@@ -829,7 +829,7 @@ In `cmd_chunkload`, replace the `ensure_collection` + `load_chunks` lines:
 
 (The placeholder-standard upsert block above it stays; it sets status "现行" for a new standard, which `get_standard` then returns.)
 
-- [ ] **Step 6: Create `config/user_dict.txt`**
+- [x] **Step 6: Create `config/user_dict.txt`**
 
 ```text
 针入度
@@ -845,7 +845,7 @@ JTG/T
 GB/T
 ```
 
-- [ ] **Step 7: Build + tests**
+- [x] **Step 7: Build + tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -854,7 +854,7 @@ GB/T
 
 Expected: build succeeds, **131** (no new unit tests; `test_*` that construct `ingest_file`/`load_chunks` — there are none — so nothing breaks). Do NOT run live ingest/chunkload yet.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add src/ingest/chunk_loader.h src/ingest/chunk_loader.cpp src/ingest/ingest_pipeline.h src/ingest/ingest_pipeline.cpp src/main.cpp config/user_dict.txt
@@ -875,7 +875,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 - Modify: `src/main.cpp` (cmd_query loads synonyms)
 - Modify: `rag2.0.tests/rag2.0.tests.vcxproj` (link `bm25_retriever.cpp` for the tests binary)
 
-- [ ] **Step 1: `src/retrieve/text_search.h`** — add `const SynonymDict&`:
+- [x] **Step 1: `src/retrieve/text_search.h`** — add `const SynonymDict&`:
 
 ```cpp
 #pragma once
@@ -897,7 +897,7 @@ std::vector<Candidate> text_retrieve(const std::string& question,
                                      int per_path_k, int top_k);
 ```
 
-- [ ] **Step 2: `src/retrieve/text_search.cpp`** — add the BM25 path:
+- [x] **Step 2: `src/retrieve/text_search.cpp`** — add the BM25 path:
 
 ```cpp
 #include "retrieve/text_search.h"
@@ -943,7 +943,7 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
 }
 ```
 
-- [ ] **Step 3: `src/generate/answer_pipeline.h`** — thread `const SynonymDict&` into `answer_query`:
+- [x] **Step 3: `src/generate/answer_pipeline.h`** — thread `const SynonymDict&` into `answer_query`:
 
 Add `#include "query/synonyms.h"` and change the `answer_query` declaration to add `const SynonymDict& syn` (place it after `pg`):
 
@@ -960,7 +960,7 @@ std::string answer_query(const std::string& question,
 
 (`fragment_from_chunk` unchanged.)
 
-- [ ] **Step 4: `src/generate/answer_pipeline.cpp`** — pass `syn` to `text_retrieve`:
+- [x] **Step 4: `src/generate/answer_pipeline.cpp`** — pass `syn` to `text_retrieve`:
 
 Change the `answer_query` signature to match the header, and the `text_retrieve(...)` call:
 
@@ -976,7 +976,7 @@ std::string answer_query(const std::string& question, milvus::MilvusRest& mv,
 
 Keep the rest of the function body (the fragment-assembly loop and refusal strings) exactly as it is.
 
-- [ ] **Step 5: `src/main.cpp` cmd_query** — load synonyms and pass:
+- [x] **Step 5: `src/main.cpp` cmd_query** — load synonyms and pass:
 
 ```cpp
 static int cmd_query(const Config& cfg, const std::string& question) {
@@ -1001,7 +1001,7 @@ static int cmd_query(const Config& cfg, const std::string& question) {
 }
 ```
 
-- [ ] **Step 6: Register tests-project link.** The tests project compiles `answer_pipeline.cpp` (via `test_context.cpp`) → now pulls `text_search.cpp` → `bm25_retriever.cpp`. Add to `rag2.0.tests/rag2.0.tests.vcxproj`:
+- [x] **Step 6: Register tests-project link.** The tests project compiles `answer_pipeline.cpp` (via `test_context.cpp`) → now pulls `text_search.cpp` → `bm25_retriever.cpp`. Add to `rag2.0.tests/rag2.0.tests.vcxproj`:
 
 ```xml
 <ClCompile Include="..\src\retrieve\bm25_retriever.cpp" />
@@ -1010,7 +1010,7 @@ static int cmd_query(const Config& cfg, const std::string& question) {
 
 (`synonyms.cpp` was already added to the tests project in Task 1; only add it here if it is not already present — check first. `text_search.cpp`, `pg_exact_retriever.cpp`, `dense_retriever.cpp` are already in the tests project from M3a.)
 
-- [ ] **Step 7: Build + tests**
+- [x] **Step 7: Build + tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -1018,7 +1018,7 @@ static int cmd_query(const Config& cfg, const std::string& question) {
 ```
 Expected: build succeeds, **131** (fragment_from_chunk tests still pass; signature change to answer_query doesn't touch them). If the tests binary fails to LINK (unresolved `Bm25Retriever`/`text_retrieve`), add the missing `.cpp` to the tests project and rebuild; report which.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add src/retrieve/text_search.h src/retrieve/text_search.cpp src/generate/answer_pipeline.h src/generate/answer_pipeline.cpp src/main.cpp rag2.0.tests/rag2.0.tests.vcxproj
@@ -1035,14 +1035,14 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 **Files:** none (operational + verification). This is where the full-text collection is actually created and the Milvus schema JSON is confirmed.
 
-- [ ] **Step 1: Confirm services up**
+- [x] **Step 1: Confirm services up**
 
 ```powershell
 .\rag2.0\x64\Debug\rag2.0.exe smoke
 ```
 If Milvus/PG/embedding/DeepSeek are not all up, STOP and report "live rebuild skipped: services unavailable". (If Milvus is down, start the Docker containers `milvus-etcd`, `milvus-minio`, then `milvus-standalone` and wait until `smoke` shows `[OK] Milvus`.)
 
-- [ ] **Step 2: Drop the old (M3a, 4-field) collection — one-time migration**
+- [x] **Step 2: Drop the old (M3a, 4-field) collection — one-time migration**
 
 ```powershell
 $cfg = Get-Content config.json -Raw | ConvertFrom-Json
@@ -1053,7 +1053,7 @@ Invoke-RestMethod -Method Post -Uri "$($cfg.RAG_MILVUS_BASE_URL)/v2/vectordb/col
 ```
 Expected: `code: 0`.
 
-- [ ] **Step 3: Rechunkload both standards (creates the full-text collection on first call)**
+- [x] **Step 3: Rechunkload both standards (creates the full-text collection on first call)**
 
 ```powershell
 .\rag2.0\x64\Debug\rag2.0.exe chunkload data\chunk_cache\12215131224082667446.json
@@ -1063,7 +1063,7 @@ Expected: each prints `chunks=N embedded=N deleted_old=0`, exit 0.
 
 **If the first chunkload throws a Milvus create-collection schema error**, the full-text JSON in `build_text_collection_body` needs adjustment for this Milvus 2.6 patch. Read the error, adjust the analyzer_params / functions / sparse-index shape in `src/milvus/milvus_rest.cpp`, update the `build_text_collection_body` body test in `tests/test_milvus_body.cpp` to match, rebuild, and retry from Step 2. Report the adjustment in the task summary and commit it as `fix(m3b): adjust full-text collection schema for milvus 2.6`.
 
-- [ ] **Step 4: BM25 / synonym verification**
+- [x] **Step 4: BM25 / synonym verification**
 
 ```powershell
 .\rag2.0\x64\Debug\rag2.0.exe query "水泥净浆稠度怎么测"
@@ -1071,7 +1071,7 @@ Expected: each prints `chunks=N embedded=N deleted_old=0`, exit 0.
 ```
 Expected: terminology queries return relevant 试验规程 clauses (BM25 keyword path contributing). Report the answers verbatim. (Note: the corpus holds JTC 5210-2018 + JTG 3420-2020; pick queries whose answer is actually in-corpus — cement-paste/method queries are in JTG 3420.)
 
-- [ ] **Step 5: M3a five-scenario regression (must still hold)**
+- [x] **Step 5: M3a five-scenario regression (must still hold)**
 
 ```powershell
 .\rag2.0\x64\Debug\rag2.0.exe query "JTC 5210 第5.1.2条是什么规定"
@@ -1082,7 +1082,7 @@ Expected: terminology queries return relevant 试验规程 clauses (BM25 keyword
 ```
 Expected: clause pin / method path / standard narrowing / plain-dense / warn+fallback all still behave as in M3a. Report verbatim.
 
-- [ ] **Step 6: status filter pipeline check (optional, manual)**
+- [x] **Step 6: status filter pipeline check (optional, manual)**
 
 Set one standard to 作废 in PG and rechunkload it, then query one of its clauses; default query should no longer return it. This validates the pipeline (not M6's full lifecycle). If skipped, note it as pending manual verification.
 
@@ -1094,7 +1094,7 @@ Set one standard to 作废 in PG and rechunkload it, then query one of its claus
 # 验证后恢复： UPDATE standards SET status='现行' WHERE ...; 再 chunkload 还原
 ```
 
-- [ ] **Step 7: Final build + full suite**
+- [x] **Step 7: Final build + full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -1103,7 +1103,7 @@ git status --short
 ```
 Expected: build green, full suite green (131, or the adjusted count if Step 3 changed a body test), only intentional M3b files changed, `logs/` + data caches untracked.
 
-- [ ] **Step 8: Commit any schema adjustment from Step 3** (if not already committed there). Otherwise nothing to commit in this task.
+- [x] **Step 8: Commit any schema adjustment from Step 3** (if not already committed there). Otherwise nothing to commit in this task.
 
 ---
 
@@ -1120,19 +1120,19 @@ Expected: MSBuild succeeds; all doctest pass; BM25 path live-verified; M3a regre
 
 ## Self-Review Checklist
 
-- [ ] Spec §2.1 BM25 via Milvus + C++ RRF: Tasks 3/4/6.
-- [ ] Spec §2.2 collection rebuild: Task 7 (drop + ensure_collection_text + rechunkload).
-- [ ] Spec §2.3 text = embedding_text: Task 5 (`insert_full(..., c.embedding_text, ...)`).
-- [ ] Spec §2.4 status from standards.status: Task 5 (cmd_chunkload reads `get_standard()->status`; ingest passes `s.status`).
-- [ ] Spec §2.5 synonyms BM25-only, query-side: Task 4 (`syn_.expand` only in Bm25Retriever; dense uses raw `clean_text`).
-- [ ] Spec §3 full-text schema (status/text/sparse/BM25 Function/analyzer): Task 3 `build_text_collection_body`.
-- [ ] Spec §4 dictionaries: `config/synonyms.txt` (Task 1), `config/user_dict.txt` (Task 5).
-- [ ] Spec §5.1 RetrievalFilter status: Task 2.
-- [ ] Spec §5.2–5.3 SynonymDict + Bm25Retriever: Tasks 1/4.
-- [ ] Spec §5.4 Milvus methods: Task 3.
-- [ ] Spec §5.5 orchestration BM25 path: Task 6.
-- [ ] Spec §5.6–5.7 loader/ingest/command wiring: Task 5 + Task 6.
-- [ ] Spec §8 tests: SynonymDict (T1), to_milvus_expr status incl. updated M3a asserts (T2), insert_full/bm25/collection bodies (T3).
-- [ ] Spec §7 non-goals untouched: no access_level, no rerank, no Milvus-side hybrid, no eval tuning, no bm25_text column.
-- [ ] Type consistency: `RetrievalFilter{standard_id,status}`, `load_chunks(...,status)`, `ingest_file(...,user_dict,cache_dir)`, `text_retrieve(...,syn,...)`, `answer_query(...,syn,...)`, `Bm25Retriever`, `build_insert_full_body`/`build_bm25_body`/`build_text_collection_body`/`ensure_collection_text`/`insert_full`/`search_bm25` — consistent across tasks.
+- [x] Spec §2.1 BM25 via Milvus + C++ RRF: Tasks 3/4/6.
+- [x] Spec §2.2 collection rebuild: Task 7 (drop + ensure_collection_text + rechunkload).
+- [x] Spec §2.3 text = embedding_text: Task 5 (`insert_full(..., c.embedding_text, ...)`).
+- [x] Spec §2.4 status from standards.status: Task 5 (cmd_chunkload reads `get_standard()->status`; ingest passes `s.status`).
+- [x] Spec §2.5 synonyms BM25-only, query-side: Task 4 (`syn_.expand` only in Bm25Retriever; dense uses raw `clean_text`).
+- [x] Spec §3 full-text schema (status/text/sparse/BM25 Function/analyzer): Task 3 `build_text_collection_body`.
+- [x] Spec §4 dictionaries: `config/synonyms.txt` (Task 1), `config/user_dict.txt` (Task 5).
+- [x] Spec §5.1 RetrievalFilter status: Task 2.
+- [x] Spec §5.2–5.3 SynonymDict + Bm25Retriever: Tasks 1/4.
+- [x] Spec §5.4 Milvus methods: Task 3.
+- [x] Spec §5.5 orchestration BM25 path: Task 6.
+- [x] Spec §5.6–5.7 loader/ingest/command wiring: Task 5 + Task 6.
+- [x] Spec §8 tests: SynonymDict (T1), to_milvus_expr status incl. updated M3a asserts (T2), insert_full/bm25/collection bodies (T3).
+- [x] Spec §7 non-goals untouched: no access_level, no rerank, no Milvus-side hybrid, no eval tuning, no bm25_text column.
+- [x] Type consistency: `RetrievalFilter{standard_id,status}`, `load_chunks(...,status)`, `ingest_file(...,user_dict,cache_dir)`, `text_retrieve(...,syn,...)`, `answer_query(...,syn,...)`, `Bm25Retriever`, `build_insert_full_body`/`build_bm25_body`/`build_text_collection_body`/`ensure_collection_text`/`insert_full`/`search_bm25` — consistent across tasks.
 ```
