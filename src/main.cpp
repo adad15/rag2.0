@@ -22,11 +22,16 @@
 #include "retrieve/dense_retriever.h"
 #include "generate/answer_pipeline.h"
 #include "query/synonyms.h"
+#include "retrieve/text_search.h"
+#include "util/text_utf8.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <algorithm>
+#include <cstdlib>
+#include <cstdio>
 
 static std::string read_file(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
@@ -377,10 +382,55 @@ static int cmd_chunkload(const Config& cfg, const std::string& chunk_cache_path)
     }
 }
 
+// 检索可观测性：跑与 query 相同的三路召回+RRF（窗口放大到 k），打印融合 top-k
+// 排名表（来源标签 + 定位 + 文本片段）。不调用 LLM。
+static int cmd_retrievecheck(const Config& cfg, const std::string& question, int k) {
+    try {
+        PgClient pg(cfg.pg_conninfo);
+        milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
+        CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
+                             cfg.embed_key, cfg.embed_dim);
+        SynonymDict syn;
+        syn.load_from_file("config/synonyms.txt");
+
+        auto cands = text_retrieve(question, mv, embed, pg, syn, cfg.milvus_collection,
+                                   /*per_path_k=*/k * 4, /*top_k=*/k);
+
+        std::cout << "\nretrievecheck \"" << question << "\" | 召回 "
+                  << cands.size() << " 条 (k=" << k << ")\n\n";
+        std::cout << "#   rrf      source        clause/method        title\n";
+
+        int rank = 1;
+        for (const auto& c : cands) {
+            auto chunk = pg.get_chunk(c.chunk_id);
+            std::string method = chunk ? (chunk->method_no.empty() ? "-" : chunk->method_no) : "?";
+            std::string clause = chunk ? chunk->clause_no : "?";
+            std::string title = chunk ? chunk->title : "[缺失]";
+
+            char head[256];
+            std::snprintf(head, sizeof(head), "%-3d %-8.4f %-12s  %s / %s",
+                          rank, c.score, c.source.c_str(),
+                          method.c_str(), clause.c_str());
+            std::cout << head << "  " << title << "\n";
+
+            if (chunk) {
+                std::string flat = chunk->atomic_text;
+                for (char& ch : flat) if (ch == '\n' || ch == '\r' || ch == '\t') ch = ' ';
+                std::cout << "    片段：" << text_utf8::truncate(flat, 120) << "\n";
+            }
+            ++rank;
+        }
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] retrievecheck: {}", e.what());
+        return 1;
+    }
+}
+
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
-        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck|chunkload> [args]\n";
+        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck|chunkload|retrievecheck> [args]\n";
         return 1;
     }
     Config cfg = Config::from_json_file("config.json");
@@ -425,6 +475,13 @@ int main(int argc, char** argv) {
         auto missing = cfg.missing_required();
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
         return cmd_chunkload(cfg, argv[2]);
+    }
+    if (cmd == "retrievecheck") {
+        if (argc < 3) { std::cout << "usage: rag2 retrievecheck \"问题\" [k]\n"; return 1; }
+        auto missing = cfg.missing_required();
+        if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
+        int k = (argc >= 4) ? std::max(1, std::atoi(argv[3])) : 20;
+        return cmd_retrievecheck(cfg, argv[2], k);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;
