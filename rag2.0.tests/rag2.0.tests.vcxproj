@@ -136,6 +136,7 @@
     <ClCompile Include="..\src\query\synonyms.cpp" />
     <ClCompile Include="..\src\retrieve\bm25_retriever.cpp" />
     <ClCompile Include="..\tests\test_synonyms.cpp" />
+    <ClCompile Include="..\tests\test_text_utf8.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />

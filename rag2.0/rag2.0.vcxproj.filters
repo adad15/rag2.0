@@ -91,6 +91,7 @@
     <ClInclude Include="..\src\retrieve\retrieval_filter.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\rrf.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\util\path_utf8.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\util\text_utf8.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\query\query_analysis.h"><Filter>头文件\query</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\pg_exact_retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\text_search.h"><Filter>头文件\retrieve</Filter></ClInclude>

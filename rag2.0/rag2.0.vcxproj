@@ -139,6 +139,7 @@
     <ClInclude Include="..\src\generate\prompt_builder.h" />
     <ClInclude Include="..\src\generate\answer_pipeline.h" />
     <ClInclude Include="..\src\util\path_utf8.h" />
+    <ClInclude Include="..\src\util\text_utf8.h" />
     <ClInclude Include="..\src\parse\ocr_backend.h" />
     <ClInclude Include="..\src\parse\ppstructure_backend.h" />
     <ClInclude Include="..\src\parse\clause_no.h" />
