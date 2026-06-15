@@ -66,7 +66,7 @@ Modify:
 - Create: `src/util/text_utf8.h`, `tests/test_text_utf8.cpp`
 - Modify: `rag2.0/rag2.0.vcxproj` + `.filters`, `rag2.0.tests/rag2.0.tests.vcxproj` + `.filters`
 
-- [ ] **Step 1: Write `tests/test_text_utf8.cpp`**
+- [x] **Step 1: Write `tests/test_text_utf8.cpp`**
 
 ```cpp
 #include <doctest/doctest.h>
@@ -104,7 +104,7 @@ TEST_CASE("text_utf8 truncate returns empty for empty input") {
 }
 ```
 
-- [ ] **Step 2: Register project files**
+- [x] **Step 2: Register project files**
 
 In `rag2.0/rag2.0.vcxproj`, near other `src\util` headers add:
 ```xml
@@ -125,9 +125,9 @@ In `rag2.0.tests/rag2.0.tests.vcxproj.filters` add:
 
 > If `头文件\util` filter does not exist in `rag2.0.vcxproj.filters`, check what filter `..\src\util\path_utf8.h` uses and reuse it verbatim. Do not invent a new filter folder if path_utf8.h already establishes one.
 
-- [ ] **Step 3: Build, expect FAIL** (`util/text_utf8.h` missing).
+- [x] **Step 3: Build, expect FAIL** (`util/text_utf8.h` missing).
 
-- [ ] **Step 4: Create `src/util/text_utf8.h`**
+- [x] **Step 4: Create `src/util/text_utf8.h`**
 
 ```cpp
 #pragma once
@@ -154,7 +154,7 @@ inline std::string truncate(const std::string& s, size_t max_chars) {
 }  // namespace text_utf8
 ```
 
-- [ ] **Step 5: Build + tests**
+- [x] **Step 5: Build + tests**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -163,7 +163,7 @@ inline std::string truncate(const std::string& s, size_t max_chars) {
 ```
 Expected: 5 new cases pass; full suite **136** (131 + 5).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/util/text_utf8.h tests/test_text_utf8.cpp rag2.0/rag2.0.vcxproj rag2.0/rag2.0.vcxproj.filters rag2.0.tests/rag2.0.tests.vcxproj rag2.0.tests/rag2.0.tests.vcxproj.filters
@@ -181,7 +181,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 **Files:**
 - Modify: `src/main.cpp`
 
-- [ ] **Step 1: Add includes**
+- [x] **Step 1: Add includes**
 
 In `src/main.cpp`, near the other project includes, add:
 ```cpp
@@ -190,7 +190,7 @@ In `src/main.cpp`, near the other project includes, add:
 ```
 (`<algorithm>` for `std::max`/`std::atoi`'s `<cstdlib>` — add `#include <algorithm>` and `#include <cstdlib>` if not already present.)
 
-- [ ] **Step 2: Add `cmd_retrievecheck` after `cmd_chunkload`**
+- [x] **Step 2: Add `cmd_retrievecheck` after `cmd_chunkload`**
 
 Place this immediately before `int main(...)`:
 
@@ -242,7 +242,7 @@ static int cmd_retrievecheck(const Config& cfg, const std::string& question, int
 }
 ```
 
-- [ ] **Step 3: Update the usage line**
+- [x] **Step 3: Update the usage line**
 
 Replace:
 ```cpp
@@ -253,7 +253,7 @@ with:
         std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck|chunkload|retrievecheck> [args]\n";
 ```
 
-- [ ] **Step 4: Add the dispatch block**
+- [x] **Step 4: Add the dispatch block**
 
 After the `chunkload` dispatch block (before `std::cout << "unknown command: "`), add:
 ```cpp
@@ -266,7 +266,7 @@ After the `chunkload` dispatch block (before `std::cout << "unknown command: "`)
     }
 ```
 
-- [ ] **Step 5: Build + full suite**
+- [x] **Step 5: Build + full suite**
 
 ```powershell
 & "D:\vs2022\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" rag2.0.sln /p:Configuration=Debug /p:Platform=x64 /m
@@ -274,11 +274,11 @@ After the `chunkload` dispatch block (before `std::cout << "unknown command: "`)
 ```
 Expected: build succeeds, **136** (no new unit tests; command is I/O+network).
 
-- [ ] **Step 6: Confirm query is unchanged**
+- [x] **Step 6: Confirm query is unchanged**
 
 Grep `cmd_query` in `src/main.cpp` and confirm it is byte-identical to before (still constructs DeepSeekClient, calls `answer_query(question, mv, embed, pg, syn, ds, cfg.milvus_collection, 5)`). The new command must not have altered it.
 
-- [ ] **Step 7: Live smoke (only if services up)**
+- [x] **Step 7: Live smoke (only if services up)**
 
 ```powershell
 .\rag2.0\x64\Debug\rag2.0.exe smoke
@@ -296,7 +296,7 @@ Also confirm `query` still works and is unaffected:
 ```
 Expected: same kind of LLM answer as before (regression check).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add src/main.cpp
@@ -322,13 +322,13 @@ Expected: build green; **136** doctest pass; only `src/main.cpp`, `src/util/text
 
 ## Self-Review Checklist
 
-- [ ] Spec §2.1 new CLI command parallel to query: Task 2 (dispatch + usage).
-- [ ] Spec §2.2 reuse text_retrieve, top_k=k, per_path_k=k*4: Task 2 Step 2.
-- [ ] Spec §2.3 fused single ranked table + source tags: Task 2 Step 2 (one loop over `cands`, prints `c.source`).
-- [ ] Spec §2.4 UTF-8 safe snippet: Task 1 `text_utf8::truncate`, used in Task 2.
-- [ ] Spec §3 output columns (#/rrf/source/clause-method/title/片段): Task 2 Step 2.
-- [ ] Spec §4.1 header-only text_utf8.h mirroring path_utf8.h: Task 1.
-- [ ] Spec §4.2 cmd_retrievecheck no DeepSeekClient, missing_required check, k default 20: Task 2 Steps 2/4.
-- [ ] Spec §5 tests: text_utf8 5 cases (Task 1); live verification (Task 2 Step 7).
-- [ ] Spec §6 non-goals: query/answer_query/text_retrieve untouched (Task 2 Step 6 confirms), no HTTP/frontend, no per-path split, no top_k default change.
-- [ ] Type consistency: `text_utf8::truncate(string, size_t)`, `text_retrieve(...,k*4,k)`, `Candidate.{chunk_id,score,source}`, `get_chunk(...)->{method_no,clause_no,title,atomic_text}` — consistent across tasks.
+- [x] Spec §2.1 new CLI command parallel to query: Task 2 (dispatch + usage).
+- [x] Spec §2.2 reuse text_retrieve, top_k=k, per_path_k=k*4: Task 2 Step 2.
+- [x] Spec §2.3 fused single ranked table + source tags: Task 2 Step 2 (one loop over `cands`, prints `c.source`).
+- [x] Spec §2.4 UTF-8 safe snippet: Task 1 `text_utf8::truncate`, used in Task 2.
+- [x] Spec §3 output columns (#/rrf/source/clause-method/title/片段): Task 2 Step 2.
+- [x] Spec §4.1 header-only text_utf8.h mirroring path_utf8.h: Task 1.
+- [x] Spec §4.2 cmd_retrievecheck no DeepSeekClient, missing_required check, k default 20: Task 2 Steps 2/4.
+- [x] Spec §5 tests: text_utf8 5 cases (Task 1); live verification (Task 2 Step 7).
+- [x] Spec §6 non-goals: query/answer_query/text_retrieve untouched (Task 2 Step 6 confirms), no HTTP/frontend, no per-path split, no top_k default change.
+- [x] Type consistency: `text_utf8::truncate(string, size_t)`, `text_retrieve(...,k*4,k)`, `Candidate.{chunk_id,score,source}`, `get_chunk(...)->{method_no,clause_no,title,atomic_text}` — consistent across tasks.
