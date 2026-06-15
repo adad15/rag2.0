@@ -16,11 +16,11 @@ struct ChunkLoadResult {
 // 纯函数：RetrievalChunk -> PG 行。captions/formulas 序列化为 JSON 数组文本。
 RetrievalChunkRow chunk_to_row(const RetrievalChunk& c);
 
-// chunk_cache -> PG retrieval_chunks + Milvus。按 standard_id 先删后插。
-// dense 向量只 embed embedding_text。embed 单条失败记警告跳过，
-// 调用方用 embedded_count < chunk_count 判断是否需要重跑。
+// chunk_cache -> PG retrieval_chunks + Milvus 全文集合。按 standard_id 先删后插。
+// status 写入每个 Milvus 行（来自 standards.status）；text 字段写 embedding_text。
 ChunkLoadResult load_chunks(const RetrievalChunkCache& cache,
                             PgClient& pg,
                             milvus::MilvusRest& mv,
                             EmbeddingClient& embed,
-                            const std::string& collection);
+                            const std::string& collection,
+                            const std::string& status);

@@ -33,6 +33,21 @@ static std::string read_file(const std::string& path) {
     return ss.str();
 }
 
+// 读词典文件为非空、非注释行列表（用于 jieba 自定义词典）。文件缺失返回空。
+static std::vector<std::string> read_dict_lines(const std::string& path) {
+    std::vector<std::string> out;
+    std::ifstream f(path, std::ios::binary);
+    std::string line;
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        size_t a = line.find_first_not_of(" \t");
+        if (a == std::string::npos || line[a] == '#') continue;
+        size_t b = line.find_last_not_of(" \t");
+        out.push_back(line.substr(a, b - a + 1));
+    }
+    return out;
+}
+
 // 按 config 构建解析器：poppler + 选定 OCR 后端 + 路由模式。backend 的所有权交给调用方持有，
 // 须与返回的 HybridParser 同生命周期（HybridParser 内部持引用）。make_ocr_backend 选未实现引擎会抛。
 static HybridParser make_parser(const Config& cfg, PopplerParser& poppler,
@@ -107,7 +122,9 @@ static int cmd_ingest(const Config& cfg) {
         std::unique_ptr<OcrBackend> backend;
         HybridParser parser = make_parser(cfg, poppler, backend);
 
-        auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection);
+        std::vector<std::string> user_dict = read_dict_lines("config/user_dict.txt");
+        auto r = ingest_file(cfg.doc_path, parser, pg, mv, embed, cfg.milvus_collection,
+                             user_dict);
         spdlog::info("ingest 完成: standard_id={}, chunks={}", r.standard_id, r.clause_count);
         if (r.embedded_count < r.clause_count) {
             spdlog::warn("部分 chunk 未完成 embedding（{}/{}），重跑 ingest 或 chunkload 可修复",
@@ -331,8 +348,12 @@ static int cmd_chunkload(const Config& cfg, const std::string& chunk_cache_path)
             pg.upsert_standard(s);
         }
 
-        mv.ensure_collection(cfg.milvus_collection, embed.dim());
-        ChunkLoadResult r = load_chunks(cache, pg, mv, embed, cfg.milvus_collection);
+        std::vector<std::string> user_dict = read_dict_lines("config/user_dict.txt");
+        mv.ensure_collection_text(cfg.milvus_collection, embed.dim(), user_dict);
+
+        std::string status = "现行";
+        if (auto srow = pg.get_standard(cache.standard_id)) status = srow->status;
+        ChunkLoadResult r = load_chunks(cache, pg, mv, embed, cfg.milvus_collection, status);
 
         spdlog::info("chunkload {} | standard_no={}", cache.standard_id, cache.standard_no);
         spdlog::info("  chunks={} embedded={} deleted_old={}",

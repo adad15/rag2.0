@@ -31,13 +31,10 @@ RetrievalChunkRow chunk_to_row(const RetrievalChunk& c) {
 
 ChunkLoadResult load_chunks(const RetrievalChunkCache& cache, PgClient& pg,
                             milvus::MilvusRest& mv, EmbeddingClient& embed,
-                            const std::string& collection) {
+                            const std::string& collection, const std::string& status) {
     ChunkLoadResult result;
     result.chunk_count = static_cast<int>(cache.chunks.size());
 
-    // 幂等：先删两个库里这份标准的旧数据，再插入。
-    // 先删 Milvus：若它失败，PG 旧行完好，旧数据仍可查；反序则会留下
-    // 指向空行的陈旧向量挤占检索名额。任一失败重跑即可修复。
     mv.delete_by_standard(collection, cache.standard_id);
     result.deleted_count = pg.delete_chunks_by_standard(cache.standard_id);
 
@@ -45,12 +42,12 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache, PgClient& pg,
         pg.insert_chunk(chunk_to_row(c));
         try {
             std::vector<float> vec = embed.embed(c.embedding_text);
-            mv.insert(collection, c.chunk_id, c.node_id, c.standard_id, vec);
+            mv.insert_full(collection, c.chunk_id, c.node_id, c.standard_id,
+                           status, c.embedding_text, vec);
             ++result.embedded_count;
         } catch (const std::exception& e) {
             spdlog::warn("chunk embed/写入失败，跳过: {} ({})", c.chunk_id, e.what());
         }
     }
-
     return result;
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 #include "db/pg_client.h"
 #include "milvus/milvus_rest.h"
 #include "embedding/embedding_client.h"
@@ -12,7 +13,7 @@ struct IngestResult {
 };
 
 // M2c-3：解析 1 份文件（带 parse_cache）→ 建条款树 → 生成受控 chunk
-// → 写 PG retrieval_chunks → embed embedding_text → 写 Milvus。
+// → 写 PG retrieval_chunks → embed embedding_text → 写 Milvus 全文集合。
 // 同时落 tree_cache/chunk_cache 副产品，与 treecheck/chunkcheck 产物一致。
 // IngestResult.clause_count 自本刀起表示 chunk 数。
 IngestResult ingest_file(const std::string& file_path,
@@ -21,4 +22,5 @@ IngestResult ingest_file(const std::string& file_path,
                          milvus::MilvusRest& mv,
                          EmbeddingClient& embed,
                          const std::string& collection,
+                         const std::vector<std::string>& user_dict,
                          const std::string& cache_dir = "data/parse_cache");

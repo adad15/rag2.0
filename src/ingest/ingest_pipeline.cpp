@@ -8,6 +8,7 @@
 #include "util/path_utf8.h"
 #include <spdlog/spdlog.h>
 #include <functional>
+#include <vector>
 
 static std::string make_id(const std::string& s) {
     return std::to_string(std::hash<std::string>{}(s));
@@ -15,7 +16,9 @@ static std::string make_id(const std::string& s) {
 
 IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient& pg,
                          milvus::MilvusRest& mv, EmbeddingClient& embed,
-                         const std::string& collection, const std::string& cache_dir) {
+                         const std::string& collection,
+                         const std::vector<std::string>& user_dict,
+                         const std::string& cache_dir) {
     ParsedDoc doc = parser.parse(file_path);
 
     std::string stem = path_utf8::stem(file_path);
@@ -38,8 +41,8 @@ IngestResult ingest_file(const std::string& file_path, Parser& parser, PgClient&
     s.file_path = file_path;
     pg.upsert_standard(s);
 
-    mv.ensure_collection(collection, embed.dim());
-    ChunkLoadResult r = load_chunks(chunks, pg, mv, embed, collection);
+    mv.ensure_collection_text(collection, embed.dim(), user_dict);
+    ChunkLoadResult r = load_chunks(chunks, pg, mv, embed, collection, s.status);
 
     IngestResult result;
     result.standard_id = standard_id;
