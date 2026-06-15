@@ -133,6 +133,8 @@
     <ClCompile Include="..\tests\test_rrf.cpp" />
     <ClCompile Include="..\src\retrieve\text_search.cpp" />
     <ClCompile Include="..\src\retrieve\pg_exact_retriever.cpp" />
+    <ClCompile Include="..\src\query\synonyms.cpp" />
+    <ClCompile Include="..\tests\test_synonyms.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
