@@ -1,14 +1,14 @@
 #include "query/query_terms.h"
 #include <fstream>
+#include <unordered_set>
 
 std::vector<std::string> match_terms(const std::string& text,
                                      const std::vector<std::string>& dict) {
     std::vector<std::string> out;
+    std::unordered_set<std::string> seen;
     for (const auto& w : dict) {
         if (w.empty() || text.find(w) == std::string::npos) continue;
-        bool dup = false;
-        for (const auto& o : out) if (o == w) { dup = true; break; }
-        if (!dup) out.push_back(w);
+        if (seen.insert(w).second) out.push_back(w);
     }
     return out;
 }
@@ -28,7 +28,16 @@ QueryTerms load_query_terms(const std::string& path) {
     if (!f) return t;
     std::vector<std::string>* cur = nullptr;
     std::string line;
+    bool first = true;
     while (std::getline(f, line)) {
+        if (first) {
+            if (line.size() >= 3 &&
+                (unsigned char)line[0] == 0xEF &&
+                (unsigned char)line[1] == 0xBB &&
+                (unsigned char)line[2] == 0xBF)
+                line.erase(0, 3);
+            first = false;
+        }
         std::string s = strip(line);
         if (s.empty() || s[0] == '#') continue;
         if (s.size() >= 2 && s.front() == '[' && s.back() == ']') {

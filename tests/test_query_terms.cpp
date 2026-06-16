@@ -38,3 +38,10 @@ TEST_CASE("load_query_terms returns empty on missing file") {
     CHECK(t.instruments.empty());
     CHECK(t.sections.empty());
 }
+
+TEST_CASE("match_terms dedups a word repeated in the dict") {
+    std::vector<std::string> dict = {"天平", "天平"};
+    auto out = match_terms("用了天平", dict);
+    REQUIRE(out.size() == 1);
+    CHECK(out[0] == "天平");
+}
