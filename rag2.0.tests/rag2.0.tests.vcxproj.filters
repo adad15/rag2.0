@@ -27,6 +27,7 @@
     <ClCompile Include="..\tests\test_chunk_loader.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_method_no.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_query_analysis.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_query_terms.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_retrieval_filter.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_rrf.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\ingest\chunk_loader.cpp"><Filter>被测源码</Filter></ClCompile>
@@ -55,6 +56,7 @@
     <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\parse\method_no.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\query\query_analysis.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\query\query_terms.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\retrieval_filter.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\tests\test_synonyms.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_text_utf8.cpp"><Filter>测试</Filter></ClCompile>

@@ -108,6 +108,7 @@
     <ClCompile Include="..\src\structure\region_segmenter.cpp" />
     <ClCompile Include="..\src\structure\tree_builder.cpp" />
     <ClCompile Include="..\src\query\query_analysis.cpp" />
+    <ClCompile Include="..\src\query\query_terms.cpp" />
     <ClCompile Include="..\src\retrieve\pg_exact_retriever.cpp" />
     <ClCompile Include="..\src\retrieve\text_search.cpp" />
     <ClCompile Include="..\src\query\synonyms.cpp" />
@@ -154,6 +155,7 @@
     <ClInclude Include="..\src\structure\region_segmenter.h" />
     <ClInclude Include="..\src\structure\tree_builder.h" />
     <ClInclude Include="..\src\query\query_analysis.h" />
+    <ClInclude Include="..\src\query\query_terms.h" />
     <ClInclude Include="..\src\retrieve\pg_exact_retriever.h" />
     <ClInclude Include="..\src\retrieve\text_search.h" />
     <ClInclude Include="..\src\query\synonyms.h" />
