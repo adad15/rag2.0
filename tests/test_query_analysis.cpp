@@ -87,3 +87,16 @@ TEST_CASE("build_query_plan does not rewrite when no instrument matched") {
     CHECK(a.sparse_text.empty());   // 回退
     CHECK(a.dense_text.empty());
 }
+
+TEST_CASE("build_query_plan uses caller-supplied section hint, no injection") {
+    QueryTerms terms;
+    terms.instruments = {"天平"};
+    terms.sections    = {"仪具"};
+    // 查询里本身含"仪具" → section_hints 由匹配得到，不触发默认注入
+    QueryAnalysis a = build_query_plan("哪些试验的仪具用到天平", terms);
+    CHECK(a.intent == QueryIntent::ListByCondition);
+    REQUIRE(a.section_hints.size() == 1);
+    CHECK(a.section_hints[0] == "仪具");
+    CHECK(a.sparse_text == "天平 仪具");
+    CHECK(a.dense_text  == "查找试验方法中仪具包含天平的段落");
+}

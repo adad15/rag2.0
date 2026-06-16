@@ -26,6 +26,7 @@ QueryIntent classify_intent(const QueryAnalysis& a, const std::string& question)
     if (!a.clause_no.empty())  return QueryIntent::ClauseLookup;
     if (!a.method_no.empty())  return QueryIntent::MethodLookup;
     if (contains_any(question, list_markers())) return QueryIntent::ListByCondition;
+    // standard_code 有值但 Phase 1 无对应 intent → 落 GeneralFact，由调用方走 standard 过滤。
     return QueryIntent::GeneralFact;
 }
 
@@ -90,6 +91,7 @@ const char* query_intent_name(QueryIntent intent) {
         case QueryIntent::ClauseLookup:    return "ClauseLookup";
         case QueryIntent::MethodLookup:    return "MethodLookup";
         case QueryIntent::ListByCondition: return "ListByCondition";
-        default:                           return "GeneralFact";
+        case QueryIntent::GeneralFact:     return "GeneralFact";
     }
+    return "<unknown>";
 }
