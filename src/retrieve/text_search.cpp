@@ -5,13 +5,17 @@
 #include "retrieve/retrieval_filter.h"
 #include "retrieve/rrf.h"
 #include "query/query_analysis.h"
+#include "query/query_terms.h"
 #include <spdlog/spdlog.h>
 
 std::vector<Candidate> text_retrieve(const std::string& question, milvus::MilvusRest& mv,
                                      EmbeddingClient& embed, PgClient& pg,
                                      const SynonymDict& syn, const std::string& collection,
                                      int per_path_k, int top_k) {
-    QueryAnalysis qa = analyze_query(question);
+    static const QueryTerms query_terms = load_query_terms("config/query_terms.txt");
+    QueryAnalysis qa = build_query_plan(question, query_terms);
+    spdlog::info("[queryplan] intent={} sparse=\"{}\" dense=\"{}\"",
+                 query_intent_name(qa.intent), qa.sparse_text, qa.dense_text);
 
     RetrievalFilter filter;   // 默认 status==现行
     if (!qa.standard_code.empty()) {
@@ -24,8 +28,10 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
     std::vector<std::vector<Candidate>> lists;
     DenseRetriever dense(mv, embed, collection);
     Bm25Retriever bm25(mv, syn, collection);
-    lists.push_back(dense.retrieve(qa.clean_text, filter, per_path_k));
-    lists.push_back(bm25.retrieve(qa.clean_text, filter, per_path_k));
+    const std::string& dtext = qa.dense_text.empty()  ? qa.clean_text : qa.dense_text;
+    const std::string& stext = qa.sparse_text.empty() ? qa.clean_text : qa.sparse_text;
+    lists.push_back(dense.retrieve(dtext, filter, per_path_k));
+    lists.push_back(bm25.retrieve(stext, filter, per_path_k));
     if (!qa.method_no.empty()) {
         PgExactRetriever exact(pg, qa.method_no);
         lists.push_back(exact.retrieve(qa.clean_text, filter, per_path_k));
