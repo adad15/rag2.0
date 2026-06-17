@@ -54,6 +54,7 @@
     <ClCompile Include="..\src\query\query_analysis.cpp"><Filter>源文件\query</Filter></ClCompile>
     <ClCompile Include="..\src\query\query_terms.cpp"><Filter>源文件\query</Filter></ClCompile>
     <ClCompile Include="..\src\eval\dataset.cpp"><Filter>源文件</Filter></ClCompile>
+    <ClCompile Include="..\src\eval\retrieval_metrics.cpp"><Filter>源文件</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\pg_exact_retriever.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\text_search.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
     <ClCompile Include="..\src\query\synonyms.cpp"><Filter>源文件\query</Filter></ClCompile>
@@ -97,6 +98,7 @@
     <ClInclude Include="..\src\query\query_analysis.h"><Filter>头文件\query</Filter></ClInclude>
     <ClInclude Include="..\src\query\query_terms.h"><Filter>头文件\query</Filter></ClInclude>
     <ClInclude Include="..\src\eval\dataset.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="..\src\eval\retrieval_metrics.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\pg_exact_retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\text_search.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\query\synonyms.h"><Filter>头文件\query</Filter></ClInclude>
