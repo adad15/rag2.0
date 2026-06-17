@@ -61,3 +61,37 @@ TEST_CASE("pin_exact_clause respects top_k after pinning") {
     REQUIRE(out.size() == 2);
     CHECK(out[0].chunk_id == "S:9#main");
 }
+
+TEST_CASE("demote_without_keyterms keeps key-term hits in front, others after") {
+    std::vector<Candidate> fused = {
+        cand("S","S:no1#main",0.9f,"dense+bm25"),   // 不含关键词，但分高
+        cand("S","S:yes1#main",0.5f,"keyterm"),     // 含关键词
+        cand("S","S:no2#main",0.4f,"bm25"),
+        cand("S","S:yes2#main",0.3f,"dense+keyterm") };
+    auto out = demote_without_keyterms(fused, {"S:yes1#main","S:yes2#main"}, 10);
+    REQUIRE(out.size() == 4);
+    CHECK(out[0].chunk_id == "S:yes1#main");   // 命中的提前，组内保持原顺序
+    CHECK(out[1].chunk_id == "S:yes2#main");
+    CHECK(out[2].chunk_id == "S:no1#main");    // 未命中的压后，组内保持原顺序
+    CHECK(out[3].chunk_id == "S:no2#main");
+}
+
+TEST_CASE("demote_without_keyterms truncates to top_k after reordering") {
+    std::vector<Candidate> fused = {
+        cand("S","S:no1#main",0.9f,"dense"),
+        cand("S","S:yes1#main",0.5f,"keyterm"),
+        cand("S","S:no2#main",0.4f,"dense") };
+    auto out = demote_without_keyterms(fused, {"S:yes1#main"}, 2);
+    REQUIRE(out.size() == 2);
+    CHECK(out[0].chunk_id == "S:yes1#main");   // 命中的先进 top-2
+    CHECK(out[1].chunk_id == "S:no1#main");
+}
+
+TEST_CASE("demote_without_keyterms with empty hit set preserves order") {
+    std::vector<Candidate> fused = {
+        cand("S","S:a#main",0.9f,"dense"), cand("S","S:b#main",0.5f,"bm25") };
+    auto out = demote_without_keyterms(fused, {}, 10);
+    REQUIRE(out.size() == 2);
+    CHECK(out[0].chunk_id == "S:a#main");
+    CHECK(out[1].chunk_id == "S:b#main");
+}

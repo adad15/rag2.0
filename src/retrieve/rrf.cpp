@@ -74,3 +74,21 @@ std::vector<Candidate> pin_exact_clause(const std::vector<Candidate>& fused,
     if (static_cast<int>(out.size()) > top_k) out.resize(top_k);
     return out;
 }
+
+std::vector<Candidate> demote_without_keyterms(const std::vector<Candidate>& fused,
+                                               const std::vector<std::string>& key_hit_ids,
+                                               int top_k) {
+    std::set<std::string> hits(key_hit_ids.begin(), key_hit_ids.end());
+    std::vector<Candidate> front, back;
+    front.reserve(fused.size());
+    for (const auto& c : fused) {
+        if (hits.count(c.chunk_id)) front.push_back(c);
+        else back.push_back(c);
+    }
+    std::vector<Candidate> out;
+    out.reserve(fused.size());
+    out.insert(out.end(), front.begin(), front.end());
+    out.insert(out.end(), back.begin(), back.end());
+    if (static_cast<int>(out.size()) > top_k) out.resize(top_k);
+    return out;
+}

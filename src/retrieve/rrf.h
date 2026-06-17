@@ -14,3 +14,9 @@ std::vector<Candidate> rrf_fuse(const std::vector<std::vector<Candidate>>& lists
 std::vector<Candidate> pin_exact_clause(const std::vector<Candidate>& fused,
                                         const std::vector<std::string>& pinned_chunk_ids,
                                         int top_k);
+
+// 错片下压：chunk_id 在 key_hit_ids 中的候选稳定排到前面（组内保持 fused 原序），
+// 其余排后，最后截断 top_k。不删除、纯函数。用于列举题"含关键词的提前"。
+std::vector<Candidate> demote_without_keyterms(const std::vector<Candidate>& fused,
+                                               const std::vector<std::string>& key_hit_ids,
+                                               int top_k);
