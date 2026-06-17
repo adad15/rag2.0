@@ -24,6 +24,8 @@
 #include "query/synonyms.h"
 #include "retrieve/text_search.h"
 #include "util/text_utf8.h"
+#include "eval/dataset.h"
+#include "eval/eval_runner.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <fstream>
@@ -427,10 +429,56 @@ static int cmd_retrievecheck(const Config& cfg, const std::string& question, int
     }
 }
 
+// 评估：跑评估集，打印每条命中/覆盖 + 汇总。复用 text_retrieve，不调 LLM。
+static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k) {
+    try {
+        std::ifstream f(dataset_path, std::ios::binary);
+        if (!f) { spdlog::error("打不开评估集: {}", dataset_path); return 1; }
+        std::stringstream ss; ss << f.rdbuf();
+        auto cases = parse_dataset(ss.str());
+
+        PgClient pg(cfg.pg_conninfo);
+        milvus::MilvusRest mv(cfg.milvus_base_url, cfg.milvus_token);
+        CloudEmbedding embed(cfg.embed_base_url, cfg.embed_path, cfg.embed_model,
+                             cfg.embed_key, cfg.embed_dim);
+        SynonymDict syn;
+        syn.load_from_file("config/synonyms.txt");
+
+        EvalReport rep = run_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, k);
+
+        std::cout << "\neval \"" << dataset_path << "\" | " << cases.size()
+                  << " 条 (k=" << k << ")\n\n";
+        for (const auto& r : rep.results) {
+            if (r.is_coverage) {
+                std::cout << "[coverage] " << r.covered << "/" << r.gold_total
+                          << "  " << r.question << "\n";
+            } else {
+                std::cout << "[point   ] " << (r.rank > 0 ? "hit@" + std::to_string(r.rank)
+                                                          : std::string("MISS"))
+                          << "  " << r.question << "\n";
+            }
+        }
+        std::cout << "\n--- 汇总 ---\n";
+        if (rep.point_cases > 0) {
+            std::cout << "点查 hit@" << k << ": " << rep.point_hits << "/" << rep.point_cases
+                      << "   MRR: " << (rep.mrr_sum / rep.point_cases) << "\n";
+        }
+        for (const auto& r : rep.results)
+            if (r.is_coverage && r.gold_total > 0)
+                std::cout << "覆盖 coverage@" << k << ": "
+                          << (100.0 * r.covered / r.gold_total) << "%  ("
+                          << r.covered << "/" << r.gold_total << ")\n";
+        return 0;
+    } catch (const std::exception& e) {
+        spdlog::error("[FAIL] eval: {}", e.what());
+        return 1;
+    }
+}
+
 int main(int argc, char** argv) {
     logging::init();
     if (argc < 2) {
-        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck|chunkload|retrievecheck> [args]\n";
+        std::cout << "usage: rag2 <smoke|ingest|query|dump|ocrcheck|treecheck|chunkcheck|chunkload|retrievecheck|eval> [args]\n";
         return 1;
     }
     Config cfg = Config::from_json_file("config.json");
@@ -482,6 +530,13 @@ int main(int argc, char** argv) {
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
         int k = (argc >= 4) ? std::max(1, std::atoi(argv[3])) : 20;
         return cmd_retrievecheck(cfg, argv[2], k);
+    }
+    if (cmd == "eval") {
+        if (argc < 3) { std::cout << "usage: rag2 eval <dataset.json> [k]\n"; return 1; }
+        auto missing = cfg.missing_required();
+        if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
+        int k = (argc >= 4) ? std::max(1, std::atoi(argv[3])) : 20;
+        return cmd_eval(cfg, argv[2], k);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;
