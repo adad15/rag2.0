@@ -1,5 +1,4 @@
 #include "eval/retrieval_metrics.h"
-#include <algorithm>
 #include <unordered_set>
 
 int first_hit_rank(const std::vector<std::string>& candidate_keys,

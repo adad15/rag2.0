@@ -18,6 +18,7 @@ TEST_CASE("reciprocal_rank and hit_at_k") {
     CHECK(reciprocal_rank(4) == doctest::Approx(0.25));
     CHECK(reciprocal_rank(0) == doctest::Approx(0.0));
     CHECK(hit_at_k(3, 5));
+    CHECK(hit_at_k(5, 5));   // 边界：rank==k 命中
     CHECK_FALSE(hit_at_k(6, 5));
     CHECK_FALSE(hit_at_k(0, 5));
 }
