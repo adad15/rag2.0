@@ -11,6 +11,7 @@ std::vector<EvalCase> parse_dataset(const std::string& json_text) {
 
     std::vector<EvalCase> out;
     for (const auto& item : j) {
+        if (!item.is_object()) continue;
         EvalCase c;
         c.question        = item.value("question", "");
         c.note            = item.value("note", "");
@@ -19,7 +20,7 @@ std::vector<EvalCase> parse_dataset(const std::string& json_text) {
         c.gold_method_no  = item.value("gold_method_no", "");
         if (item.contains("gold_methods") && item["gold_methods"].is_array())
             for (const auto& m : item["gold_methods"])
-                c.gold_methods.push_back(m.get<std::string>());
+                if (m.is_string()) c.gold_methods.push_back(m.get<std::string>());
         out.push_back(std::move(c));
     }
     return out;

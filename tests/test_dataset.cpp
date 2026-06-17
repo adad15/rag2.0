@@ -33,3 +33,20 @@ TEST_CASE("parse_dataset handles an empty array") {
     auto cases = parse_dataset("[]");
     CHECK(cases.empty());
 }
+
+TEST_CASE("parse_dataset defaults missing fields to empty") {
+    auto cases = parse_dataset("[{}]");
+    REQUIRE(cases.size() == 1);
+    CHECK(cases[0].question.empty());
+    CHECK(cases[0].gold_methods.empty());
+}
+
+TEST_CASE("parse_dataset skips malformed elements gracefully") {
+    // 非对象元素跳过；gold_methods 里的非字符串元素跳过；都不抛
+    auto cases = parse_dataset(R"([1, {"question":"q","gold_methods":["T1",2,null,"T2"]}])");
+    REQUIRE(cases.size() == 1);
+    CHECK(cases[0].question == "q");
+    REQUIRE(cases[0].gold_methods.size() == 2);
+    CHECK(cases[0].gold_methods[0] == "T1");
+    CHECK(cases[0].gold_methods[1] == "T2");
+}
