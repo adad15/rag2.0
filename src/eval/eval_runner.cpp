@@ -2,6 +2,7 @@
 #include "eval/retrieval_metrics.h"
 #include "retrieve/text_search.h"
 #include <optional>
+#include <spdlog/spdlog.h>
 
 namespace {
 // 去空格（gold_standard_no 可能写成 "JTG 3420"，find_standard_by_code 要裸代号）。
@@ -47,17 +48,25 @@ EvalReport run_eval(const std::vector<EvalCase>& cases,
                 gold_key = c.gold_method_no;
                 keys = &cand_methods;
             } else if (!c.gold_clause_no.empty()) {
-                std::string sid = pg.find_standard_by_code(strip_spaces(c.gold_standard_no));
-                gold_key = sid + "|" + c.gold_clause_no;
-                keys = &cand_clause_keys;
+                if (c.gold_standard_no.empty()) {
+                    spdlog::warn("样本不计分（gold_clause_no 非空但 gold_standard_no 为空）: {}",
+                                 c.question);
+                } else {
+                    std::string sid = pg.find_standard_by_code(strip_spaces(c.gold_standard_no));
+                    if (sid.empty())
+                        spdlog::warn("样本不计分（标准 {} 未找到）: {}",
+                                     c.gold_standard_no, c.question);
+                    else { gold_key = sid + "|" + c.gold_clause_no; keys = &cand_clause_keys; }
+                }
             }
             if (keys) {
+                cr.scored = true;
                 cr.rank = first_hit_rank(*keys, gold_key);
                 rep.point_cases++;
                 if (hit_at_k(cr.rank, k)) rep.point_hits++;
                 rep.mrr_sum += reciprocal_rank(cr.rank);
             }
-            // 无任何 gold 的样本：不计分（仅 question 入 results 供观察）
+            // keys==nullptr：无有效 gold → 不计分（cr.scored 保持 false）
         }
         rep.results.push_back(cr);
     }

@@ -10,6 +10,7 @@
 struct CaseResult {
     std::string question;
     bool is_coverage = false;
+    bool scored = false;   // 点查是否真的算了分（有有效 gold）
     int rank = 0;          // 点查：首命中 1-based 排名（0=miss）
     int covered = 0;       // 覆盖查：覆盖到的 gold method 数
     int gold_total = 0;    // 覆盖查：gold method 总数

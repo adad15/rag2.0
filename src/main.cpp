@@ -452,10 +452,12 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k) {
             if (r.is_coverage) {
                 std::cout << "[coverage] " << r.covered << "/" << r.gold_total
                           << "  " << r.question << "\n";
-            } else {
+            } else if (r.scored) {
                 std::cout << "[point   ] " << (r.rank > 0 ? "hit@" + std::to_string(r.rank)
                                                           : std::string("MISS"))
                           << "  " << r.question << "\n";
+            } else {
+                std::cout << "[unscore ] (无有效 gold)  " << r.question << "\n";
             }
         }
         std::cout << "\n--- 汇总 ---\n";
@@ -463,6 +465,8 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k) {
             std::cout << "点查 hit@" << k << ": " << rep.point_hits << "/" << rep.point_cases
                       << "   MRR: " << (rep.mrr_sum / rep.point_cases) << "\n";
         }
+        if (rep.coverage_cases > 0)
+            std::cout << "覆盖查: " << rep.coverage_cases << " 条\n";
         for (const auto& r : rep.results)
             if (r.is_coverage && r.gold_total > 0)
                 std::cout << "覆盖 coverage@" << k << ": "
