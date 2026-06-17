@@ -194,3 +194,30 @@ std::vector<std::string> PgClient::chunk_ids_by_clause(const std::string& clause
     for (auto row : r) out.push_back(row[0].c_str());
     return out;
 }
+
+std::vector<RetrievalChunkRow> PgClient::chunks_containing(const std::string& keyword,
+                                                           const std::string& status) {
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    pqxx::result r;
+    if (status.empty()) {
+        r = tx.exec(
+            "SELECT chunk_id,standard_id FROM retrieval_chunks "
+            "WHERE embedding_text LIKE $1 ORDER BY chunk_id",
+            pqxx::params{"%" + keyword + "%"});
+    } else {
+        r = tx.exec(
+            "SELECT rc.chunk_id,rc.standard_id FROM retrieval_chunks rc "
+            "JOIN standards s ON rc.standard_id=s.standard_id "
+            "WHERE rc.embedding_text LIKE $1 AND s.status=$2 ORDER BY rc.chunk_id",
+            pqxx::params{"%" + keyword + "%", status});
+    }
+    std::vector<RetrievalChunkRow> out;
+    for (auto row : r) {
+        RetrievalChunkRow c;
+        c.chunk_id = row[0].c_str();
+        c.standard_id = row[1].c_str();
+        out.push_back(std::move(c));
+    }
+    return out;
+}

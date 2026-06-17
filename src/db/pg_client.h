@@ -66,6 +66,10 @@ public:
     // 方法号前缀匹配取该方法全部 chunk（只填 chunk_id/standard_id，按 clause_no 排序）
     std::vector<RetrievalChunkRow> chunks_by_method(const std::string& method_prefix,
                                                     const std::string& standard_id);
+    // 关键词内容直查：embedding_text 含 keyword 的全部片段（status 非空则按其过滤现行）。
+    // 只填 chunk_id/standard_id，按 chunk_id 排序。用于列举题补全召回。
+    std::vector<RetrievalChunkRow> chunks_containing(const std::string& keyword,
+                                                     const std::string& status);
     // 条款号精确命中（standard_id 可空），返回 chunk_id 列表
     std::vector<std::string> chunk_ids_by_clause(const std::string& clause_no,
                                                  const std::string& standard_id);
