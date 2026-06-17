@@ -128,6 +128,8 @@
     <ClCompile Include="..\src\retrieve\retrieval_chunk.cpp" />
     <ClCompile Include="..\src\query\query_analysis.cpp" />
     <ClCompile Include="..\src\query\query_terms.cpp" />
+    <ClCompile Include="..\src\eval\dataset.cpp" />
+    <ClCompile Include="..\tests\test_dataset.cpp" />
     <ClCompile Include="..\tests\test_query_analysis.cpp" />
     <ClCompile Include="..\tests\test_query_terms.cpp" />
     <ClCompile Include="..\tests\test_retrieval_filter.cpp" />
