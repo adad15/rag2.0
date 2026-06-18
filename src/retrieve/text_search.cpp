@@ -7,6 +7,7 @@
 #include "query/query_analysis.h"
 #include "query/query_terms.h"
 #include <spdlog/spdlog.h>
+#include <set>
 
 std::vector<Candidate> text_retrieve(const std::string& question, milvus::MilvusRest& mv,
                                      EmbeddingClient& embed, PgClient& pg,
@@ -37,7 +38,35 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
         lists.push_back(exact.retrieve(qa.clean_text, filter, per_path_k));
     }
 
-    std::vector<Candidate> fused = rrf_fuse(lists, /*k=*/60, top_k);
+    // M4.1：列举 + 命中关键词 → 关键词直查补全召回 + 错片下压
+    std::vector<std::string> key_hit_ids;
+    const bool list_recall =
+        (qa.intent == QueryIntent::ListByCondition && !qa.key_terms.empty());
+    if (list_recall) {
+        std::vector<Candidate> kt;
+        std::set<std::string> seen;
+        for (const auto& term : qa.key_terms) {
+            for (const auto& row : pg.chunks_containing(term, filter.status)) {
+                if (seen.insert(row.chunk_id).second) {
+                    Candidate c;
+                    c.standard_id = row.standard_id;
+                    c.chunk_id = row.chunk_id;
+                    c.score = 0.0f;
+                    c.source = "keyterm";
+                    kt.push_back(c);
+                    key_hit_ids.push_back(row.chunk_id);
+                }
+            }
+        }
+        lists.push_back(std::move(kt));
+        spdlog::info("[queryplan] keyterm 直查命中 {} 片段", key_hit_ids.size());
+    }
+
+    // 列举时融合到大池、稍后下压再截断；非列举维持原 top_k 截断行为。
+    const int fuse_k = list_recall ? 1000000 : top_k;
+    std::vector<Candidate> fused = rrf_fuse(lists, /*k=*/60, fuse_k);
+    if (list_recall)
+        fused = demote_without_keyterms(fused, key_hit_ids, top_k);
 
     if (!qa.clause_no.empty()) {
         std::vector<std::string> pinned = pg.chunk_ids_by_clause(qa.clause_no, filter.standard_id);
