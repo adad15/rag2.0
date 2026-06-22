@@ -592,10 +592,7 @@ int main(int argc, char** argv) {
         }
         auto missing = cfg.missing_required();
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
-        if (gen && cfg.deepseek_key.empty()) {
-            spdlog::error("--gen 需要 RAG_DEEPSEEK_KEY，但未配置");
-            return 1;
-        }
+        // RAG_DEEPSEEK_KEY 已是 missing_required 必填项，eval（含 --gen）此处已被上面拦截，无需再判。
         int k = (pos.size() >= 2) ? std::max(1, std::atoi(pos[1].c_str())) : 20;
         std::string pmode = (pos.size() >= 3) ? pos[2] : "";
         return cmd_eval(cfg, pos[0], k, pmode, gen);

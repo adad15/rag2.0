@@ -50,6 +50,9 @@ GenerationReport run_generation_eval(
         } else if (!c.gold_clause_no.empty() && !c.gold_standard_no.empty()) {
             gold_ref = c.gold_clause_no;
             gold_std = c.gold_standard_no;
+        } else if (!c.gold_clause_no.empty()) {
+            // spec §7：有条款号但缺 gold_standard_no → 引用不计分并告警。
+            spdlog::warn("[gen-eval] 条款题缺 gold_standard_no，引用不计分: {}", c.question);
         }
         const bool want_cite = !gold_ref.empty();
         const bool want_num  = !c.gold_values.empty();
