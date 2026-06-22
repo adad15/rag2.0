@@ -26,6 +26,7 @@
 #include "util/text_utf8.h"
 #include "eval/dataset.h"
 #include "eval/eval_runner.h"
+#include "eval/generation_eval.h"
 #include "query/query_planner.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
@@ -445,8 +446,9 @@ static int cmd_retrievecheck(const Config& cfg, const std::string& question, int
 }
 
 // 评估：跑评估集，打印每条命中/覆盖 + 汇总。复用 text_retrieve，不调 LLM。
+// --gen: 追加生成侧（引用/数值准确率）段；需要 RAG_DEEPSEEK_KEY。
 static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
-                    const std::string& planner_mode = "") {
+                    const std::string& planner_mode = "", bool gen = false) {
     try {
         std::ifstream f(dataset_path, std::ios::binary);
         if (!f) { spdlog::error("打不开评估集: {}", dataset_path); return 1; }
@@ -492,6 +494,32 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
                 std::cout << "覆盖 coverage@" << k << ": "
                           << (100.0 * r.covered / r.gold_total) << "%  ("
                           << r.covered << "/" << r.gold_total << ")\n";
+
+        if (gen) {
+            if (cfg.deepseek_key.empty()) {
+                spdlog::error("--gen 需要 RAG_DEEPSEEK_KEY，但未配置");
+                return 1;
+            }
+            spdlog::info("[eval] generation eval on");
+            GenerationReport grep = run_generation_eval(
+                cases, mv, embed, pg, syn, ds, cfg.milvus_collection, k, planner,
+                "data/answer_cache");
+            std::cout << "\n--- 生成侧（--gen）---\n";
+            for (const auto& r : grep.results) {
+                if (r.cite_scored)
+                    std::cout << "[cite] " << (r.cite_hit ? "OK " : "NG ")
+                              << " " << r.question << "\n";
+                if (r.value_gold > 0)
+                    std::cout << "[num ] " << r.value_hits << "/" << r.value_gold
+                              << "  " << r.question << "\n";
+            }
+            if (grep.cite_scored > 0)
+                std::cout << "引用准确率: " << grep.cite_hits << "/" << grep.cite_scored << "\n";
+            if (grep.value_gold_total > 0)
+                std::cout << "数值准确率(逐值): " << grep.value_hit_total << "/"
+                          << grep.value_gold_total << "\n";
+        }
+
         return 0;
     } catch (const std::exception& e) {
         spdlog::error("[FAIL] eval: {}", e.what());
@@ -556,12 +584,21 @@ int main(int argc, char** argv) {
         return cmd_retrievecheck(cfg, argv[2], k);
     }
     if (cmd == "eval") {
-        if (argc < 3) { std::cout << "usage: rag2 eval <dataset.json> [k] [rule|llm|auto]\n"; return 1; }
+        bool gen = false;
+        std::vector<std::string> pos;       // "eval" 之后的位置参数（剔除 --gen）
+        for (int i = 2; i < argc; ++i) {
+            std::string a = argv[i];
+            if (a == "--gen") gen = true; else pos.push_back(a);
+        }
+        if (pos.empty()) {
+            std::cout << "usage: rag2 eval <dataset.json> [k] [rule|llm|auto] [--gen]\n";
+            return 1;
+        }
         auto missing = cfg.missing_required();
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
-        int k = (argc >= 4) ? std::max(1, std::atoi(argv[3])) : 20;
-        std::string pmode = (argc >= 5) ? argv[4] : "";
-        return cmd_eval(cfg, argv[2], k, pmode);
+        int k = (pos.size() >= 2) ? std::max(1, std::atoi(pos[1].c_str())) : 20;
+        std::string pmode = (pos.size() >= 3) ? pos[2] : "";
+        return cmd_eval(cfg, pos[0], k, pmode, gen);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;
