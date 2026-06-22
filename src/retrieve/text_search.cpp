@@ -5,7 +5,6 @@
 #include "retrieve/retrieval_filter.h"
 #include "retrieve/rrf.h"
 #include "query/query_analysis.h"
-#include "query/query_terms.h"
 #include <spdlog/spdlog.h>
 #include <set>
 
