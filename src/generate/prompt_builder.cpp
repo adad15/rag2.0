@@ -1,6 +1,8 @@
 #include "generate/prompt_builder.h"
 #include <nlohmann/json.hpp>
 
+const char* kAnswerPromptVersion = "ans-v1";
+
 std::string build_system_prompt() {
     return
         "你是规范条文检索助手。严格遵守：\n"
