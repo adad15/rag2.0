@@ -15,7 +15,7 @@ std::string cache_path_for(const std::string& dir, const std::string& q) {
     std::string key = normalize_question(q) + "\x1f" + kAnswerPromptVersion;
     size_t h = std::hash<std::string>{}(key);
     char name[32];
-    std::snprintf(name, sizeof(name), "%016zx.txt", h);
+    std::snprintf(name, sizeof(name), "%016llx.txt", static_cast<unsigned long long>(h));
     return dir + "/" + name;
 }
 std::string read_file(const std::string& path) {
@@ -65,7 +65,9 @@ GenerationReport run_generation_eval(
                 spdlog::warn("[gen-eval] answer_query 失败，跳过该条: {} ({})", c.question, e.what());
                 continue;                                  // 该条不计分
             }
-            if (!answer.empty()) write_file(answer_cache_dir, path, answer);
+            // 不缓存拒答串（如 Milvus 短暂不可用时的兜底答复），避免污染后续 eval。
+            if (!answer.empty() && answer.find("无法作答") == std::string::npos)
+                write_file(answer_cache_dir, path, answer);
         }
 
         GenCaseResult cr;
