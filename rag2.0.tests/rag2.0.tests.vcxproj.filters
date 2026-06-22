@@ -61,6 +61,8 @@
     <ClCompile Include="..\src\eval\dataset.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\eval\retrieval_metrics.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\query\query_terms.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\src\query\query_planner.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_query_planner.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\retrieval_filter.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\tests\test_synonyms.cpp"><Filter>测试</Filter></ClCompile>
     <ClCompile Include="..\tests\test_text_utf8.cpp"><Filter>测试</Filter></ClCompile>
