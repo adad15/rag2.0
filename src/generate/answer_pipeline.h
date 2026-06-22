@@ -7,6 +7,7 @@
 #include "generate/context.h"
 #include "generate/deepseek_client.h"
 #include "query/synonyms.h"
+#include "query/query_planner.h"
 
 // 纯函数：chunk 行 + standards 行 -> LLM 上下文片段。
 ContextFragment fragment_from_chunk(int idx,
@@ -22,4 +23,5 @@ std::string answer_query(const std::string& question,
                          const SynonymDict& syn,
                          deepseek::DeepSeekClient& ds,
                          const std::string& collection,
-                         int top_k);
+                         int top_k,
+                         const QueryPlanner& planner);

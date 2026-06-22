@@ -25,6 +25,7 @@ struct Config {
     std::string ocr_engine;          // ppstructure（预留 mineru/vlapi/tesseract）
     std::string ppstruct_base_url;
     int         scan_chars_threshold = 100;  // 每页字节数低于此判为扫描页
+    std::string query_planner;               // rule | llm | auto（默认 auto）
 
     // 从任意 key->value map 构建（测试友好）
     static Config from_map(const std::map<std::string, std::string>& env);

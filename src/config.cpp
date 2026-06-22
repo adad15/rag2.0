@@ -29,6 +29,7 @@ Config Config::from_map(const std::map<std::string, std::string>& e) {
     c.ocr_engine       = get(e, "RAG_OCR_ENGINE", "ppstructure");
     c.ppstruct_base_url= get(e, "RAG_PPSTRUCT_BASE_URL", "http://localhost:8001");
     c.scan_chars_threshold = std::stoi(get(e, "RAG_SCAN_CHARS_THRESHOLD", "100"));
+    c.query_planner    = get(e, "RAG_QUERY_PLANNER", "auto");
     return c;
 }
 

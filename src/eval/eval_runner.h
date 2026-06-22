@@ -6,6 +6,7 @@
 #include "embedding/embedding_client.h"
 #include "db/pg_client.h"
 #include "query/synonyms.h"
+#include "query/query_planner.h"
 
 struct CaseResult {
     std::string question;
@@ -28,4 +29,5 @@ struct EvalReport {
 // 复用现有检索管道，不改检索逻辑。需 Milvus/PG/embedding 在线。
 EvalReport run_eval(const std::vector<EvalCase>& cases,
                     milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
-                    const SynonymDict& syn, const std::string& collection, int k);
+                    const SynonymDict& syn, const std::string& collection, int k,
+                    const QueryPlanner& planner);

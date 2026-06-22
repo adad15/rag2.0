@@ -12,9 +12,9 @@
 std::vector<Candidate> text_retrieve(const std::string& question, milvus::MilvusRest& mv,
                                      EmbeddingClient& embed, PgClient& pg,
                                      const SynonymDict& syn, const std::string& collection,
-                                     int per_path_k, int top_k) {
-    static const QueryTerms query_terms = load_query_terms("config/query_terms.txt");
-    QueryAnalysis qa = build_query_plan(question, query_terms);
+                                     int per_path_k, int top_k,
+                                     const QueryPlanner& planner) {
+    QueryAnalysis qa = planner.plan(question);
     spdlog::info("[queryplan] intent={} sparse=\"{}\" dense=\"{}\"",
                  query_intent_name(qa.intent), qa.sparse_text, qa.dense_text);
 

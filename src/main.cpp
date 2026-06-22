@@ -26,6 +26,7 @@
 #include "util/text_utf8.h"
 #include "eval/dataset.h"
 #include "eval/eval_runner.h"
+#include "query/query_planner.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <fstream>
@@ -54,6 +55,16 @@ static std::vector<std::string> read_dict_lines(const std::string& path) {
         out.push_back(line.substr(a, b - a + 1));
     }
     return out;
+}
+
+static QueryPlanner make_planner(const Config& cfg, deepseek::DeepSeekClient& ds,
+                                  const std::string& mode_override = "") {
+    QueryPlanner p;
+    p.mode = parse_planner_mode(mode_override.empty() ? cfg.query_planner : mode_override);
+    p.terms = load_query_terms("config/query_terms.txt");
+    p.llm_call = [&ds](const std::string& s, const std::string& u) { return ds.chat(s, u); };
+    p.cache_dir = "data/query_plan_cache";
+    return p;
 }
 
 // 按 config 构建解析器：poppler + 选定 OCR 后端 + 路由模式。backend 的所有权交给调用方持有，
@@ -157,8 +168,9 @@ static int cmd_query(const Config& cfg, const std::string& question) {
         SynonymDict syn;
         syn.load_from_file("config/synonyms.txt");
 
+        QueryPlanner planner = make_planner(cfg, ds);
         std::string ans = answer_query(question, mv, embed, pg, syn, ds,
-                                       cfg.milvus_collection, /*top_k=*/5);
+                                       cfg.milvus_collection, /*top_k=*/5, planner);
         std::cout << "\n===== 回答 =====\n" << ans << "\n";
         return 0;
     } catch (const std::exception& e) {
@@ -394,9 +406,12 @@ static int cmd_retrievecheck(const Config& cfg, const std::string& question, int
                              cfg.embed_key, cfg.embed_dim);
         SynonymDict syn;
         syn.load_from_file("config/synonyms.txt");
+        deepseek::DeepSeekClient ds(cfg.deepseek_base_url, cfg.deepseek_path,
+                                    cfg.deepseek_model, cfg.deepseek_key);
+        QueryPlanner planner = make_planner(cfg, ds);
 
         auto cands = text_retrieve(question, mv, embed, pg, syn, cfg.milvus_collection,
-                                   /*per_path_k=*/k * 4, /*top_k=*/k);
+                                   /*per_path_k=*/k * 4, /*top_k=*/k, planner);
 
         std::cout << "\nretrievecheck \"" << question << "\" | 召回 "
                   << cands.size() << " 条 (k=" << k << ")\n\n";
@@ -430,7 +445,8 @@ static int cmd_retrievecheck(const Config& cfg, const std::string& question, int
 }
 
 // 评估：跑评估集，打印每条命中/覆盖 + 汇总。复用 text_retrieve，不调 LLM。
-static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k) {
+static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
+                    const std::string& planner_mode = "") {
     try {
         std::ifstream f(dataset_path, std::ios::binary);
         if (!f) { spdlog::error("打不开评估集: {}", dataset_path); return 1; }
@@ -443,8 +459,12 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k) {
                              cfg.embed_key, cfg.embed_dim);
         SynonymDict syn;
         syn.load_from_file("config/synonyms.txt");
+        deepseek::DeepSeekClient ds(cfg.deepseek_base_url, cfg.deepseek_path,
+                                    cfg.deepseek_model, cfg.deepseek_key);
+        QueryPlanner planner = make_planner(cfg, ds, planner_mode);
+        spdlog::info("[eval] planner={}", planner_mode_name(planner.mode));
 
-        EvalReport rep = run_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, k);
+        EvalReport rep = run_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, k, planner);
 
         std::cout << "\neval \"" << dataset_path << "\" | " << cases.size()
                   << " 条 (k=" << k << ")\n\n";
@@ -536,11 +556,12 @@ int main(int argc, char** argv) {
         return cmd_retrievecheck(cfg, argv[2], k);
     }
     if (cmd == "eval") {
-        if (argc < 3) { std::cout << "usage: rag2 eval <dataset.json> [k]\n"; return 1; }
+        if (argc < 3) { std::cout << "usage: rag2 eval <dataset.json> [k] [rule|llm|auto]\n"; return 1; }
         auto missing = cfg.missing_required();
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
         int k = (argc >= 4) ? std::max(1, std::atoi(argv[3])) : 20;
-        return cmd_eval(cfg, argv[2], k);
+        std::string pmode = (argc >= 5) ? argv[4] : "";
+        return cmd_eval(cfg, argv[2], k, pmode);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;

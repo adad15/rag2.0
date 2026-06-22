@@ -16,5 +16,6 @@
   "RAG_PARSE_MODE": "auto",
   "RAG_OCR_ENGINE": "ppstructure",
   "RAG_PPSTRUCT_BASE_URL": "http://localhost:8001",
-  "RAG_SCAN_CHARS_THRESHOLD": "100"
+  "RAG_SCAN_CHARS_THRESHOLD": "100",
+  "RAG_QUERY_PLANNER": "auto"
 }
