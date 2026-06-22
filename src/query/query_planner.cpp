@@ -85,9 +85,10 @@ namespace {
 std::string cache_path_for(const std::string& cache_dir, const std::string& question,
                            const std::string& prompt_version) {
     std::string key = normalize_question(question) + "\x1f" + prompt_version;
+    // std::hash 不保证跨编译器/构建稳定；旧构建的缓存文件命中不上会被静默忽略并重算（只是优化，无正确性影响）。
     size_t h = std::hash<std::string>{}(key);
     char name[32];
-    std::snprintf(name, sizeof(name), "%016zx.json", h);
+    std::snprintf(name, sizeof(name), "%016llx.json", static_cast<unsigned long long>(h));
     return cache_dir + "/" + name;
 }
 
@@ -116,17 +117,18 @@ QueryAnalysis QueryPlanner::plan(const std::string& question) const {
     // LLM 路：缓存 → 调用 → 解析。
     std::string path = cache_path_for(cache_dir, question, prompt_version);
     std::string js = read_cache(path);
-    if (js.empty()) {
+    const bool from_cache = !js.empty();
+    if (!from_cache) {
         try {
             js = llm_call(kQueryPlannerSystemPrompt, question);
         } catch (const std::exception& e) {
             spdlog::warn("[queryplanner] LLM 调用失败，回退规则: {}", e.what());
             return build_query_plan(question, terms);
         }
-        if (parse_llm_plan(js)) write_cache(cache_dir, path, js);   // 只缓存有效产物
     }
 
-    auto parsed = parse_llm_plan(js);
+    auto parsed = parse_llm_plan(js);            // 只解析一次
+    if (parsed && !from_cache) write_cache(cache_dir, path, js);   // 只缓存新获得的有效产物
     if (!parsed) {
         spdlog::warn("[queryplanner] LLM 输出非法，回退规则");
         return build_query_plan(question, terms);
