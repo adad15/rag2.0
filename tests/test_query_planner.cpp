@@ -39,3 +39,24 @@ TEST_CASE("normalize_question trims, collapses whitespace, lowercases ASCII") {
     CHECK(normalize_question("  JTG  3420  里  天平 ") == "jtg 3420 里 天平");
     CHECK(normalize_question("天平") == "天平");
 }
+
+TEST_CASE("normalize_question handles empty and all-whitespace") {
+    CHECK(normalize_question("") == "");
+    CHECK(normalize_question("   \t \n ") == "");
+}
+
+TEST_CASE("parse_llm_plan defaults missing sparse/dense to empty") {
+    auto p = parse_llm_plan(R"({"intent":"GeneralFact"})");
+    REQUIRE(p.has_value());
+    CHECK(p->sparse_text.empty());
+    CHECK(p->dense_text.empty());
+    CHECK(p->key_terms.empty());
+}
+
+TEST_CASE("parse_llm_plan skips non-string elements in key_terms") {
+    auto p = parse_llm_plan(R"({"intent":"ListByCondition","key_terms":[1,"天平",null,"烘箱"]})");
+    REQUIRE(p.has_value());
+    REQUIRE(p->key_terms.size() == 2);
+    CHECK(p->key_terms[0] == "天平");
+    CHECK(p->key_terms[1] == "烘箱");
+}
