@@ -113,6 +113,7 @@
     <ClCompile Include="..\src\eval\dataset.cpp" />
     <ClCompile Include="..\src\eval\retrieval_metrics.cpp" />
     <ClCompile Include="..\src\eval\eval_runner.cpp" />
+    <ClCompile Include="..\src\eval\generation_metrics.cpp" />
     <ClCompile Include="..\src\retrieve\pg_exact_retriever.cpp" />
     <ClCompile Include="..\src\retrieve\text_search.cpp" />
     <ClCompile Include="..\src\query\synonyms.cpp" />
@@ -164,6 +165,7 @@
     <ClInclude Include="..\src\eval\dataset.h" />
     <ClInclude Include="..\src\eval\retrieval_metrics.h" />
     <ClInclude Include="..\src\eval\eval_runner.h" />
+    <ClInclude Include="..\src\eval\generation_metrics.h" />
     <ClInclude Include="..\src\retrieve\pg_exact_retriever.h" />
     <ClInclude Include="..\src\retrieve\text_search.h" />
     <ClInclude Include="..\src\query\synonyms.h" />
