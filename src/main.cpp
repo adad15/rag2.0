@@ -496,16 +496,12 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
                           << r.covered << "/" << r.gold_total << ")\n";
 
         if (gen) {
-            if (cfg.deepseek_key.empty()) {
-                spdlog::error("--gen 需要 RAG_DEEPSEEK_KEY，但未配置");
-                return 1;
-            }
             spdlog::info("[eval] generation eval on");
-            GenerationReport grep = run_generation_eval(
+            GenerationReport greport = run_generation_eval(
                 cases, mv, embed, pg, syn, ds, cfg.milvus_collection, k, planner,
                 "data/answer_cache");
             std::cout << "\n--- 生成侧（--gen）---\n";
-            for (const auto& r : grep.results) {
+            for (const auto& r : greport.results) {
                 if (r.cite_scored)
                     std::cout << "[cite] " << (r.cite_hit ? "OK " : "NG ")
                               << " " << r.question << "\n";
@@ -513,11 +509,11 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
                     std::cout << "[num ] " << r.value_hits << "/" << r.value_gold
                               << "  " << r.question << "\n";
             }
-            if (grep.cite_scored > 0)
-                std::cout << "引用准确率: " << grep.cite_hits << "/" << grep.cite_scored << "\n";
-            if (grep.value_gold_total > 0)
-                std::cout << "数值准确率(逐值): " << grep.value_hit_total << "/"
-                          << grep.value_gold_total << "\n";
+            if (greport.cite_scored > 0)
+                std::cout << "引用准确率: " << greport.cite_hits << "/" << greport.cite_scored << "\n";
+            if (greport.value_gold_total > 0)
+                std::cout << "数值准确率(逐值): " << greport.value_hit_total << "/"
+                          << greport.value_gold_total << "\n";
         }
 
         return 0;
@@ -596,6 +592,10 @@ int main(int argc, char** argv) {
         }
         auto missing = cfg.missing_required();
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
+        if (gen && cfg.deepseek_key.empty()) {
+            spdlog::error("--gen 需要 RAG_DEEPSEEK_KEY，但未配置");
+            return 1;
+        }
         int k = (pos.size() >= 2) ? std::max(1, std::atoi(pos[1].c_str())) : 20;
         std::string pmode = (pos.size() >= 3) ? pos[2] : "";
         return cmd_eval(cfg, pos[0], k, pmode, gen);
