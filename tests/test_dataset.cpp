@@ -116,3 +116,10 @@ TEST_CASE("parse reads rich evidence-group format directly") {
     CHECK(cs[0].generation.cite_required == true);
     CHECK(cs[0].generation.gold_values[0] == "25");
 }
+
+TEST_CASE("parse: clause without standard_no makes no group and no citation") {
+    auto cs = parse_dataset(R"([{"question":"q","gold_clause_no":"5.3"}])");
+    REQUIRE(cs.size() == 1);
+    CHECK(cs[0].must_have_groups.empty());          // 缺 standard_no → 不构造证据组
+    CHECK(cs[0].generation.cite_required == false);  // → 不评引用
+}
