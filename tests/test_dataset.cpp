@@ -50,3 +50,15 @@ TEST_CASE("parse_dataset skips malformed elements gracefully") {
     CHECK(cases[0].gold_methods[0] == "T1");
     CHECK(cases[0].gold_methods[1] == "T2");
 }
+
+TEST_CASE("parse_dataset reads gold_values array") {
+    auto cases = parse_dataset(R"([
+        {"question":"针入度限值","gold_values":["100","0.1mm"]},
+        {"question":"无数值题","gold_method_no":"T0316-2024"}
+    ])");
+    REQUIRE(cases.size() == 2);
+    REQUIRE(cases[0].gold_values.size() == 2);
+    CHECK(cases[0].gold_values[0] == "100");
+    CHECK(cases[0].gold_values[1] == "0.1mm");
+    CHECK(cases[1].gold_values.empty());     // 缺字段取空
+}

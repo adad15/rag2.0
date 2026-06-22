@@ -12,6 +12,7 @@ struct EvalCase {
     std::string gold_clause_no;             // 条款号，如 "5.1.2"（可空）
     std::string gold_method_no;             // 方法号，如 "T0521-2005"（可空）
     std::vector<std::string> gold_methods;  // 覆盖查 gold（空=非覆盖查）
+    std::vector<std::string> gold_values;   // 数值题期望出现的限值/单位（空=非数值题）
 };
 
 // 解析评估集 JSON（对象数组）。缺字段取默认（空）。非数组/解析失败抛 std::runtime_error。纯函数。
