@@ -1,6 +1,10 @@
 #include "query/query_planner.h"
 #include <nlohmann/json.hpp>
 #include <cctype>
+#include <spdlog/spdlog.h>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 using nlohmann::json;
 
@@ -75,4 +79,67 @@ std::optional<LlmPlan> parse_llm_plan(const std::string& json_text) {
 
     if (p.intent == QueryIntent::ListByCondition && p.key_terms.empty()) return std::nullopt;
     return p;
+}
+
+namespace {
+std::string cache_path_for(const std::string& cache_dir, const std::string& question,
+                           const std::string& prompt_version) {
+    std::string key = normalize_question(question) + "\x1f" + prompt_version;
+    size_t h = std::hash<std::string>{}(key);
+    char name[32];
+    std::snprintf(name, sizeof(name), "%016zx.json", h);
+    return cache_dir + "/" + name;
+}
+
+std::string read_cache(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return "";
+    std::stringstream ss; ss << f.rdbuf();
+    return ss.str();
+}
+
+void write_cache(const std::string& cache_dir, const std::string& path, const std::string& content) {
+    std::error_code ec;
+    std::filesystem::create_directories(cache_dir, ec);
+    std::ofstream f(path, std::ios::binary);
+    if (f) f << content;   // 写失败不致命：下次重算
+}
+}  // namespace
+
+QueryAnalysis QueryPlanner::plan(const std::string& question) const {
+    QueryAnalysis a = analyze_query(question);   // 编号 + 编号驱动 intent
+
+    // 编号问题 / Rule 模式 / 无 LLM 调用 → 规则保底路（含编号与白名单列举）。
+    if (mode == PlannerMode::Rule || !a.clause_no.empty() || !a.method_no.empty() || !llm_call)
+        return build_query_plan(question, terms);
+
+    // LLM 路：缓存 → 调用 → 解析。
+    std::string path = cache_path_for(cache_dir, question, prompt_version);
+    std::string js = read_cache(path);
+    if (js.empty()) {
+        try {
+            js = llm_call(kQueryPlannerSystemPrompt, question);
+        } catch (const std::exception& e) {
+            spdlog::warn("[queryplanner] LLM 调用失败，回退规则: {}", e.what());
+            return build_query_plan(question, terms);
+        }
+        if (parse_llm_plan(js)) write_cache(cache_dir, path, js);   // 只缓存有效产物
+    }
+
+    auto parsed = parse_llm_plan(js);
+    if (!parsed) {
+        spdlog::warn("[queryplanner] LLM 输出非法，回退规则");
+        return build_query_plan(question, terms);
+    }
+
+    // 无编号场景：采用 LLM 的 intent，但只接受 List/General（Clause/Method 归 General）。
+    a.intent = (parsed->intent == QueryIntent::ListByCondition)
+                   ? QueryIntent::ListByCondition : QueryIntent::GeneralFact;
+    a.key_terms     = parsed->key_terms;
+    a.section_hints = parsed->section_hints;
+    a.sparse_text   = parsed->sparse_text;
+    a.dense_text    = parsed->dense_text;
+    spdlog::info("[queryplanner] LLM intent={} sparse=\"{}\"",
+                 query_intent_name(a.intent), a.sparse_text);
+    return a;
 }

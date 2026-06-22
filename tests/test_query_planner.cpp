@@ -60,3 +60,75 @@ TEST_CASE("parse_llm_plan skips non-string elements in key_terms") {
     CHECK(p->key_terms[0] == "天平");
     CHECK(p->key_terms[1] == "烘箱");
 }
+
+#include <atomic>
+#include <filesystem>
+
+// 构造一个用临时缓存目录、注入 llm_call 的 planner。
+static QueryPlanner make_test_planner(LlmCall fn, PlannerMode mode = PlannerMode::Llm) {
+    QueryPlanner p;
+    p.mode = mode;
+    p.llm_call = std::move(fn);
+    p.cache_dir = (std::filesystem::temp_directory_path() /
+                   ("qp_test_" + std::to_string(::time(nullptr)) + "_" +
+                    std::to_string(rand()))).string();
+    return p;
+}
+
+TEST_CASE("QueryPlanner uses LLM output for a no-code question") {
+    auto p = make_test_planner([](const std::string&, const std::string&) {
+        return std::string(R"({"intent":"ListByCondition","key_terms":["马歇尔"],
+            "section_hints":["仪具","材料"],"sparse_text":"马歇尔 仪具 材料","dense_text":"使用马歇尔的试验"})");
+    });
+    QueryAnalysis a = p.plan("哪些试验用到马歇尔");
+    CHECK(a.intent == QueryIntent::ListByCondition);
+    REQUIRE(a.key_terms.size() == 1);
+    CHECK(a.key_terms[0] == "马歇尔");
+    CHECK(a.sparse_text == "马歇尔 仪具 材料");
+    std::filesystem::remove_all(p.cache_dir);
+}
+
+TEST_CASE("QueryPlanner falls back to rule on garbage LLM output") {
+    auto p = make_test_planner([](const std::string&, const std::string&) {
+        return std::string("garbage not json");
+    });
+    p.terms.instruments = {"天平"};
+    QueryAnalysis a = p.plan("哪些试验用到天平");
+    CHECK(a.intent == QueryIntent::ListByCondition);
+    REQUIRE(a.key_terms.size() == 1);
+    CHECK(a.key_terms[0] == "天平");
+    std::filesystem::remove_all(p.cache_dir);
+}
+
+TEST_CASE("QueryPlanner caches: identical question calls LLM only once") {
+    auto calls = std::make_shared<std::atomic<int>>(0);
+    auto p = make_test_planner([calls](const std::string&, const std::string&) {
+        (*calls)++;
+        return std::string(R"({"intent":"GeneralFact","key_terms":[],"section_hints":[],"sparse_text":"","dense_text":""})");
+    });
+    p.plan("某个普通问题");
+    p.plan("  某个普通问题 ");
+    CHECK(*calls == 1);
+    std::filesystem::remove_all(p.cache_dir);
+}
+
+TEST_CASE("QueryPlanner: numbered question bypasses LLM (rule path)") {
+    auto calls = std::make_shared<std::atomic<int>>(0);
+    auto p = make_test_planner([calls](const std::string&, const std::string&) {
+        (*calls)++; return std::string("{}");
+    });
+    QueryAnalysis a = p.plan("T0302 需要哪些仪具");
+    CHECK(a.intent == QueryIntent::MethodLookup);
+    CHECK(*calls == 0);
+    std::filesystem::remove_all(p.cache_dir);
+}
+
+TEST_CASE("QueryPlanner rule mode never calls LLM") {
+    auto calls = std::make_shared<std::atomic<int>>(0);
+    auto p = make_test_planner([calls](const std::string&, const std::string&) {
+        (*calls)++; return std::string("{}");
+    }, PlannerMode::Rule);
+    p.plan("哪些试验用到天平");
+    CHECK(*calls == 0);
+    std::filesystem::remove_all(p.cache_dir);
+}
