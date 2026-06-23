@@ -30,8 +30,6 @@ void write_file(const std::string& dir, const std::string& path, const std::stri
     std::ofstream f(path, std::ios::binary);
     if (f) f << content;   // 写失败非致命：下次重算
 }
-// "T0521-2005" -> "T0521"；无 '-' 原样返回。答案多半只写不带年份的方法号。
-std::string method_stem(const std::string& m) { return m.substr(0, m.find('-')); }
 }  // namespace
 
 GenerationReport run_generation_eval(
@@ -43,19 +41,9 @@ GenerationReport run_generation_eval(
 
     GenerationReport rep;
     for (const auto& c : cases) {
-        // 选引用 gold：方法号优先（取 stem）；否则条款号+标准号。
-        std::string gold_ref, gold_std;
-        if (!c.gold_method_no.empty()) {
-            gold_ref = method_stem(c.gold_method_no);     // gold_std 留空：方法题无 gold_standard_no
-        } else if (!c.gold_clause_no.empty() && !c.gold_standard_no.empty()) {
-            gold_ref = c.gold_clause_no;
-            gold_std = c.gold_standard_no;
-        } else if (!c.gold_clause_no.empty()) {
-            // spec §7：有条款号但缺 gold_standard_no → 引用不计分并告警。
-            spdlog::warn("[gen-eval] 条款题缺 gold_standard_no，引用不计分: {}", c.question);
-        }
-        const bool want_cite = !gold_ref.empty();
-        const bool want_num  = !c.gold_values.empty();
+        GenerationView gv = derive_generation_view(c);
+        const bool want_cite = !gv.cite_targets.empty();
+        const bool want_num  = !gv.gold_values.empty();
         if (!want_cite && !want_num) continue;            // 无生成 gold（如纯覆盖题）→ 跳过，不调 LLM
 
         // 取缓存答案；未命中则调 answer_query 并缓存。
@@ -77,13 +65,16 @@ GenerationReport run_generation_eval(
         cr.question = c.question;
         if (want_cite) {
             cr.cite_scored = true;
-            cr.cite_hit = citation_hit(answer, gold_std, gold_ref);
+            bool all = true;
+            for (const auto& t : gv.cite_targets)
+                if (!citation_hit(answer, t.gold_standard_code, t.gold_ref)) { all = false; break; }
+            cr.cite_hit = all;
             rep.cite_scored++;
             if (cr.cite_hit) rep.cite_hits++;
         }
         if (want_num) {
-            cr.value_gold = static_cast<int>(c.gold_values.size());
-            cr.value_hits = count_value_hits(answer, c.gold_values);
+            cr.value_gold = static_cast<int>(gv.gold_values.size());
+            cr.value_hits = count_value_hits(answer, gv.gold_values);
             rep.value_gold_total += cr.value_gold;
             rep.value_hit_total  += cr.value_hits;
         }
