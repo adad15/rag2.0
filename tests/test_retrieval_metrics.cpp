@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "eval/retrieval_metrics.h"
+#include <set>
 
 TEST_CASE("first_hit_rank returns 1-based rank of first match") {
     std::vector<std::string> keys = {"a", "b", "gold", "gold"};
@@ -32,4 +33,37 @@ TEST_CASE("covered_count counts distinct gold methods present in candidates") {
 TEST_CASE("covered_count is 0 for empty inputs") {
     CHECK(covered_count({}, {"T1"}) == 0);
     CHECK(covered_count({"T1"}, {}) == 0);
+}
+
+TEST_CASE("covered_groups_at_k: single group covered by a matching candidate, respects k") {
+    std::vector<std::set<std::string>> groups = {{"m:T1"}};
+    std::vector<std::set<std::string>> cands = {{"m:T9"}, {"m:T1"}, {"m:T2"}};
+    CHECK(covered_groups_at_k(groups, cands, 3) == 1);
+    CHECK(covered_groups_at_k(groups, cands, 1) == 0);   // T1 在 rank2，k=1 截断
+}
+
+TEST_CASE("covered_groups_at_k: equivalence within a group (any key hits)") {
+    std::vector<std::set<std::string>> groups = {{"cid:c1", "m:T1"}};   // 组内等价标识
+    std::vector<std::set<std::string>> cands = {{"cid:c1"}};            // 命中其一即覆盖
+    CHECK(covered_groups_at_k(groups, cands, 1) == 1);
+}
+
+TEST_CASE("covered_groups_at_k: multi-group partial coverage") {
+    std::vector<std::set<std::string>> groups = {{"m:T1"}, {"m:T2"}, {"c:S|5.3"}};
+    std::vector<std::set<std::string>> cands = {{"m:T1"}, {"c:S|5.3"}};
+    CHECK(covered_groups_at_k(groups, cands, 2) == 2);   // T1、clause 命中；T2 没有
+    CHECK(covered_groups_at_k(groups, cands, 10) == 2);
+}
+
+TEST_CASE("covered_groups_at_k: empty group key-set is never covered") {
+    std::vector<std::set<std::string>> groups = {{}, {"m:T1"}};
+    std::vector<std::set<std::string>> cands = {{"m:T1"}, {"m:T2"}};
+    CHECK(covered_groups_at_k(groups, cands, 10) == 1);   // 空组不算，T1 组算
+}
+
+TEST_CASE("covered_groups_at_k: k beyond candidate count clamps, no overflow") {
+    std::vector<std::set<std::string>> groups = {{"m:T1"}};
+    std::vector<std::set<std::string>> cands = {{"m:T1"}};
+    CHECK(covered_groups_at_k(groups, cands, 20) == 1);
+    CHECK(covered_groups_at_k({}, cands, 20) == 0);        // 空组集 → 0
 }
