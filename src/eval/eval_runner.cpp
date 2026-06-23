@@ -78,6 +78,7 @@ RichReport run_rich_eval(const std::vector<EvalCase>& cases,
     for (const auto& c : cases) {
         if (c.must_have_groups.empty()) continue;   // 纯数值题/无检索 gold → 不计入
 
+        // top_k=20（k 集上限），per_path_k=80（=20*4，与 run_eval 的 k*4 同比例）
         auto cands = text_retrieve(c.question, mv, embed, pg, syn, collection,
                                    /*per_path_k=*/80, /*top_k=*/20, planner);
 
@@ -106,6 +107,8 @@ RichReport run_rich_eval(const std::vector<EvalCase>& cases,
                 if (!r.clause_no.empty()) {
                     std::string sid = pg.find_standard_by_code(strip_spaces(r.standard_no));
                     if (!sid.empty()) gk.insert("c:" + sid + "|" + r.clause_no);
+                    else spdlog::warn("[rich-eval] 标准 {} 未找到，组 {} 的 clause key 跳过: {}",
+                                      r.standard_no, g.group_id, c.question);
                 }
             }
             group_keys.push_back(std::move(gk));
