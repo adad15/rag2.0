@@ -123,3 +123,58 @@ TEST_CASE("parse: clause without standard_no makes no group and no citation") {
     CHECK(cs[0].must_have_groups.empty());          // 缺 standard_no → 不构造证据组
     CHECK(cs[0].generation.cite_required == false);  // → 不评引用
 }
+
+TEST_CASE("derive_legacy_view round-trips legacy point-method") {
+    auto c = parse_dataset(R"([{"question":"q","gold_method_no":"T0521-2005"}])")[0];
+    auto v = derive_legacy_view(c);
+    CHECK(v.kind == LegacyKind::PointMethod);
+    CHECK(v.gold_method_no == "T0521-2005");
+}
+
+TEST_CASE("derive_legacy_view round-trips legacy point-clause") {
+    auto c = parse_dataset(R"([{"question":"q","gold_standard_no":"JTC 5210-2018","gold_clause_no":"7.3.1"}])")[0];
+    auto v = derive_legacy_view(c);
+    CHECK(v.kind == LegacyKind::PointClause);
+    CHECK(v.gold_clause_no == "7.3.1");
+    CHECK(v.gold_standard_no == "JTC 5210-2018");
+}
+
+TEST_CASE("derive_legacy_view round-trips legacy coverage in order") {
+    auto c = parse_dataset(R"([{"question":"q","gold_methods":["T0316-2024","T0350-2005","T0506-2005"]}])")[0];
+    auto v = derive_legacy_view(c);
+    CHECK(v.kind == LegacyKind::Coverage);
+    REQUIRE(v.gold_methods.size() == 3);
+    CHECK(v.gold_methods[0] == "T0316-2024");
+    CHECK(v.gold_methods[2] == "T0506-2005");
+}
+
+TEST_CASE("derive_generation_view: point-method gives one cite target, stemmed, empty std") {
+    auto c = parse_dataset(R"([{"question":"q","gold_method_no":"T0521-2005"}])")[0];
+    auto v = derive_generation_view(c);
+    REQUIRE(v.cite_targets.size() == 1);
+    CHECK(v.cite_targets[0].gold_ref == "T0521");
+    CHECK(v.cite_targets[0].gold_standard_code == "");
+    CHECK(v.gold_values.empty());
+}
+
+TEST_CASE("derive_generation_view: point-clause gives std+clause cite target") {
+    auto c = parse_dataset(R"([{"question":"q","gold_standard_no":"JTC 5210-2018","gold_clause_no":"7.3.1"}])")[0];
+    auto v = derive_generation_view(c);
+    REQUIRE(v.cite_targets.size() == 1);
+    CHECK(v.cite_targets[0].gold_standard_code == "JTC 5210-2018");
+    CHECK(v.cite_targets[0].gold_ref == "7.3.1");
+}
+
+TEST_CASE("derive_generation_view: coverage has no cite targets (not cite-scored)") {
+    auto c = parse_dataset(R"([{"question":"q","gold_methods":["T0316-2024","T0350-2005"]}])")[0];
+    auto v = derive_generation_view(c);
+    CHECK(v.cite_targets.empty());
+}
+
+TEST_CASE("derive_generation_view: numeric values pass through") {
+    auto c = parse_dataset(R"([{"question":"q","gold_values":["45","390"]}])")[0];
+    auto v = derive_generation_view(c);
+    CHECK(v.cite_targets.empty());
+    REQUIRE(v.gold_values.size() == 2);
+    CHECK(v.gold_values[0] == "45");
+}

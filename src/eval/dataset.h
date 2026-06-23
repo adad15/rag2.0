@@ -56,3 +56,26 @@ struct EvalCase {
 
 // 解析评估集 JSON（对象数组）。缺字段取默认（空）。非数组/解析失败抛 std::runtime_error。纯函数。
 std::vector<EvalCase> parse_dataset(const std::string& json_text);
+
+// ——— 从统一模型派生"现状 evaluator 视图"，用于零变化迁移 ———
+
+enum class LegacyKind { None, Coverage, PointMethod, PointClause };
+
+// 检索侧：把 must_have_groups 还原为 run_eval 需要的 gold 视图。
+// 规则：>1 组 → Coverage；==1 组 → 看其首条 stable_ref 是 method 还是 clause。
+struct LegacyRetrievalView {
+    LegacyKind kind = LegacyKind::None;
+    std::vector<std::string> gold_methods;   // Coverage
+    std::string gold_method_no;              // PointMethod
+    std::string gold_clause_no;              // PointClause
+    std::string gold_standard_no;            // PointClause
+};
+LegacyRetrievalView derive_legacy_view(const EvalCase& c);
+
+// 生成侧：引用目标（已对方法号取 stem 去年份）+ 数值 gold。
+struct CiteTarget { std::string gold_standard_code; std::string gold_ref; };
+struct GenerationView {
+    std::vector<CiteTarget> cite_targets;    // 空=不评引用
+    std::vector<std::string> gold_values;
+};
+GenerationView derive_generation_view(const EvalCase& c);

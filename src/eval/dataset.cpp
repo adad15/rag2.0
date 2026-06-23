@@ -101,6 +101,8 @@ void normalize_legacy(EvalCase& c) {
         c.generation.gold_values = c.gold_values;       // 兼容顶层旧写法
 }
 
+std::string method_stem(const std::string& m) { return m.substr(0, m.find('-')); }
+
 }  // namespace
 
 std::vector<EvalCase> parse_dataset(const std::string& json_text) {
@@ -124,4 +126,41 @@ std::vector<EvalCase> parse_dataset(const std::string& json_text) {
         out.push_back(std::move(c));
     }
     return out;
+}
+
+LegacyRetrievalView derive_legacy_view(const EvalCase& c) {
+    LegacyRetrievalView v;
+    if (c.must_have_groups.size() > 1) {
+        v.kind = LegacyKind::Coverage;
+        for (const auto& g : c.must_have_groups)
+            if (!g.stable_refs.empty() && !g.stable_refs[0].method_no.empty())
+                v.gold_methods.push_back(g.stable_refs[0].method_no);
+    } else if (c.must_have_groups.size() == 1 && !c.must_have_groups[0].stable_refs.empty()) {
+        const StableRef& r = c.must_have_groups[0].stable_refs[0];
+        if (!r.method_no.empty()) {
+            v.kind = LegacyKind::PointMethod;
+            v.gold_method_no = r.method_no;
+        } else if (!r.clause_no.empty()) {
+            v.kind = LegacyKind::PointClause;
+            v.gold_clause_no = r.clause_no;
+            v.gold_standard_no = r.standard_no;
+        }
+    }
+    return v;
+}
+
+GenerationView derive_generation_view(const EvalCase& c) {
+    GenerationView v;
+    v.gold_values = c.generation.gold_values;
+    if (c.generation.cite_required) {
+        for (const auto& g : c.must_have_groups) {
+            if (g.stable_refs.empty()) continue;
+            const StableRef& r = g.stable_refs[0];
+            CiteTarget t;
+            if (!r.method_no.empty()) { t.gold_ref = method_stem(r.method_no); t.gold_standard_code = r.standard_no; }
+            else if (!r.clause_no.empty()) { t.gold_ref = r.clause_no; t.gold_standard_code = r.standard_no; }
+            if (!t.gold_ref.empty()) v.cite_targets.push_back(std::move(t));
+        }
+    }
+    return v;
 }
