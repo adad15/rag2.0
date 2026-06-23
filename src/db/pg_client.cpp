@@ -1,4 +1,5 @@
 #include "db/pg_client.h"
+#include "ingest/standard_meta.h"   // normalize_standard_code
 #include <pqxx/pqxx>
 
 PgClient::PgClient(std::string conninfo) : conninfo_(std::move(conninfo)) {}
@@ -139,15 +140,21 @@ std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id
 }
 
 std::string PgClient::find_standard_by_code(const std::string& code) {
+    // 归一化两侧后做子串匹配，吸收 OCR/文件名/排版的 斜杠·破折号·空格·全角 变体
+    //（如 gold "JTG/T 3650-2020" 命中库内文件名退化形 "…(JTGT 3650—2020）"）。现行优先。
+    std::string key = normalize_standard_code(code);
+    if (key.empty()) return "";
     pqxx::connection cn(conninfo_);
     pqxx::work tx(cn);
-    // 库内 standard_no 是带空格全称（"…（JTC 5210-2018）"），去空格后与裸代号子串匹配
-    auto r = tx.exec(
-        "SELECT standard_id FROM standards "
-        "WHERE REPLACE(standard_no,' ','') LIKE $1 "
-        "ORDER BY (status='现行') DESC LIMIT 1",
-        pqxx::params{"%" + code + "%"});
-    return r.empty() ? "" : std::string(r[0][0].c_str());
+    auto r = tx.exec("SELECT standard_id, standard_no, (status='现行') AS cur FROM standards");
+    std::string best;
+    bool best_cur = false;
+    for (auto row : r) {
+        if (normalize_standard_code(std::string(row[1].c_str())).find(key) == std::string::npos) continue;
+        bool cur = row[2].as<bool>();
+        if (best.empty() || (cur && !best_cur)) { best = std::string(row[0].c_str()); best_cur = cur; }
+    }
+    return best;
 }
 
 std::vector<RetrievalChunkRow> PgClient::chunks_by_method(const std::string& method_prefix,

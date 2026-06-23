@@ -11,3 +11,32 @@ std::string extract_standard_no(const std::string& page_text, const std::string&
     if (std::regex_search(page_text, m, pat)) return m[0].str();
     return fallback;
 }
+
+std::string normalize_standard_code(const std::string& s) {
+    std::string out;
+    size_t i = 0, n = s.size();
+    while (i < n) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if (c < 0x80) {                                   // ASCII
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '_' || c == '/') { ++i; continue; }
+            out += static_cast<char>(std::tolower(c));
+            ++i;
+            continue;
+        }
+        if (i + 2 < n) {                                  // 三字节特殊符号
+            unsigned char b1 = static_cast<unsigned char>(s[i + 1]);
+            unsigned char b2 = static_cast<unsigned char>(s[i + 2]);
+            if (c == 0xE3 && b1 == 0x80 && b2 == 0x80) { i += 3; continue; }                 // 　全角空格→删
+            if (c == 0xE2 && b1 == 0x80 && (b2 == 0x90 || b2 == 0x93 || b2 == 0x94 || b2 == 0x95)) { out += '-'; i += 3; continue; }  // ‐ – — ―
+            if (c == 0xE2 && b1 == 0x88 && b2 == 0x92) { out += '-'; i += 3; continue; }     // − 减号
+            if (c == 0xEF && b1 == 0xBC) {
+                if (b2 == 0x8F) { i += 3; continue; }                                        // ／全角斜杠→删
+                if (b2 == 0x8D) { out += '-'; i += 3; continue; }                            // －全角连字符
+                if (b2 >= 0x90 && b2 <= 0x99) { out += static_cast<char>('0' + (b2 - 0x90)); i += 3; continue; }  // 全角数字
+            }
+        }
+        size_t len = (c >= 0xF0) ? 4 : (c >= 0xE0) ? 3 : (c >= 0xC0) ? 2 : 1;   // 其余 UTF-8 字符原样保留
+        for (size_t k = 0; k < len && i < n; ++k) out += s[i++];
+    }
+    return out;
+}
