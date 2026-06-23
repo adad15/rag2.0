@@ -58,6 +58,8 @@ struct EvalCase {
 std::vector<EvalCase> parse_dataset(const std::string& json_text);
 
 // ——— 从统一模型派生"现状 evaluator 视图"，用于零变化迁移 ———
+// 前置：入参 EvalCase 须经 parse_dataset(内部 normalize_legacy)规范化后再调用——
+// derive_generation_view 读 generation.gold_values，依赖规范化把旧顶层 gold_values 拷入。
 
 enum class LegacyKind { None, Coverage, PointMethod, PointClause };
 

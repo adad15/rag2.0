@@ -178,3 +178,11 @@ TEST_CASE("derive_generation_view: numeric values pass through") {
     REQUIRE(v.gold_values.size() == 2);
     CHECK(v.gold_values[0] == "45");
 }
+
+TEST_CASE("derive_legacy_view: empty must_have_groups -> None (unscored stays unscored)") {
+    auto c = parse_dataset(R"([{"question":"q","gold_clause_no":"5.3"}])")[0];  // clause 缺 standard → 无组
+    auto v = derive_legacy_view(c);
+    CHECK(v.kind == LegacyKind::None);
+    CHECK(v.gold_methods.empty());
+    CHECK(v.gold_method_no.empty());
+}
