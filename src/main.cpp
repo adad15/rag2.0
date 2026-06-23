@@ -448,7 +448,7 @@ static int cmd_retrievecheck(const Config& cfg, const std::string& question, int
 // 评估：跑评估集，打印每条命中/覆盖 + 汇总。复用 text_retrieve，不调 LLM。
 // --gen: 追加生成侧（引用/数值准确率）段；需要 RAG_DEEPSEEK_KEY。
 static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
-                    const std::string& planner_mode = "", bool gen = false) {
+                    const std::string& planner_mode = "", bool gen = false, bool rich = false) {
     try {
         std::ifstream f(dataset_path, std::ios::binary);
         if (!f) { spdlog::error("打不开评估集: {}", dataset_path); return 1; }
@@ -516,6 +516,33 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
                           << greport.value_gold_total << "\n";
         }
 
+        if (rich) {
+            spdlog::info("[eval] rich metrics on");
+            RichReport rr = run_rich_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, planner);
+            std::cout << "\n--- 富检索指标 (--rich) ---\n";
+            const int last = static_cast<int>(rr.ks.size()) - 1;
+            for (const auto& r : rr.results) {
+                int g_last = (last >= 0 && last < static_cast<int>(r.covered.size())) ? r.covered[last] : 0;
+                std::cout << "[grp] G=" << r.group_total
+                          << " recall@" << rr.ks[last] << "=" << g_last << "/" << r.group_total
+                          << " complete@" << rr.ks[last] << "=" << (g_last == r.group_total ? 1 : 0)
+                          << "  " << r.question << "\n";
+            }
+            for (size_t i = 0; i < rr.ks.size(); ++i) {
+                double recall_sum = 0.0; int complete = 0, n = 0;
+                for (const auto& r : rr.results) {
+                    if (r.group_total == 0) continue;
+                    recall_sum += static_cast<double>(r.covered[i]) / r.group_total;
+                    if (r.covered[i] == r.group_total) ++complete;
+                    ++n;
+                }
+                if (n > 0)
+                    std::cout << "Group Recall@" << rr.ks[i] << ": " << (recall_sum / n)
+                              << "   Complete@" << rr.ks[i] << ": "
+                              << (static_cast<double>(complete) / n) << "\n";
+            }
+        }
+
         return 0;
     } catch (const std::exception& e) {
         spdlog::error("[FAIL] eval: {}", e.what());
@@ -580,22 +607,23 @@ int main(int argc, char** argv) {
         return cmd_retrievecheck(cfg, argv[2], k);
     }
     if (cmd == "eval") {
-        bool gen = false;
-        std::vector<std::string> pos;       // "eval" 之后的位置参数（剔除 --gen）
+        bool gen = false, rich = false;
+        std::vector<std::string> pos;       // "eval" 之后的位置参数（剔除 --gen/--rich）
         for (int i = 2; i < argc; ++i) {
             std::string a = argv[i];
-            if (a == "--gen") gen = true; else pos.push_back(a);
+            if (a == "--gen") gen = true;
+            else if (a == "--rich") rich = true;
+            else pos.push_back(a);
         }
         if (pos.empty()) {
-            std::cout << "usage: rag2 eval <dataset.json> [k] [rule|llm|auto] [--gen]\n";
+            std::cout << "usage: rag2 eval <dataset.json> [k] [rule|llm|auto] [--gen] [--rich]\n";
             return 1;
         }
         auto missing = cfg.missing_required();
         if (!missing.empty()) { for (auto& m : missing) spdlog::error("config.json 缺少必填项: {}", m); return 1; }
-        // RAG_DEEPSEEK_KEY 已是 missing_required 必填项，eval（含 --gen）此处已被上面拦截，无需再判。
         int k = (pos.size() >= 2) ? std::max(1, std::atoi(pos[1].c_str())) : 20;
         std::string pmode = (pos.size() >= 3) ? pos[2] : "";
-        return cmd_eval(cfg, pos[0], k, pmode, gen);
+        return cmd_eval(cfg, pos[0], k, pmode, gen, rich);
     }
     std::cout << "unknown command: " << cmd << "\n";
     return 1;
