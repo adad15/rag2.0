@@ -2,29 +2,6 @@
 #include <stdexcept>
 #include "eval/dataset.h"
 
-TEST_CASE("parse_dataset reads point-query and coverage cases") {
-    std::string json = R"([
-      {"question":"T0521 需要哪些仪具","gold_method_no":"T0521-2005","note":"method"},
-      {"question":"哪些试验用到天平","gold_methods":["T0502-2005","T0590-2020"],"note":"coverage"},
-      {"question":"JTG 3420 第5.1.2条","gold_standard_no":"JTG 3420","gold_clause_no":"5.1.2"}
-    ])";
-    auto cases = parse_dataset(json);
-    REQUIRE(cases.size() == 3);
-
-    CHECK(cases[0].question == "T0521 需要哪些仪具");
-    CHECK(cases[0].gold_method_no == "T0521-2005");
-    CHECK(cases[0].note == "method");
-    CHECK(cases[0].gold_methods.empty());
-
-    REQUIRE(cases[1].gold_methods.size() == 2);
-    CHECK(cases[1].gold_methods[0] == "T0502-2005");
-    CHECK(cases[1].gold_methods[1] == "T0590-2020");
-
-    CHECK(cases[2].gold_standard_no == "JTG 3420");
-    CHECK(cases[2].gold_clause_no == "5.1.2");
-    CHECK(cases[2].gold_method_no.empty());
-}
-
 TEST_CASE("parse_dataset throws on a non-array top level") {
     CHECK_THROWS_AS(parse_dataset(R"({"question":"x"})"), std::runtime_error);
 }
@@ -38,7 +15,7 @@ TEST_CASE("parse_dataset defaults missing fields to empty") {
     auto cases = parse_dataset("[{}]");
     REQUIRE(cases.size() == 1);
     CHECK(cases[0].question.empty());
-    CHECK(cases[0].gold_methods.empty());
+    CHECK(cases[0].must_have_groups.empty());
 }
 
 TEST_CASE("parse_dataset skips malformed elements gracefully") {
@@ -46,21 +23,9 @@ TEST_CASE("parse_dataset skips malformed elements gracefully") {
     auto cases = parse_dataset(R"([1, {"question":"q","gold_methods":["T1",2,null,"T2"]}])");
     REQUIRE(cases.size() == 1);
     CHECK(cases[0].question == "q");
-    REQUIRE(cases[0].gold_methods.size() == 2);
-    CHECK(cases[0].gold_methods[0] == "T1");
-    CHECK(cases[0].gold_methods[1] == "T2");
-}
-
-TEST_CASE("parse_dataset reads gold_values array") {
-    auto cases = parse_dataset(R"([
-        {"question":"针入度限值","gold_values":["100","0.1mm"]},
-        {"question":"无数值题","gold_method_no":"T0316-2024"}
-    ])");
-    REQUIRE(cases.size() == 2);
-    REQUIRE(cases[0].gold_values.size() == 2);
-    CHECK(cases[0].gold_values[0] == "100");
-    CHECK(cases[0].gold_values[1] == "0.1mm");
-    CHECK(cases[1].gold_values.empty());     // 缺字段取空
+    REQUIRE(cases[0].must_have_groups.size() == 2);
+    CHECK(cases[0].must_have_groups[0].stable_refs[0].method_no == "T1");
+    CHECK(cases[0].must_have_groups[1].stable_refs[0].method_no == "T2");
 }
 
 TEST_CASE("parse normalizes legacy point-method into one evidence group") {

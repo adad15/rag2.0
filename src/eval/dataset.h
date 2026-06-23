@@ -28,19 +28,12 @@ struct GenerationGold {
 };
 
 // 评估样本（统一模型）。检索证据轴 = must_have_groups/acceptable/distractor；
-// 生成答案轴 = generation。扁平字段为过渡期兼容，Task 5 删除。
+// 生成答案轴 = generation。
 struct EvalCase {
     std::string question;
     std::string note;
 
-    // —— legacy 扁平字段（过渡保留；parse 仍填充，Task 5 删）——
-    std::string gold_standard_no;
-    std::string gold_clause_no;
-    std::string gold_method_no;
-    std::vector<std::string> gold_methods;
-    std::vector<std::string> gold_values;
-
-    // —— 统一模型（新）——
+    // —— 统一模型 ——
     std::string case_id;
     QueryType   query_type = QueryType::Unknown;
     Difficulty  difficulty = Difficulty::Unknown;

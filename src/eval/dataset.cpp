@@ -72,33 +72,38 @@ void parse_rich(const json& item, EvalCase& c) {
     }
 }
 
-// 旧扁平字段 → 统一模型。富格式已给出 must_have_groups 时不覆盖。
-void normalize_legacy(EvalCase& c) {
+// 旧扁平 JSON 键 → 统一模型。富格式已给出 must_have_groups 时不覆盖。
+void normalize_legacy(EvalCase& c,
+                      const std::string& gold_method_no,
+                      const std::string& gold_clause_no,
+                      const std::string& gold_standard_no,
+                      const std::vector<std::string>& gold_methods,
+                      const std::vector<std::string>& gold_values) {
     if (c.must_have_groups.empty()) {
-        if (!c.gold_methods.empty()) {                  // 覆盖查 → N 组，不评引用
-            for (size_t i = 0; i < c.gold_methods.size(); ++i) {
+        if (!gold_methods.empty()) {                    // 覆盖查 → N 组，不评引用
+            for (size_t i = 0; i < gold_methods.size(); ++i) {
                 EvidenceGroup g; g.group_id = "m" + std::to_string(i);
-                StableRef r; r.method_no = c.gold_methods[i];
+                StableRef r; r.method_no = gold_methods[i];
                 g.stable_refs.push_back(std::move(r));
                 c.must_have_groups.push_back(std::move(g));
             }
-        } else if (!c.gold_method_no.empty()) {         // 点查·方法 → 1 组 + 评引用
+        } else if (!gold_method_no.empty()) {           // 点查·方法 → 1 组 + 评引用
             EvidenceGroup g; g.group_id = "m0";
-            StableRef r; r.method_no = c.gold_method_no;
+            StableRef r; r.method_no = gold_method_no;
             g.stable_refs.push_back(std::move(r));
             c.must_have_groups.push_back(std::move(g));
             c.generation.cite_required = true;
-        } else if (!c.gold_clause_no.empty() && !c.gold_standard_no.empty()) {  // 点查·条款
+        } else if (!gold_clause_no.empty() && !gold_standard_no.empty()) {  // 点查·条款
             EvidenceGroup g; g.group_id = "c0";
-            StableRef r; r.standard_no = c.gold_standard_no; r.clause_no = c.gold_clause_no;
+            StableRef r; r.standard_no = gold_standard_no; r.clause_no = gold_clause_no;
             g.stable_refs.push_back(std::move(r));
             c.must_have_groups.push_back(std::move(g));
             c.generation.cite_required = true;
         }
         // gold_clause_no 缺 gold_standard_no：不构造组、不评引用（与旧行为一致，不计分）。
     }
-    if (c.generation.gold_values.empty() && !c.gold_values.empty())
-        c.generation.gold_values = c.gold_values;       // 兼容顶层旧写法
+    if (c.generation.gold_values.empty() && !gold_values.empty())
+        c.generation.gold_values = gold_values;         // 兼容顶层旧写法
 }
 
 std::string method_stem(const std::string& m) { return m.substr(0, m.find('-')); }
@@ -114,15 +119,15 @@ std::vector<EvalCase> parse_dataset(const std::string& json_text) {
     for (const auto& item : j) {
         if (!item.is_object()) continue;
         EvalCase c;
-        c.question         = item.value("question", "");
-        c.note             = item.value("note", "");
-        c.gold_standard_no = item.value("gold_standard_no", "");
-        c.gold_clause_no   = item.value("gold_clause_no", "");
-        c.gold_method_no   = item.value("gold_method_no", "");
-        c.gold_methods     = str_array(item, "gold_methods");
-        c.gold_values      = str_array(item, "gold_values");
+        c.question = item.value("question", "");
+        c.note     = item.value("note", "");
+        std::string gold_standard_no = item.value("gold_standard_no", "");
+        std::string gold_clause_no   = item.value("gold_clause_no", "");
+        std::string gold_method_no   = item.value("gold_method_no", "");
+        std::vector<std::string> gold_methods = str_array(item, "gold_methods");
+        std::vector<std::string> gold_values  = str_array(item, "gold_values");
         parse_rich(item, c);
-        normalize_legacy(c);
+        normalize_legacy(c, gold_method_no, gold_clause_no, gold_standard_no, gold_methods, gold_values);
         out.push_back(std::move(c));
     }
     return out;
