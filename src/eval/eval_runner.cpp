@@ -37,28 +37,23 @@ EvalReport run_eval(const std::vector<EvalCase>& cases,
         CaseResult cr;
         cr.question = c.question;
 
-        if (!c.gold_methods.empty()) {
+        LegacyRetrievalView gv = derive_legacy_view(c);
+        if (gv.kind == LegacyKind::Coverage) {
             cr.is_coverage = true;
-            cr.covered = covered_count(cand_methods, c.gold_methods);
-            cr.gold_total = static_cast<int>(c.gold_methods.size());
+            cr.covered = covered_count(cand_methods, gv.gold_methods);
+            cr.gold_total = static_cast<int>(gv.gold_methods.size());
             rep.coverage_cases++;
         } else {
             std::string gold_key;
             const std::vector<std::string>* keys = nullptr;
-            if (!c.gold_method_no.empty()) {
-                gold_key = c.gold_method_no;
+            if (gv.kind == LegacyKind::PointMethod) {
+                gold_key = gv.gold_method_no;
                 keys = &cand_methods;
-            } else if (!c.gold_clause_no.empty()) {
-                if (c.gold_standard_no.empty()) {
-                    spdlog::warn("样本不计分（gold_clause_no 非空但 gold_standard_no 为空）: {}",
-                                 c.question);
-                } else {
-                    std::string sid = pg.find_standard_by_code(strip_spaces(c.gold_standard_no));
-                    if (sid.empty())
-                        spdlog::warn("样本不计分（标准 {} 未找到）: {}",
-                                     c.gold_standard_no, c.question);
-                    else { gold_key = sid + "|" + c.gold_clause_no; keys = &cand_clause_keys; }
-                }
+            } else if (gv.kind == LegacyKind::PointClause) {
+                std::string sid = pg.find_standard_by_code(strip_spaces(gv.gold_standard_no));
+                if (sid.empty())
+                    spdlog::warn("样本不计分（标准 {} 未找到）: {}", gv.gold_standard_no, c.question);
+                else { gold_key = sid + "|" + gv.gold_clause_no; keys = &cand_clause_keys; }
             }
             if (keys) {
                 cr.scored = true;
@@ -67,7 +62,6 @@ EvalReport run_eval(const std::vector<EvalCase>& cases,
                 if (hit_at_k(cr.rank, k)) rep.point_hits++;
                 rep.mrr_sum += reciprocal_rank(cr.rank);
             }
-            // keys==nullptr：无有效 gold → 不计分（cr.scored 保持 false）
         }
         rep.results.push_back(cr);
     }
