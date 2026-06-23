@@ -31,3 +31,21 @@ EvalReport run_eval(const std::vector<EvalCase>& cases,
                     milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
                     const SynonymDict& syn, const std::string& collection, int k,
                     const QueryPlanner& planner);
+
+// 富检索指标（--rich）：每条用例在 ks 各 k 上覆盖的证据组数。
+struct RichCaseResult {
+    std::string question;
+    int group_total = 0;                 // G = must_have_groups.size()
+    std::vector<int> covered;            // 与 RichReport::ks 对齐：每个 k 的覆盖组数
+};
+struct RichReport {
+    std::vector<int> ks;                 // {1,3,5,10,20}
+    std::vector<RichCaseResult> results; // 仅含 must_have_groups 非空的用例
+};
+
+// 独立做 top-20 召回，按证据组算 Group Recall@k/Complete@k 的覆盖数据。
+// 与 run_eval 互不影响（各自召回）。infra-bound：需 Milvus/PG/embedding 在线。
+RichReport run_rich_eval(const std::vector<EvalCase>& cases,
+                         milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
+                         const SynonymDict& syn, const std::string& collection,
+                         const QueryPlanner& planner);
