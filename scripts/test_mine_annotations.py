@@ -54,3 +54,35 @@ def test_build_candidate_pool_handles_insufficient():
     hits = [{"chunk_id": "a"}, {"chunk_id": "g"}]
     assert m.build_candidate_pool(hits, {"g"}, 10) == ["a"]
     assert m.build_candidate_pool([], set(), 5) == []
+
+
+def test_parse_llm_labels_buckets_valid():
+    resp = ('[{"chunk_id":"a","label":"distractor","reason":"像但错"},'
+            '{"chunk_id":"b","label":"acceptable","reason":"相关"},'
+            '{"chunk_id":"c","label":"irrelevant","reason":"无关"}]')
+    out = m.parse_llm_labels(resp, ["a", "b", "c"])
+    assert out == {"distractor": ["a"], "acceptable": ["b"]}
+
+
+def test_parse_llm_labels_ignores_out_of_range_and_bad_label():
+    resp = ('[{"chunk_id":"z","label":"distractor"},'   # 越界 id
+            '{"chunk_id":"a","label":"nonsense"},'        # 非法 label
+            '{"chunk_id":"b","label":"distractor"}]')
+    out = m.parse_llm_labels(resp, ["a", "b"])
+    assert out == {"distractor": ["b"], "acceptable": []}
+
+
+def test_parse_llm_labels_empty_array_is_ok():
+    assert m.parse_llm_labels("[]", ["a"]) == {"distractor": [], "acceptable": []}
+
+
+def test_parse_llm_labels_garbage_returns_none():
+    assert m.parse_llm_labels("not json", ["a"]) is None
+    assert m.parse_llm_labels('{"intent":"x"}', ["a"]) is None  # 非数组
+    assert m.parse_llm_labels(None, ["a"]) is None
+
+
+def test_parse_llm_labels_strips_code_fence():
+    resp = '```json\n[{"chunk_id":"a","label":"distractor"}]\n```'
+    out = m.parse_llm_labels(resp, ["a"])
+    assert out == {"distractor": ["a"], "acceptable": []}

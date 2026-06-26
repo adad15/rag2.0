@@ -79,3 +79,43 @@ def build_candidate_pool(hits, gold_ids, top_n):
         if len(pool) >= top_n:
             break
     return pool
+
+
+def _loads_lenient(text):
+    """先直接 json.loads；失败则截取首个 [ 到末个 ] 重试（容忍代码块围栏/前后赘语）。"""
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except (ValueError, TypeError):
+        pass
+    a = text.find("[")
+    b = text.rfind("]")
+    if a != -1 and b > a:
+        try:
+            return json.loads(text[a:b + 1])
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def parse_llm_labels(resp_text, candidate_ids):
+    """解析 LLM JSON 数组 → {"distractor":[...],"acceptable":[...]}。
+    非数组/解析失败 → None（调用方记 generation_error）。越界 id/非法 label → 丢该条。"""
+    data = _loads_lenient(resp_text)
+    if not isinstance(data, list):
+        return None
+    allowed = set(candidate_ids)
+    out = {"distractor": [], "acceptable": []}
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        cid = item.get("chunk_id")
+        label = item.get("label")
+        if cid not in allowed:
+            continue
+        if label == "distractor" and cid not in out["distractor"]:
+            out["distractor"].append(cid)
+        elif label == "acceptable" and cid not in out["acceptable"]:
+            out["acceptable"].append(cid)
+    return out
