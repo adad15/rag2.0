@@ -38,3 +38,19 @@ def test_gold_refs_from_groups_and_dedup():
         "gold_methods": ["T0521-2005"],  # 与组内重复
     }
     assert m.gold_refs_of(case) == [("method", "T0521"), ("clause", "4.2")]
+
+
+def test_build_candidate_pool_excludes_gold_dedups_truncates():
+    hits = [
+        {"chunk_id": "a"}, {"chunk_id": "g1"}, {"chunk_id": "b"},
+        {"chunk_id": "a"}, {"chunk_id": "c"}, {"chunk_id": "d"},
+    ]
+    gold = {"g1"}
+    # top_n=3：排除 gold g1、去重 a、按序取前 3 = a,b,c
+    assert m.build_candidate_pool(hits, gold, 3) == ["a", "b", "c"]
+
+
+def test_build_candidate_pool_handles_insufficient():
+    hits = [{"chunk_id": "a"}, {"chunk_id": "g"}]
+    assert m.build_candidate_pool(hits, {"g"}, 10) == ["a"]
+    assert m.build_candidate_pool([], set(), 5) == []

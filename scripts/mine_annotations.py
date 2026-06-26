@@ -64,3 +64,18 @@ def gold_refs_of(case):
     for mth in case.get("gold_methods") or []:
         refs.append(("method", method_stem(mth)))
     return list(dict.fromkeys(refs))
+
+
+def build_candidate_pool(hits, gold_ids, top_n):
+    """从已按分数降序的 hits 里排除 gold 及重复，截断 top_n。hits[i]={"chunk_id":...}。"""
+    pool = []
+    seen = set()
+    for h in hits:
+        cid = h["chunk_id"]
+        if cid in gold_ids or cid in seen:
+            continue
+        seen.add(cid)
+        pool.append(cid)
+        if len(pool) >= top_n:
+            break
+    return pool
