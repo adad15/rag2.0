@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """证据标注挖掘工具：给评测题挖 distractor/acceptable chunk 标注。
 
 见 docs/superpowers/specs/2026-06-26-evidence-annotation-mining-design.md
@@ -134,3 +135,41 @@ def assemble_annotated_case(case, labels, meta):
     gen["candidate_top_n"] = meta["candidate_top_n"]
     out["generation"] = gen
     return out
+
+
+SYSTEM_PROMPT = (
+    "你是公路工程标准检索评测的标注助手。给定一个问题、它的正确答案简述、"
+    "以及若干候选 chunk，为每个候选打一个标签，只输出严格 JSON 数组，"
+    "不要解释、不要代码块围栏。\n"
+    "标签三选一：\n"
+    '- "distractor"：主题/标题/仪器与正确答案高度相似，但试验对象、版本、适用条件或'
+    "结论错误——会诱导检索器误判的"
+    "“像但错”。\n"
+    '- "acceptable"：与问题相关、对理解有帮助，但不是回答必需'
+    "（如父条款概述、等价表格、背景说明）。\n"
+    '- "irrelevant"：与问题无实质关系。\n'
+    '输出格式：[{"chunk_id":"...","label":"distractor|acceptable|irrelevant",'
+    '"reason":"简短理由"}]'
+)
+
+
+def build_gold_brief(case, gold_ctx):
+    """正确答案简述：gold chunk 的 (方法号/条款号 + 标题)，去重保序；无上下文时退回扁平 gold 字段。"""
+    parts = []
+    for c in gold_ctx.values():
+        tag = c["method_no"] or c["clause_no"]
+        parts.append((tag + " " + c["title"]).strip())
+    parts = [p for p in dict.fromkeys(parts) if p]
+    if parts:
+        return "; ".join(parts)
+    return case.get("gold_method_no") or case.get("gold_clause_no") or "(未知)"
+
+
+def build_user_message(question, gold_brief, candidates):
+    """组装给 LLM 的 user 消息：问题 + 正确答案 + 编号候选表。"""
+    lines = [f"问题：{question}", f"正确答案：{gold_brief}", "", "候选 chunk："]
+    for i, c in enumerate(candidates, 1):
+        tag = c["method_no"] or c["clause_no"] or "-"
+        lines.append(f"{i}. chunk_id={c['chunk_id']} [{tag}] {c['title']}")
+        lines.append(f"   正文：{c['snippet']}")
+    return "\n".join(lines)

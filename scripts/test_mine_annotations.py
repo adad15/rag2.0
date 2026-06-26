@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import mine_annotations as m
 
 
@@ -111,3 +112,34 @@ def test_assemble_preserves_existing_generation_keys():
     out = m.assemble_annotated_case(case, {"distractor": [], "acceptable": []}, meta)
     assert out["generation"]["extra"] == 1
     assert out["generation"]["expert_review"] == "reviewed"  # 已有值不覆盖
+
+
+def test_build_gold_brief_from_context():
+    case = {"question": "q", "gold_method_no": "T0301-2024"}
+    gold_ctx = {"c1": {"chunk_id": "c1", "method_no": "T0301-2024", "clause_no": "",
+                       "title": "细集料取样", "snippet": "..."}}
+    assert m.build_gold_brief(case, gold_ctx) == "T0301-2024 细集料取样"
+
+
+def test_build_gold_brief_fallback_when_no_context():
+    case = {"question": "q", "gold_method_no": "T0301-2024"}
+    assert m.build_gold_brief(case, {}) == "T0301-2024"
+
+
+def test_build_user_message_lists_candidates():
+    cands = [
+        {"chunk_id": "c1", "method_no": "T0302-2024", "clause_no": "", "title": "粗集料取样", "snippet": "正文片段X"},
+        {"chunk_id": "c2", "method_no": "", "clause_no": "5.3", "title": "养护", "snippet": "正文片段Y"},
+    ]
+    msg = m.build_user_message("怎么取样", "T0301-2024 细集料取样", cands)
+    assert "怎么取样" in msg
+    assert "T0301-2024 细集料取样" in msg
+    assert "c1" in msg and "c2" in msg
+    assert "粗集料取样" in msg and "养护" in msg
+    assert "正文片段X" in msg
+
+
+def test_system_prompt_and_version_present():
+    assert "distractor" in m.SYSTEM_PROMPT
+    assert "acceptable" in m.SYSTEM_PROMPT
+    assert m.GENERATOR_VERSION == "annot-v1"
