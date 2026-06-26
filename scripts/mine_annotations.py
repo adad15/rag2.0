@@ -107,18 +107,33 @@ def parse_llm_labels(resp_text, candidate_ids):
     if not isinstance(data, list):
         return None
     allowed = set(candidate_ids)
+    seen = set()                     # 互斥：同一 chunk 只进一个桶，首个有效标签胜出
     out = {"distractor": [], "acceptable": []}
     for item in data:
         if not isinstance(item, dict):
             continue
         cid = item.get("chunk_id")
         label = item.get("label")
-        if cid not in allowed:
+        if cid not in allowed or cid in seen:
             continue
-        if label == "distractor" and cid not in out["distractor"]:
+        if label == "distractor":
+            seen.add(cid)
             out["distractor"].append(cid)
-        elif label == "acceptable" and cid not in out["acceptable"]:
+        elif label == "acceptable":
+            seen.add(cid)
             out["acceptable"].append(cid)
+    return out
+
+
+def reasons_from_response(resp_text):
+    """从 LLM 响应抽 {chunk_id: reason}，供人审导出；解析失败返回 {}。纯函数。"""
+    data = _loads_lenient(resp_text)
+    if not isinstance(data, list):
+        return {}
+    out = {}
+    for item in data:
+        if isinstance(item, dict) and item.get("chunk_id") is not None:
+            out[item["chunk_id"]] = item.get("reason", "")
     return out
 
 
@@ -225,6 +240,8 @@ def pg_connect(conninfo):
 def resolve_gold_chunks(conn, case):
     """gold 方法号(stem 前缀)/条款号 → 该标准下全部 chunk_id 集（排除自身用）。"""
     sids = case.get("source_standard_ids") or []
+    # 注：sids 缺失时下面退化为不按 standard 过滤（比 spec §6.1 的 standards 表查找更宽，
+    # 即多排除 gold 而非少排除，偏安全）；100 集均带 source_standard_ids，此分支实际不触发。
     ids = set()
     with conn.cursor() as cur:
         for kind, val in gold_refs_of(case):
@@ -324,11 +341,12 @@ def llm_call_with_retry(cfg, system, user, candidate_ids, retries=2):
 
 
 # ---------- 编排 / review / CLI ----------
-def build_review_entry(case, gold_ids, candidates, labels):
+def build_review_entry(case, gold_ids, candidates, labels, reasons=None):
     return {"question": case["question"],
             "gold_brief": case.get("gold_method_no") or case.get("gold_clause_no") or "",
             "candidates": candidates,
-            "labels": labels}
+            "labels": labels,
+            "reasons": reasons or {}}
 
 
 def render_review(reviews):
@@ -338,13 +356,15 @@ def render_review(reviews):
         out.append(f"- gold: {r['gold_brief']}")
         d = set(r["labels"]["distractor"])
         a = set(r["labels"]["acceptable"])
+        reasons = r.get("reasons", {})
         for c in r["candidates"]:
             cid = c["chunk_id"]
             lab = "distractor" if cid in d else ("acceptable" if cid in a else "irrelevant")
             tag = c.get("method_no") or c.get("clause_no") or "-"
             title = c.get("title", "")
-            snip = " ".join(c.get("snippet", "").split())[:80]   # 折叠换行/空白成单行，便于人审
-            out.append(f"  - [{lab}] {cid} [{tag}] {title} — {snip}")
+            reason = " ".join(reasons.get(cid, "").split())          # LLM 判定理由（spec §9.2）
+            snip = " ".join(c.get("snippet", "").split())[:80]       # 折叠换行/空白成单行，便于人审
+            out.append(f"  - [{lab}] {cid} [{tag}] {title} — {reason} — {snip}")
         out.append("")
     return "\n".join(out)
 
@@ -372,6 +392,7 @@ def process_case(case, conn, cfg, cache_dir, top_n):
             write_cache(cache_dir, key, resp)
 
     labels = parse_llm_labels(resp, cand_ids) if resp is not None else None
+    reasons = reasons_from_response(resp) if resp is not None else {}
     status = "auto"
     if labels is None:
         labels = {"distractor": [], "acceptable": []}
@@ -379,7 +400,7 @@ def process_case(case, conn, cfg, cache_dir, top_n):
     meta = {"generator_version": GENERATOR_VERSION, "candidate_top_n": top_n,
             "validation_status": status}
     return (assemble_annotated_case(case, labels, meta),
-            build_review_entry(case, gold_ids, candidates, labels))
+            build_review_entry(case, gold_ids, candidates, labels, reasons))
 
 
 def main(argv=None):

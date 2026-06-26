@@ -89,6 +89,22 @@ def test_parse_llm_labels_strips_code_fence():
     assert out == {"distractor": ["a"], "acceptable": []}
 
 
+def test_parse_llm_labels_mutual_exclusion_first_label_wins():
+    # 同一 chunk 出现两个标签时只进首个桶，绝不同时进两个（否则下游指标双算）
+    resp = '[{"chunk_id":"a","label":"distractor"},{"chunk_id":"a","label":"acceptable"}]'
+    out = m.parse_llm_labels(resp, ["a"])
+    assert out == {"distractor": ["a"], "acceptable": []}
+
+
+def test_reasons_from_response():
+    resp = ('[{"chunk_id":"a","label":"distractor","reason":"对象不同"},'
+            '{"chunk_id":"b","label":"irrelevant","reason":"无关"}]')
+    r = m.reasons_from_response(resp)
+    assert r["a"] == "对象不同"
+    assert r["b"] == "无关"
+    assert m.reasons_from_response("garbage") == {}
+
+
 def test_assemble_annotated_case_writes_fields_and_provenance():
     case = {"case_id": "rq-1", "question": "q", "gold_method_no": "T0301-2024"}
     labels = {"distractor": ["d1"], "acceptable": ["a1", "a2"]}
