@@ -86,3 +86,28 @@ def test_parse_llm_labels_strips_code_fence():
     resp = '```json\n[{"chunk_id":"a","label":"distractor"}]\n```'
     out = m.parse_llm_labels(resp, ["a"])
     assert out == {"distractor": ["a"], "acceptable": []}
+
+
+def test_assemble_annotated_case_writes_fields_and_provenance():
+    case = {"case_id": "rq-1", "question": "q", "gold_method_no": "T0301-2024"}
+    labels = {"distractor": ["d1"], "acceptable": ["a1", "a2"]}
+    meta = {"generator_version": "annot-v1", "candidate_top_n": 30, "validation_status": "auto"}
+    out = m.assemble_annotated_case(case, labels, meta)
+    assert out["distractor_chunks"] == ["d1"]
+    assert out["acceptable_chunks"] == ["a1", "a2"]
+    assert out["question"] == "q"               # 原字段不丢
+    assert out["gold_method_no"] == "T0301-2024"
+    gen = out["generation"]
+    assert gen["generator_version"] == "annot-v1"
+    assert gen["annotation_source"] == "embedding+llm"
+    assert gen["validation_status"] == "auto"
+    assert gen["expert_review"] == "unreviewed"
+    assert gen["candidate_top_n"] == 30
+
+
+def test_assemble_preserves_existing_generation_keys():
+    case = {"question": "q", "generation": {"expert_review": "reviewed", "extra": 1}}
+    meta = {"generator_version": "annot-v1", "candidate_top_n": 5, "validation_status": "auto"}
+    out = m.assemble_annotated_case(case, {"distractor": [], "acceptable": []}, meta)
+    assert out["generation"]["extra"] == 1
+    assert out["generation"]["expert_review"] == "reviewed"  # 已有值不覆盖

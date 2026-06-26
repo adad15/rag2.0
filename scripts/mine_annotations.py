@@ -119,3 +119,18 @@ def parse_llm_labels(resp_text, candidate_ids):
         elif label == "acceptable" and cid not in out["acceptable"]:
             out["acceptable"].append(cid)
     return out
+
+
+def assemble_annotated_case(case, labels, meta):
+    """复制 case，写回 distractor/acceptable 两字段 + generation 溯源块（保留已有键）。"""
+    out = dict(case)
+    out["distractor_chunks"] = labels["distractor"]
+    out["acceptable_chunks"] = labels["acceptable"]
+    gen = dict(out.get("generation") or {})
+    gen["generator_version"] = meta["generator_version"]
+    gen["annotation_source"] = "embedding+llm"
+    gen["validation_status"] = meta["validation_status"]
+    gen.setdefault("expert_review", "unreviewed")
+    gen["candidate_top_n"] = meta["candidate_top_n"]
+    out["generation"] = gen
+    return out
