@@ -229,3 +229,30 @@ def test_fetch_chunk_context_shapes_rows():
 
 def test_fetch_chunk_context_empty_input():
     assert m.fetch_chunk_context(_FakeConn(_FakeCursor([])), []) == {}
+
+
+def test_render_review_labels_each_candidate():
+    reviews = [{
+        "question": "怎么取样",
+        "gold_brief": "T0301-2024",
+        "candidates": [
+            {"chunk_id": "d1", "method_no": "T0302-2024", "clause_no": "", "title": "粗集料取样", "snippet": "x"},
+            {"chunk_id": "a1", "method_no": "", "clause_no": "2", "title": "概述", "snippet": "y"},
+            {"chunk_id": "i1", "method_no": "", "clause_no": "", "title": "无关", "snippet": "z"},
+        ],
+        "labels": {"distractor": ["d1"], "acceptable": ["a1"]},
+    }]
+    md = m.render_review(reviews)
+    assert "怎么取样" in md
+    assert "[distractor] d1" in md
+    assert "[acceptable] a1" in md
+    assert "[irrelevant] i1" in md
+
+
+def test_build_review_entry_shape():
+    case = {"question": "q", "gold_method_no": "T0301-2024"}
+    entry = m.build_review_entry(case, {"g"}, [{"chunk_id": "c1"}], {"distractor": [], "acceptable": []})
+    assert entry["question"] == "q"
+    assert entry["gold_brief"] == "T0301-2024"
+    assert entry["candidates"] == [{"chunk_id": "c1"}]
+    assert entry["labels"] == {"distractor": [], "acceptable": []}

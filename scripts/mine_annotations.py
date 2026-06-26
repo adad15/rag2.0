@@ -318,3 +318,116 @@ def llm_call_with_retry(cfg, system, user, candidate_ids, retries=2):
             return resp
         sys.stderr.write(f"[annot] LLM 输出非法(第{attempt + 1}次)，重试\n")
     return None
+
+
+# ---------- 编排 / review / CLI ----------
+def build_review_entry(case, gold_ids, candidates, labels):
+    return {"question": case["question"],
+            "gold_brief": case.get("gold_method_no") or case.get("gold_clause_no") or "",
+            "candidates": candidates,
+            "labels": labels}
+
+
+def render_review(reviews):
+    out = ["# 标注人审导出\n"]
+    for r in reviews:
+        out.append(f"## {r['question']}")
+        out.append(f"- gold: {r['gold_brief']}")
+        d = set(r["labels"]["distractor"])
+        a = set(r["labels"]["acceptable"])
+        for c in r["candidates"]:
+            cid = c["chunk_id"]
+            lab = "distractor" if cid in d else ("acceptable" if cid in a else "irrelevant")
+            tag = c.get("method_no") or c.get("clause_no") or "-"
+            title = c.get("title", "")
+            snip = c.get("snippet", "")[:80]
+            out.append(f"  - [{lab}] {cid} [{tag}] {title} — {snip}")
+        out.append("")
+    return "\n".join(out)
+
+
+def process_case(case, conn, cfg, cache_dir, top_n):
+    """单题流水线：gold 排除 → embedding 候选 → LLM 复核（缓存）→ 组装。返回 (annotated, review)。"""
+    question = case["question"]
+    gold_ids = resolve_gold_chunks(conn, case)
+    if not gold_ids:
+        sys.stderr.write(f"[annot] 警告：gold 解析为空: {question[:40]}\n")
+    vec = embed_text(cfg, question)
+    hits = milvus_search(cfg, vec, top_n + len(gold_ids) + 10)   # 过量取，扣掉 gold 后仍够 top_n
+    pool = build_candidate_pool(hits, gold_ids, top_n)
+    ctx = fetch_chunk_context(conn, pool)
+    candidates = [ctx[c] for c in pool if c in ctx]
+    cand_ids = [c["chunk_id"] for c in candidates]
+
+    key = cache_key(question, cand_ids, GENERATOR_VERSION)
+    resp = read_cache(cache_dir, key)
+    if resp is None:
+        gold_ctx = fetch_chunk_context(conn, gold_ids)
+        user = build_user_message(question, build_gold_brief(case, gold_ctx), candidates)
+        resp = llm_call_with_retry(cfg, SYSTEM_PROMPT, user, cand_ids)
+        if resp is not None:
+            write_cache(cache_dir, key, resp)
+
+    labels = parse_llm_labels(resp, cand_ids) if resp is not None else None
+    status = "auto"
+    if labels is None:
+        labels = {"distractor": [], "acceptable": []}
+        status = "generation_error"
+    meta = {"generator_version": GENERATOR_VERSION, "candidate_top_n": top_n,
+            "validation_status": status}
+    return (assemble_annotated_case(case, labels, meta),
+            build_review_entry(case, gold_ids, candidates, labels))
+
+
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(description="证据标注挖掘 (distractor/acceptable)")
+    ap.add_argument("--in", dest="inp", required=True)
+    ap.add_argument("--out", dest="out", required=True)
+    ap.add_argument("--top-n", type=int, default=30)
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--review", default="")
+    ap.add_argument("--config", default="config.json")
+    args = ap.parse_args(argv)
+
+    cfg = load_config(args.config)
+    with open(args.inp, encoding="utf-8") as f:
+        cases = load_cases(f.read())
+    if args.limit:
+        cases = cases[:args.limit]
+
+    # 增量续跑：已 auto 标注且版本匹配的题直接复用
+    done = {}
+    if os.path.exists(args.out):
+        with open(args.out, encoding="utf-8") as f:
+            for c in load_cases(f.read()):
+                gen = c.get("generation") or {}
+                if (gen.get("generator_version") == GENERATOR_VERSION
+                        and gen.get("validation_status") == "auto"):
+                    done[c.get("case_id") or c["question"]] = c
+
+    conn = pg_connect(cfg["RAG_PG_CONNINFO"])
+    cache_dir = "data/annotation_cache"
+    out_cases, reviews = [], []
+    for case in cases:
+        cid = case.get("case_id") or case["question"]
+        if cid in done:
+            out_cases.append(done[cid])
+            continue
+        annotated, review = process_case(case, conn, cfg, cache_dir, args.top_n)
+        out_cases.append(annotated)
+        reviews.append(review)
+        with open(args.out, "w", encoding="utf-8") as f:   # 增量写检查点
+            json.dump(out_cases, f, ensure_ascii=False, indent=1)
+        sys.stderr.write(
+            f"[annot] {cid}: distractor={len(annotated['distractor_chunks'])} "
+            f"acceptable={len(annotated['acceptable_chunks'])}\n")
+
+    if args.review and reviews:
+        with open(args.review, "w", encoding="utf-8") as f:
+            f.write(render_review(reviews))
+    sys.stderr.write(f"[annot] 完成 {len(out_cases)} 题，输出 {args.out}\n")
+
+
+if __name__ == "__main__":
+    main()
