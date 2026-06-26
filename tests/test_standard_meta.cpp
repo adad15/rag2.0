@@ -29,6 +29,15 @@ TEST_CASE("extract_standard_no handles the JTG/T slash-T form") {
     CHECK(extract_standard_no("JTG/T D70-2010 公路隧道设计规范", "fb") == "JTG/T D70-2010");
 }
 
+TEST_CASE("extract_standard_no tolerates OCR-softened cover punctuation") {
+    // 真实封面 OCR：空格→下划线、'-'→全角破折号 → 旧实现抽不出而退回 fallback
+    CHECK(extract_standard_no("中华人民共和国强制性行业标准\nJTG_3432—2024\n", "FALLBACK")
+          == "JTG 3432-2024");
+    // 带斜杠 + 全角破折号
+    CHECK(extract_standard_no("JTG/T 3650—2020 公路桥涵施工技术规范", "FALLBACK")
+          == "JTG/T 3650-2020");
+}
+
 TEST_CASE("normalize_standard_code unifies slash/dash/space/underscore variants") {
     // 官方代号(带斜杠+半角连字符) 与 文件名退化形(无斜杠+全角破折号) 归一应一致
     CHECK(normalize_standard_code("JTG/T 3650-2020") == normalize_standard_code("JTGT 3650—2020"));
