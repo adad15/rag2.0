@@ -27,3 +27,8 @@ __pycache__/
 # VS noise
 .vs/
 *.aps
+
+# 证据标注挖掘中间产物（缓存/人审导出/烟测；标注数据集 *.annotated.json 仍入库）
+data/annotation_cache/
+eval/*.review.md
+eval/_smoke*.json
