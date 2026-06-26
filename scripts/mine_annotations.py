@@ -173,3 +173,24 @@ def build_user_message(question, gold_brief, candidates):
         lines.append(f"{i}. chunk_id={c['chunk_id']} [{tag}] {c['title']}")
         lines.append(f"   正文：{c['snippet']}")
     return "\n".join(lines)
+
+
+def build_embedding_body(model, text):
+    return {"model": model, "input": text}
+
+
+def build_milvus_search_body(collection, vector, top_n, output_fields):
+    return {"collectionName": collection, "data": [vector], "limit": top_n,
+            "outputFields": output_fields}
+
+
+def build_deepseek_body(model, system, user):
+    return {"model": model,
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": user}],
+            "temperature": 0}
+
+
+def cache_key(question, candidate_ids, version):
+    raw = normalize_question(question) + "\x1f" + ",".join(sorted(candidate_ids)) + "\x1f" + version
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()

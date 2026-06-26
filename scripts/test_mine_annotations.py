@@ -143,3 +143,32 @@ def test_system_prompt_and_version_present():
     assert "distractor" in m.SYSTEM_PROMPT
     assert "acceptable" in m.SYSTEM_PROMPT
     assert m.GENERATOR_VERSION == "annot-v1"
+
+
+def test_build_embedding_body():
+    assert m.build_embedding_body("Qwen/Qwen3-Embedding-8B", "天平") == {
+        "model": "Qwen/Qwen3-Embedding-8B", "input": "天平"}
+
+
+def test_build_milvus_search_body():
+    body = m.build_milvus_search_body("clause_text", [0.1, 0.2], 30, ["chunk_id", "standard_id"])
+    assert body["collectionName"] == "clause_text"
+    assert body["data"] == [[0.1, 0.2]]
+    assert body["limit"] == 30
+    assert body["outputFields"] == ["chunk_id", "standard_id"]
+
+
+def test_build_deepseek_body_temp0():
+    body = m.build_deepseek_body("deepseek-v4-pro", "SYS", "USER")
+    assert body["model"] == "deepseek-v4-pro"
+    assert body["temperature"] == 0
+    assert body["messages"][0] == {"role": "system", "content": "SYS"}
+    assert body["messages"][1] == {"role": "user", "content": "USER"}
+
+
+def test_cache_key_deterministic_and_order_independent():
+    k1 = m.cache_key("  天平 ", ["b", "a"], "annot-v1")
+    k2 = m.cache_key("天平", ["a", "b"], "annot-v1")
+    assert k1 == k2                                  # 归一化 + 候选 id 排序后同键
+    k3 = m.cache_key("天平", ["a", "b"], "annot-v2")
+    assert k3 != k1                                  # 版本变 → 键变
