@@ -156,6 +156,7 @@ def test_build_milvus_search_body():
     assert body["data"] == [[0.1, 0.2]]
     assert body["limit"] == 30
     assert body["outputFields"] == ["chunk_id", "standard_id"]
+    assert body["annsField"] == "dense"   # 双向量集必须指定，否则 Milvus code 1801
 
 
 def test_build_deepseek_body_temp0():

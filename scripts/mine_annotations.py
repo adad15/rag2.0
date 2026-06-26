@@ -179,9 +179,10 @@ def build_embedding_body(model, text):
     return {"model": model, "input": text}
 
 
-def build_milvus_search_body(collection, vector, top_n, output_fields):
-    return {"collectionName": collection, "data": [vector], "limit": top_n,
-            "outputFields": output_fields}
+def build_milvus_search_body(collection, vector, top_n, output_fields, anns_field="dense"):
+    # clause_text 是 dense+sparse 双向量集，REST 搜索必须指定 annsField，否则报 code 1801。
+    return {"collectionName": collection, "data": [vector], "annsField": anns_field,
+            "limit": top_n, "outputFields": output_fields}
 
 
 def build_deepseek_body(model, system, user):
@@ -291,6 +292,8 @@ def milvus_search(cfg, vector, top_n):
     body = build_milvus_search_body(cfg["RAG_MILVUS_COLLECTION"], vector, top_n,
                                     ["chunk_id", "standard_id"])
     data = _http_post_json(url, cfg["RAG_MILVUS_TOKEN"], body)
+    if data.get("code", 0) != 0:   # Milvus REST 错误：响铃失败，勿静默返回空（spec §8）
+        raise RuntimeError(f"Milvus search 失败: code={data.get('code')} {data.get('message')}")
     hits = []
     for row in data.get("data", []):
         hits.append({"chunk_id": row.get("chunk_id", ""),
@@ -340,7 +343,7 @@ def render_review(reviews):
             lab = "distractor" if cid in d else ("acceptable" if cid in a else "irrelevant")
             tag = c.get("method_no") or c.get("clause_no") or "-"
             title = c.get("title", "")
-            snip = c.get("snippet", "")[:80]
+            snip = " ".join(c.get("snippet", "").split())[:80]   # 折叠换行/空白成单行，便于人审
             out.append(f"  - [{lab}] {cid} [{tag}] {title} — {snip}")
         out.append("")
     return "\n".join(out)
