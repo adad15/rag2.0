@@ -172,3 +172,60 @@ def test_cache_key_deterministic_and_order_independent():
     assert k1 == k2                                  # 归一化 + 候选 id 排序后同键
     k3 = m.cache_key("天平", ["a", "b"], "annot-v2")
     assert k3 != k1                                  # 版本变 → 键变
+
+
+class _FakeCursor:
+    def __init__(self, rows_by_call):
+        self._rows_by_call = list(rows_by_call)
+        self.executed = []
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+    def execute(self, sql, params=None):
+        self.executed.append((sql, params))
+    def fetchall(self):
+        return self._rows_by_call.pop(0) if self._rows_by_call else []
+
+
+class _FakeConn:
+    def __init__(self, cur):
+        self._cur = cur
+    def cursor(self):
+        return self._cur
+
+
+def test_resolve_gold_chunks_method_uses_stem_prefix_and_standard_filter():
+    cur = _FakeCursor([[("ck1",), ("ck2",)]])
+    conn = _FakeConn(cur)
+    case = {"question": "q", "gold_method_no": "T0301-2024",
+            "source_standard_ids": ["sid-1"]}
+    out = m.resolve_gold_chunks(conn, case)
+    assert out == {"ck1", "ck2"}
+    sql, params = cur.executed[0]
+    assert "method_no LIKE" in sql and "standard_id = ANY" in sql
+    assert params == ("T0301%", ["sid-1"])
+
+
+def test_resolve_gold_chunks_clause_without_standard():
+    cur = _FakeCursor([[("ck9",)]])
+    conn = _FakeConn(cur)
+    case = {"question": "q", "gold_clause_no": "5.3"}
+    out = m.resolve_gold_chunks(conn, case)
+    assert out == {"ck9"}
+    sql, params = cur.executed[0]
+    assert "clause_no = " in sql and "ANY" not in sql
+    assert params == ("5.3",)
+
+
+def test_fetch_chunk_context_shapes_rows():
+    cur = _FakeCursor([[("c1", "T0302-2024", "", "粗集料取样", "embE", "atomA")]])
+    conn = _FakeConn(cur)
+    out = m.fetch_chunk_context(conn, ["c1"])
+    assert out["c1"]["title"] == "粗集料取样"
+    assert out["c1"]["method_no"] == "T0302-2024"
+    assert out["c1"]["snippet"] == "atomA"   # atomic_text 优先于 embedding_text
+
+
+def test_fetch_chunk_context_empty_input():
+    assert m.fetch_chunk_context(_FakeConn(_FakeCursor([])), []) == {}

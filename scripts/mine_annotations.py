@@ -194,3 +194,127 @@ def build_deepseek_body(model, system, user):
 def cache_key(question, candidate_ids, version):
     raw = normalize_question(question) + "\x1f" + ",".join(sorted(candidate_ids)) + "\x1f" + version
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+# ---------- config / cache ----------
+def load_config(path):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def read_cache(cache_dir, key):
+    p = os.path.join(cache_dir, key + ".json")
+    if not os.path.exists(p):
+        return None
+    with open(p, encoding="utf-8") as f:
+        return f.read()
+
+
+def write_cache(cache_dir, key, content):
+    os.makedirs(cache_dir, exist_ok=True)
+    with open(os.path.join(cache_dir, key + ".json"), "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+# ---------- PG ----------
+def pg_connect(conninfo):
+    return psycopg2.connect(conninfo)
+
+
+def resolve_gold_chunks(conn, case):
+    """gold 方法号(stem 前缀)/条款号 → 该标准下全部 chunk_id 集（排除自身用）。"""
+    sids = case.get("source_standard_ids") or []
+    ids = set()
+    with conn.cursor() as cur:
+        for kind, val in gold_refs_of(case):
+            if kind == "method":
+                if sids:
+                    cur.execute(
+                        "SELECT chunk_id FROM retrieval_chunks "
+                        "WHERE method_no LIKE %s AND standard_id = ANY(%s)",
+                        (val + "%", list(sids)))
+                else:
+                    cur.execute(
+                        "SELECT chunk_id FROM retrieval_chunks WHERE method_no LIKE %s",
+                        (val + "%",))
+            else:  # clause
+                if sids:
+                    cur.execute(
+                        "SELECT chunk_id FROM retrieval_chunks "
+                        "WHERE clause_no = %s AND standard_id = ANY(%s)",
+                        (val, list(sids)))
+                else:
+                    cur.execute(
+                        "SELECT chunk_id FROM retrieval_chunks WHERE clause_no = %s",
+                        (val,))
+            for row in cur.fetchall():
+                ids.add(row[0])
+    return ids
+
+
+def fetch_chunk_context(conn, chunk_ids):
+    """回查候选/gold chunk 的展示上下文。返回 {chunk_id: {chunk_id,method_no,clause_no,title,snippet}}。"""
+    out = {}
+    ids = list(chunk_ids)
+    if not ids:
+        return out
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT chunk_id, method_no, clause_no, title, embedding_text, atomic_text "
+            "FROM retrieval_chunks WHERE chunk_id = ANY(%s)", (ids,))
+        for row in cur.fetchall():
+            cid, method_no, clause_no, title, emb, atom = row
+            snippet = (atom or emb or "")[:300]
+            out[cid] = {"chunk_id": cid, "method_no": method_no or "",
+                        "clause_no": clause_no or "", "title": title or "",
+                        "snippet": snippet}
+    return out
+
+
+# ---------- HTTP: embedding / Milvus / DeepSeek ----------
+def _http_post_json(url, token, body, timeout=60):
+    headers = {"Authorization": "Bearer " + token}
+    r = requests.post(url, headers=headers, json=body, timeout=timeout)
+    r.raise_for_status()
+    return r.json()
+
+
+def embed_text(cfg, text):
+    url = cfg["RAG_EMBED_BASE_URL"].rstrip("/") + cfg["RAG_EMBED_PATH"]
+    body = build_embedding_body(cfg["RAG_EMBED_MODEL"], text)
+    data = _http_post_json(url, cfg["RAG_EMBED_KEY"], body)
+    return data["data"][0]["embedding"]
+
+
+def milvus_search(cfg, vector, top_n):
+    url = cfg["RAG_MILVUS_BASE_URL"].rstrip("/") + "/v2/vectordb/entities/search"
+    body = build_milvus_search_body(cfg["RAG_MILVUS_COLLECTION"], vector, top_n,
+                                    ["chunk_id", "standard_id"])
+    data = _http_post_json(url, cfg["RAG_MILVUS_TOKEN"], body)
+    hits = []
+    for row in data.get("data", []):
+        hits.append({"chunk_id": row.get("chunk_id", ""),
+                     "standard_id": row.get("standard_id", ""),
+                     "score": row.get("distance", 0.0)})
+    return hits
+
+
+def llm_call(cfg, system, user):
+    url = cfg["RAG_DEEPSEEK_BASE_URL"].rstrip("/") + cfg["RAG_DEEPSEEK_PATH"]
+    body = build_deepseek_body(cfg["RAG_DEEPSEEK_MODEL"], system, user)
+    data = _http_post_json(url, cfg["RAG_DEEPSEEK_KEY"], body, timeout=120)
+    return data["choices"][0]["message"]["content"]
+
+
+def llm_call_with_retry(cfg, system, user, candidate_ids, retries=2):
+    """调 LLM，校验输出可解析；失败重试 retries 次；仍失败返回 None。"""
+    for attempt in range(retries + 1):
+        try:
+            resp = llm_call(cfg, system, user)
+        except Exception as e:  # 网络/HTTP 异常
+            sys.stderr.write(f"[annot] LLM 调用异常(第{attempt + 1}次): {e}\n")
+            continue
+        if parse_llm_labels(resp, candidate_ids) is not None:
+            return resp
+        sys.stderr.write(f"[annot] LLM 输出非法(第{attempt + 1}次)，重试\n")
+    return None
