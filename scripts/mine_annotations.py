@@ -469,6 +469,11 @@ def main(argv=None):
             f"[annot] {cid}: distractor={len(annotated['distractor_chunks'])} "
             f"acceptable={len(annotated['acceptable_chunks'])}\n")
 
+    # 收尾必写：循环内的增量写只在“处理了某题”后触发，若末尾若干题是 resume 复用
+    # （在 done 里）则不会落盘 → 文件会缺这几题。这里无条件全量落盘兜底。
+    with open(args.out, "w", encoding="utf-8") as f:
+        json.dump(out_cases, f, ensure_ascii=False, indent=1)
+
     if args.review and reviews:
         with open(args.review, "w", encoding="utf-8") as f:
             f.write(render_review(reviews))
