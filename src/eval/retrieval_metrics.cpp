@@ -1,5 +1,6 @@
 #include "eval/retrieval_metrics.h"
 #include <algorithm>
+#include <cmath>
 #include <set>
 #include <unordered_set>
 
@@ -40,4 +41,50 @@ int covered_groups_at_k(const std::vector<std::set<std::string>>& group_keys,
         if (hit) ++covered;
     }
     return covered;
+}
+
+int count_in_set_at_k(const std::vector<std::string>& cand, const std::set<std::string>& s, int k) {
+    std::set<std::string> seen;
+    int c = 0, n = std::min<int>(k, static_cast<int>(cand.size()));
+    for (int i = 0; i < n; ++i)
+        if (s.count(cand[i]) && !seen.count(cand[i])) { seen.insert(cand[i]); ++c; }
+    return c;
+}
+
+int first_rank_in_set(const std::vector<std::string>& cand, const std::set<std::string>& s) {
+    for (size_t i = 0; i < cand.size(); ++i)
+        if (s.count(cand[i])) return static_cast<int>(i) + 1;
+    return 0;
+}
+
+bool distractor_before_gold(int d, int g) {
+    if (d <= 0) return false;
+    return g <= 0 || d < g;
+}
+
+double ndcg_at_k(const std::vector<double>& gains,
+                 const std::vector<double>& achievable, int k) {
+    auto dcg = [](const std::vector<double>& g, int kk) {
+        double s = 0.0; int n = std::min<int>(kk, static_cast<int>(g.size()));
+        for (int i = 0; i < n; ++i) s += g[i] / std::log2(static_cast<double>(i) + 2.0);
+        return s;
+    };
+    std::vector<double> ideal = achievable;
+    std::sort(ideal.begin(), ideal.end(), std::greater<double>());
+    double idcg = dcg(ideal, k);
+    return idcg > 0.0 ? dcg(gains, k) / idcg : 0.0;
+}
+
+double redundancy_at_k(const std::vector<std::set<std::string>>& sig, int k) {
+    std::set<std::string> seen;
+    int eff = 0, red = 0, n = std::min<int>(k, static_cast<int>(sig.size()));
+    for (int r = 0; r < n; ++r) {
+        if (sig[r].empty()) continue;
+        ++eff;
+        bool brings_new = false;
+        for (const auto& e : sig[r]) if (!seen.count(e)) { brings_new = true; break; }
+        if (!brings_new) ++red;
+        for (const auto& e : sig[r]) seen.insert(e);
+    }
+    return eff > 0 ? static_cast<double>(red) / eff : 0.0;
 }

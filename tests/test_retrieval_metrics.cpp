@@ -67,3 +67,42 @@ TEST_CASE("covered_groups_at_k: k beyond candidate count clamps, no overflow") {
     CHECK(covered_groups_at_k(groups, cands, 20) == 1);
     CHECK(covered_groups_at_k({}, cands, 20) == 0);        // 空组集 → 0
 }
+
+TEST_CASE("count_in_set_at_k counts unique hits within k") {
+    std::vector<std::string> cand = {"a", "d1", "b", "d2", "d1"};
+    std::set<std::string> d = {"d1", "d2"};
+    CHECK(count_in_set_at_k(cand, d, 3) == 1);   // 前3:a,d1,b → d1
+    CHECK(count_in_set_at_k(cand, d, 5) == 2);   // d1,d2(d1重复不再计)
+    CHECK(count_in_set_at_k(cand, d, 1) == 0);
+}
+
+TEST_CASE("first_rank_in_set returns 1-based rank or 0") {
+    std::vector<std::string> cand = {"a", "b", "g1"};
+    CHECK(first_rank_in_set(cand, {"g1"}) == 3);
+    CHECK(first_rank_in_set(cand, {"zz"}) == 0);
+}
+
+TEST_CASE("distractor_before_gold logic") {
+    CHECK(distractor_before_gold(2, 5) == true);   // 干扰更靠前
+    CHECK(distractor_before_gold(5, 2) == false);  // gold 更靠前
+    CHECK(distractor_before_gold(3, 0) == true);   // gold 未命中、干扰命中
+    CHECK(distractor_before_gold(0, 4) == false);  // 干扰未命中
+    CHECK(distractor_before_gold(0, 0) == false);
+}
+
+TEST_CASE("ndcg_at_k with dedup gains") {
+    std::vector<double> achievable = {2.0, 1.0};
+    std::vector<double> perfect = {2.0, 1.0, 0.0};
+    CHECK(ndcg_at_k(perfect, achievable, 3) == doctest::Approx(1.0));
+    std::vector<double> bad = {0.0, 0.0, 2.0, 1.0};
+    CHECK(ndcg_at_k(bad, achievable, 4) < 1.0);
+    CHECK(ndcg_at_k({0.0, 0.0}, {}, 2) == doctest::Approx(0.0));
+}
+
+TEST_CASE("redundancy_at_k flags evidence bringing nothing new") {
+    std::vector<std::set<std::string>> sig = {{"g:0"}, {"g:0"}, {"g:1"}, {}};
+    CHECK(redundancy_at_k(sig, 4) == doctest::Approx(1.0 / 3.0));  // 3有效,1冗余
+    std::vector<std::set<std::string>> sig2 = {{"m:T0302"}, {"m:T0302"}};
+    CHECK(redundancy_at_k(sig2, 2) == doctest::Approx(0.5));
+    CHECK(redundancy_at_k({{}, {}}, 2) == doctest::Approx(0.0));
+}
