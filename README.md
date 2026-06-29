@@ -98,8 +98,8 @@ docs/superpowers/           设计 spec 与实现计划（M0–M9）
 
 ```powershell
 rag2.exe smoke    # 连通性冒烟：PostgreSQL / Milvus / DeepSeek / poppler
-rag2.exe ingest   # 入库一份文档（M1，建设中）
-rag2.exe query "你的问题"   # 检索 + 溯源回答（M1，建设中）
+rag2.exe ingest   # 入库一份文档（文本路 MVP 可用）
+rag2.exe query "你的问题"   # 三路召回 + RRF + 方法号置顶 + DeepSeek 溯源回答
 ```
 
 ## 路线图
@@ -109,14 +109,32 @@ rag2.exe query "你的问题"   # 检索 + 溯源回答（M1，建设中）
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
 | **M0** | 环境与依赖就绪 + 四项连通性冒烟 | ✅ 完成 |
-| **M1** | 端到端最小骨架：poppler → PG → 单路 dense 召回 → DeepSeek 溯源回答 | 🚧 进行中 |
-| M2 | 入库正规化：条款层级树、三文本分离、表格结构化、MinerU 接入 | 计划 |
-| M3 | 文本路三路召回：查询理解 + dense/BM25/PG精确 + RRF + 状态/密级过滤 | 计划 |
-| M4 | 评估闭环：评估集、检索/生成指标、拒答阈值、数值后置校验 | 计划 |
+| **M1** | 端到端最小骨架：poppler → PG → 单路 dense 召回 → DeepSeek 溯源回答 | ✅ 完成 |
+| **M2** | 入库正规化：条款层级树、三文本分离、OCR/MinerU 质量、分片持久化 | ✅ 完成 |
+| **M3** | 文本路三路召回：查询理解 + dense/BM25/PG精确 + RRF + 列举关键词直查补召回 + 方法号/条款号置顶 | ✅ 完成 |
+| **M4** | 评估闭环：100 题标注集、Group Recall/Complete + nDCG/Distractor/Redundancy 富指标、rule/LLM 双 planner | ✅ 完成 |
 | M5 | 文本路增强：reranker、表格 cell 定位、引用图扩展、LLM 元数据 | 设计 |
 | M6 | 版本管理与运维健壮性：版本生命周期、一致性、降级、灰度迁移 | 设计 |
 | M7–M8 | 视觉路（page / block 级） | 设计 |
 | M9 | both 模式 + auto 路由 | 设计 |
+
+> 当前文本路水平（100 题富指标 baseline，rule planner，top-20）：Group Recall@20≈0.99、Complete@20≈0.98、nDCG@20≈0.78、Distractor-before-gold≈0.08。
+
+## 评估与检索自查
+
+```powershell
+# 单查检索自查（看三路召回与排序）
+rag2.exe retrievecheck "通用硅酸盐水泥安定性需要通过哪两种方法判定合格？" 20
+
+# 富指标评估（Group Recall/Complete + nDCG/Distractor/Redundancy）
+rag2.exe eval eval/retrieval_questions_100.annotated.json 30 rule --rich
+
+# 生成侧评估（条款引用 + 数值准确率）
+rag2.exe eval eval/dataset_seed.json 30 rule --gen
+```
+
+> 标注集 `eval/retrieval_questions_100.annotated.json` 由 `scripts/mine_annotations.py` 生成；
+> 完整人审文件用 `python scripts/mine_annotations.py --review-only --in <annotated.json>` 重建。
 
 ## 设计文档
 
