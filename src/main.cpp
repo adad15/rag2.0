@@ -27,6 +27,7 @@
 #include "eval/dataset.h"
 #include "eval/eval_runner.h"
 #include "eval/generation_eval.h"
+#include "eval/retrieval_metrics.h"
 #include "query/query_planner.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
@@ -540,6 +541,45 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
                     std::cout << "Group Recall@" << rr.ks[i] << ": " << (recall_sum / n)
                               << "   Complete@" << rr.ks[i] << ": "
                               << (static_cast<double>(complete) / n) << "\n";
+            }
+            std::cout << "\n--- 富排序指标 (--rich) ---\n";
+            for (const auto& r : rr.results) {
+                if (distractor_before_gold(r.first_distractor_rank, r.first_gold_rank))
+                    std::cout << "[risk] distractor-before-gold  " << r.question << "\n";
+                size_t i10 = 0; for (; i10 < rr.ks.size(); ++i10) if (rr.ks[i10] == 10) break;
+                if (i10 < rr.ks.size() && i10 < r.redundancy.size() && r.redundancy[i10] >= 0.4)
+                    std::cout << "[risk] redundancy@10=" << r.redundancy[i10] << "  " << r.question << "\n";
+            }
+            for (size_t i = 0; i < rr.ks.size(); ++i) {
+                double ndcg_sum = 0.0, red_sum = 0.0; int n = 0;
+                int dist_hit = 0, dist_den = 0; double dist_recall_sum = 0.0;
+                for (const auto& r : rr.results) {
+                    ndcg_sum += r.ndcg[i]; red_sum += r.redundancy[i]; ++n;
+                    if (r.distractor_total > 0) {
+                        ++dist_den;
+                        if (r.distractor_in_k[i] > 0) ++dist_hit;
+                        dist_recall_sum += static_cast<double>(r.distractor_in_k[i]) / r.distractor_total;
+                    }
+                }
+                if (n > 0) {
+                    std::cout << "nDCG@" << rr.ks[i] << ": " << (ndcg_sum / n)
+                              << "   Redundancy@" << rr.ks[i] << ": " << (red_sum / n);
+                    if (dist_den > 0)
+                        std::cout << "   Distractor Hit@" << rr.ks[i] << ": "
+                                  << (static_cast<double>(dist_hit) / dist_den)
+                                  << "   Distractor@" << rr.ks[i] << ": " << (dist_recall_sum / dist_den);
+                    std::cout << "\n";
+                }
+            }
+            {   // Distractor-before-gold 汇总（分母=有 distractor 的样本）
+                int den = 0, before = 0;
+                for (const auto& r : rr.results) if (r.distractor_total > 0) {
+                    ++den;
+                    if (distractor_before_gold(r.first_distractor_rank, r.first_gold_rank)) ++before;
+                }
+                if (den > 0)
+                    std::cout << "Distractor-before-gold: " << (static_cast<double>(before) / den)
+                              << "  (有效样本 " << den << ")\n";
             }
         }
 

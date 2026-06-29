@@ -35,8 +35,14 @@ EvalReport run_eval(const std::vector<EvalCase>& cases,
 // 富检索指标（--rich）：每条用例在 ks 各 k 上覆盖的证据组数。
 struct RichCaseResult {
     std::string question;
-    int group_total = 0;                 // G = must_have_groups.size()
-    std::vector<int> covered;            // 与 RichReport::ks 对齐：每个 k 的覆盖组数
+    int group_total = 0;                 // G
+    std::vector<int> covered;            // 与 ks 对齐：Group Recall 覆盖组数
+    int distractor_total = 0;            // |distractor_chunks|
+    std::vector<int> distractor_in_k;    // 与 ks 对齐：top-k 命中干扰项数
+    std::vector<double> ndcg;            // 与 ks 对齐
+    std::vector<double> redundancy;      // 与 ks 对齐
+    int first_distractor_rank = 0;       // 0=未命中
+    int first_gold_rank = 0;             // 0=未命中（top-20 内首个覆盖任一组的排名）
 };
 struct RichReport {
     std::vector<int> ks;                 // {1,3,5,10,20}

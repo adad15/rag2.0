@@ -114,11 +114,57 @@ RichReport run_rich_eval(const std::vector<EvalCase>& cases,
             group_keys.push_back(std::move(gk));
         }
 
+        // —— 富排序指标所需的每候选数据 ——
+        std::set<std::string> distractor_set(c.distractor_chunks.begin(), c.distractor_chunks.end());
+        std::set<std::string> acceptable_set(c.acceptable_chunks.begin(), c.acceptable_chunks.end());
+        std::vector<std::string> cand_ids;
+        cand_ids.reserve(cands.size());
+        for (const auto& cand : cands) cand_ids.push_back(cand.chunk_id);
+
+        std::vector<double> gains;                       // 去重后增益
+        std::vector<std::set<std::string>> sig_by_rank;  // Redundancy 签名
+        std::set<int> covered_groups_seen;
+        std::set<std::string> acc_seen;
+        int first_gold_rank = 0;
+        for (size_t r = 0; r < cands.size(); ++r) {
+            std::set<int> g_here;                        // 该候选覆盖的组
+            for (size_t gi = 0; gi < group_keys.size(); ++gi)
+                for (const auto& key : cand_keys[r])
+                    if (group_keys[gi].count(key)) { g_here.insert(static_cast<int>(gi)); break; }
+            if (first_gold_rank == 0 && !g_here.empty()) first_gold_rank = static_cast<int>(r) + 1;
+
+            bool new_group = false;
+            for (int gi : g_here) if (!covered_groups_seen.count(gi)) { new_group = true; break; }
+            double gain = 0.0;
+            if (new_group) gain = 2.0;
+            else if (acceptable_set.count(cand_ids[r]) && !acc_seen.count(cand_ids[r])) {
+                gain = 1.0; acc_seen.insert(cand_ids[r]);
+            }
+            gains.push_back(gain);
+            for (int gi : g_here) covered_groups_seen.insert(gi);
+
+            std::set<std::string> sg;
+            for (int gi : g_here) sg.insert("g:" + std::to_string(gi));
+            for (const auto& key : cand_keys[r]) if (key.rfind("m:", 0) == 0) sg.insert(key);
+            sig_by_rank.push_back(std::move(sg));
+        }
+        std::vector<double> achievable;
+        for (size_t gi = 0; gi < group_keys.size(); ++gi) achievable.push_back(2.0);
+        for (size_t ai = 0; ai < acceptable_set.size(); ++ai) achievable.push_back(1.0);
+        int first_distractor_rank = first_rank_in_set(cand_ids, distractor_set);
+
         RichCaseResult cr;
         cr.question = c.question;
         cr.group_total = static_cast<int>(group_keys.size());
-        for (int kk : rep.ks)
+        cr.distractor_total = static_cast<int>(distractor_set.size());
+        cr.first_distractor_rank = first_distractor_rank;
+        cr.first_gold_rank = first_gold_rank;
+        for (int kk : rep.ks) {
             cr.covered.push_back(covered_groups_at_k(group_keys, cand_keys, kk));
+            cr.distractor_in_k.push_back(count_in_set_at_k(cand_ids, distractor_set, kk));
+            cr.ndcg.push_back(ndcg_at_k(gains, achievable, kk));
+            cr.redundancy.push_back(redundancy_at_k(sig_by_rank, kk));
+        }
         rep.results.push_back(std::move(cr));
     }
     return rep;
