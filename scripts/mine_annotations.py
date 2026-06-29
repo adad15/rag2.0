@@ -100,21 +100,36 @@ def _loads_lenient(text):
     return None
 
 
+def _resolve_cid(item, candidate_ids, allowed):
+    """把 LLM 条目映射回候选 chunk_id：优先 1-based index，回退 chunk_id 全等；匹配不到→None。
+    （index 更稳：LLM 回整数远比 echo 40 字符复合 id 可靠，避免截断丢失。）"""
+    idx = item.get("index")
+    if isinstance(idx, str) and idx.strip().isdigit():
+        idx = int(idx)
+    if isinstance(idx, int) and not isinstance(idx, bool) and 1 <= idx <= len(candidate_ids):
+        return candidate_ids[idx - 1]
+    cid = item.get("chunk_id")
+    if cid in allowed:
+        return cid
+    return None
+
+
 def parse_llm_labels(resp_text, candidate_ids):
-    """解析 LLM JSON 数组 → {"distractor":[...],"acceptable":[...]}。
-    非数组/解析失败 → None（调用方记 generation_error）。越界 id/非法 label → 丢该条。"""
+    """解析 LLM JSON 数组 → {"distractor":[...],"acceptable":[...]}（值为 chunk_id）。
+    非数组/解析失败 → None（调用方记 generation_error）。条目经 index/chunk_id 映射，
+    匹配不到/非法 label → 丢该条；同 chunk 只进一个桶（首个有效标签胜出）。"""
     data = _loads_lenient(resp_text)
     if not isinstance(data, list):
         return None
     allowed = set(candidate_ids)
-    seen = set()                     # 互斥：同一 chunk 只进一个桶，首个有效标签胜出
+    seen = set()
     out = {"distractor": [], "acceptable": []}
     for item in data:
         if not isinstance(item, dict):
             continue
-        cid = item.get("chunk_id")
+        cid = _resolve_cid(item, candidate_ids, allowed)
         label = item.get("label")
-        if cid not in allowed or cid in seen:
+        if cid is None or cid in seen:
             continue
         if label == "distractor":
             seen.add(cid)
@@ -125,15 +140,21 @@ def parse_llm_labels(resp_text, candidate_ids):
     return out
 
 
-def reasons_from_response(resp_text):
-    """从 LLM 响应抽 {chunk_id: reason}，供人审导出；解析失败返回 {}。纯函数。"""
+def reasons_from_response(resp_text, candidate_ids=None):
+    """从 LLM 响应抽 {chunk_id: reason}，供人审导出；解析失败返回 {}。
+    经 index/chunk_id 映射回候选 chunk_id（与 parse_llm_labels 同口径）。"""
     data = _loads_lenient(resp_text)
     if not isinstance(data, list):
         return {}
+    cids = candidate_ids or []
+    allowed = set(cids)
     out = {}
     for item in data:
-        if isinstance(item, dict) and item.get("chunk_id") is not None:
-            out[item["chunk_id"]] = item.get("reason", "")
+        if not isinstance(item, dict):
+            continue
+        cid = _resolve_cid(item, cids, allowed)
+        if cid is not None:
+            out[cid] = item.get("reason", "")
     return out
 
 
@@ -163,8 +184,8 @@ SYSTEM_PROMPT = (
     '- "acceptable"：与问题相关、对理解有帮助，但不是回答必需'
     "（如父条款概述、等价表格、背景说明）。\n"
     '- "irrelevant"：与问题无实质关系。\n'
-    '输出格式：[{"chunk_id":"...","label":"distractor|acceptable|irrelevant",'
-    '"reason":"简短理由"}]'
+    "用候选的序号（index，从 1 开始）回标签，所有候选都要出现，只输出严格 JSON 数组：\n"
+    '[{"index":1,"label":"distractor|acceptable|irrelevant","reason":"简短理由"}]'
 )
 
 
@@ -181,11 +202,12 @@ def build_gold_brief(case, gold_ctx):
 
 
 def build_user_message(question, gold_brief, candidates):
-    """组装给 LLM 的 user 消息：问题 + 正确答案 + 编号候选表。"""
-    lines = [f"问题：{question}", f"正确答案：{gold_brief}", "", "候选 chunk："]
+    """组装给 LLM 的 user 消息：问题 + 正确答案 + 编号候选表。
+    用序号、不暴露长 chunk_id（避免 LLM 回传时截断/抄错；它只需按序号回标签）。"""
+    lines = [f"问题：{question}", f"正确答案：{gold_brief}", "", "候选（按序号回标签）："]
     for i, c in enumerate(candidates, 1):
         tag = c["method_no"] or c["clause_no"] or "-"
-        lines.append(f"{i}. chunk_id={c['chunk_id']} [{tag}] {c['title']}")
+        lines.append(f"{i}. [{tag}] {c['title']}")
         lines.append(f"   正文：{c['snippet']}")
     return "\n".join(lines)
 
@@ -392,7 +414,7 @@ def process_case(case, conn, cfg, cache_dir, top_n):
             write_cache(cache_dir, key, resp)
 
     labels = parse_llm_labels(resp, cand_ids) if resp is not None else None
-    reasons = reasons_from_response(resp) if resp is not None else {}
+    reasons = reasons_from_response(resp, cand_ids) if resp is not None else {}
     status = "auto"
     if labels is None:
         labels = {"distractor": [], "acceptable": []}

@@ -99,10 +99,31 @@ def test_parse_llm_labels_mutual_exclusion_first_label_wins():
 def test_reasons_from_response():
     resp = ('[{"chunk_id":"a","label":"distractor","reason":"对象不同"},'
             '{"chunk_id":"b","label":"irrelevant","reason":"无关"}]')
-    r = m.reasons_from_response(resp)
+    r = m.reasons_from_response(resp, ["a", "b"])
     assert r["a"] == "对象不同"
     assert r["b"] == "无关"
-    assert m.reasons_from_response("garbage") == {}
+    assert m.reasons_from_response("garbage", ["a"]) == {}
+
+
+def test_parse_llm_labels_by_index():
+    # 主路：LLM 回序号(1-based)，映射回候选 chunk_id
+    resp = '[{"index":1,"label":"distractor"},{"index":3,"label":"acceptable"}]'
+    out = m.parse_llm_labels(resp, ["x", "y", "z"])
+    assert out == {"distractor": ["x"], "acceptable": ["z"]}
+
+
+def test_parse_llm_labels_index_out_of_range_dropped():
+    resp = ('[{"index":0,"label":"distractor"},'   # 越界(0)
+            '{"index":9,"label":"distractor"},'     # 越界(>N)
+            '{"index":2,"label":"acceptable"}]')
+    out = m.parse_llm_labels(resp, ["x", "y"])
+    assert out == {"distractor": [], "acceptable": ["y"]}
+
+
+def test_reasons_from_response_by_index():
+    resp = '[{"index":2,"label":"distractor","reason":"版本不同"}]'
+    r = m.reasons_from_response(resp, ["x", "y"])
+    assert r["y"] == "版本不同"
 
 
 def test_assemble_annotated_case_writes_fields_and_provenance():
@@ -150,7 +171,7 @@ def test_build_user_message_lists_candidates():
     msg = m.build_user_message("怎么取样", "T0301-2024 细集料取样", cands)
     assert "怎么取样" in msg
     assert "T0301-2024 细集料取样" in msg
-    assert "c1" in msg and "c2" in msg
+    assert "1." in msg and "2." in msg            # 用序号，不暴露长 chunk_id
     assert "粗集料取样" in msg and "养护" in msg
     assert "正文片段X" in msg
 
