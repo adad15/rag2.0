@@ -294,3 +294,35 @@ def test_build_review_entry_shape():
     assert entry["gold_brief"] == "T0301-2024"
     assert entry["candidates"] == [{"chunk_id": "c1"}]
     assert entry["labels"] == {"distractor": [], "acceptable": []}
+
+
+def test_label_of_classifies_by_membership():
+    d = {"d1", "d2"}; a = {"a1"}
+    assert m.label_of("d1", d, a) == "distractor"
+    assert m.label_of("a1", d, a) == "acceptable"
+    assert m.label_of("x9", d, a) == "irrelevant"
+
+
+def test_review_entry_from_annotated_labels_and_status():
+    case = {"question": "q", "gold_method_no": "T0301-2024",
+            "distractor_chunks": ["d1"], "acceptable_chunks": ["a1"]}
+    candidates = [
+        {"chunk_id": "d1", "method_no": "T0302-2024", "clause_no": "", "title": "粗集料取样", "snippet": "x"},
+        {"chunk_id": "a1", "method_no": "", "clause_no": "2", "title": "概述", "snippet": "y"},
+        {"chunk_id": "z9", "method_no": "", "clause_no": "", "title": "无关", "snippet": "z"},
+    ]
+    e = m.review_entry_from_annotated(case, candidates, reasons={"d1": "对象不同"}, cache_status="hit")
+    assert e["question"] == "q"
+    assert e["gold_brief"] == "T0301-2024"
+    assert e["labels"] == {"distractor": ["d1"], "acceptable": ["a1"]}
+    assert e["reasons"]["d1"] == "对象不同"
+    assert e["cache_status"] == "hit"
+
+
+def test_render_review_shows_cache_missing():
+    reviews = [{"question": "q", "gold_brief": "T0301-2024", "cache_status": "cache_missing",
+                "candidates": [{"chunk_id": "d1", "method_no": "T0302-2024", "clause_no": "", "title": "粗集料取样", "snippet": "x"}],
+                "labels": {"distractor": ["d1"], "acceptable": []}, "reasons": {}}]
+    md = m.render_review(reviews)
+    assert "cache_missing" in md
+    assert "[distractor] d1" in md

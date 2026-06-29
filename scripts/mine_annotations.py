@@ -371,10 +371,36 @@ def build_review_entry(case, gold_ids, candidates, labels, reasons=None):
             "reasons": reasons or {}}
 
 
+def label_of(chunk_id, distractor_ids, acceptable_ids):
+    """按隶属判定候选标签（drift 无关：标签来自标注集成员关系，不依赖候选池重建）。"""
+    if chunk_id in distractor_ids:
+        return "distractor"
+    if chunk_id in acceptable_ids:
+        return "acceptable"
+    return "irrelevant"
+
+
+def review_entry_from_annotated(case, candidates, reasons, cache_status):
+    """从已标注 case + 重建候选池 + 缓存理由，构造一条 review entry。纯函数。"""
+    d = set(case.get("distractor_chunks") or [])
+    a = set(case.get("acceptable_chunks") or [])
+    return {
+        "question": case["question"],
+        "gold_brief": case.get("gold_method_no") or case.get("gold_clause_no") or "",
+        "candidates": candidates,
+        "labels": {"distractor": list(case.get("distractor_chunks") or []),
+                   "acceptable": list(case.get("acceptable_chunks") or [])},
+        "reasons": reasons or {},
+        "cache_status": cache_status,
+    }
+
+
 def render_review(reviews):
     out = ["# 标注人审导出\n"]
     for r in reviews:
-        out.append(f"## {r['question']}")
+        cs = r.get("cache_status", "")
+        tag = f" [{cs}]" if cs else ""
+        out.append(f"## {r['question']}{tag}")
         out.append(f"- gold: {r['gold_brief']}")
         d = set(r["labels"]["distractor"])
         a = set(r["labels"]["acceptable"])
@@ -382,11 +408,11 @@ def render_review(reviews):
         for c in r["candidates"]:
             cid = c["chunk_id"]
             lab = "distractor" if cid in d else ("acceptable" if cid in a else "irrelevant")
-            tag = c.get("method_no") or c.get("clause_no") or "-"
+            tagm = c.get("method_no") or c.get("clause_no") or "-"
             title = c.get("title", "")
-            reason = " ".join(reasons.get(cid, "").split())          # LLM 判定理由（spec §9.2）
-            snip = " ".join(c.get("snippet", "").split())[:80]       # 折叠换行/空白成单行，便于人审
-            out.append(f"  - [{lab}] {cid} [{tag}] {title} — {reason} — {snip}")
+            reason = " ".join(reasons.get(cid, "").split())
+            snip = " ".join(c.get("snippet", "").split())[:80]
+            out.append(f"  - [{lab}] {cid} [{tagm}] {title} — {reason} — {snip}")
         out.append("")
     return "\n".join(out)
 
@@ -425,18 +451,76 @@ def process_case(case, conn, cfg, cache_dir, top_n):
             build_review_entry(case, gold_ids, candidates, labels, reasons))
 
 
+def rebuild_review_for_case(case, conn, cfg, cache_dir, top_n, allow_llm):
+    """为已标注 case 重建 review：复用候选逻辑(embed+Milvus)→候选池；
+    优先按 cache_key 读 data/annotation_cache 取理由；缓存缺失标 cache_missing，
+    不编造理由；allow_llm 时才补调 DeepSeek。"""
+    question = case["question"]
+    gold_ids = resolve_gold_chunks(conn, case)
+    vec = embed_text(cfg, question)
+    hits = milvus_search(cfg, vec, top_n + len(gold_ids) + 10)
+    pool = build_candidate_pool(hits, gold_ids, top_n)
+    ctx = fetch_chunk_context(conn, pool)
+    candidates = [ctx[c] for c in pool if c in ctx]
+    cand_ids = [c["chunk_id"] for c in candidates]
+
+    key = cache_key(question, cand_ids, GENERATOR_VERSION)
+    resp = read_cache(cache_dir, key)
+    cache_status = "hit"
+    if resp is None:
+        if allow_llm:
+            gold_ctx = fetch_chunk_context(conn, gold_ids)
+            user = build_user_message(question, build_gold_brief(case, gold_ctx), candidates)
+            resp = llm_call_with_retry(cfg, SYSTEM_PROMPT, user, cand_ids)
+            if resp is not None:
+                write_cache(cache_dir, key, resp)
+                cache_status = "llm_backfill"
+            else:
+                cache_status = "cache_missing"
+        else:
+            cache_status = "cache_missing"
+    reasons = reasons_from_response(resp, cand_ids) if resp is not None else {}
+    return review_entry_from_annotated(case, candidates, reasons, cache_status)
+
+
 def main(argv=None):
     import argparse
     ap = argparse.ArgumentParser(description="证据标注挖掘 (distractor/acceptable)")
     ap.add_argument("--in", dest="inp", required=True)
-    ap.add_argument("--out", dest="out", required=True)
+    ap.add_argument("--out", dest="out", default="")
     ap.add_argument("--top-n", type=int, default=30)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--review", default="")
     ap.add_argument("--config", default="config.json")
+    ap.add_argument("--review-only", action="store_true",
+                    help="只从 --in 的标注文件重建 review，不改标注 json")
+    ap.add_argument("--allow-llm", action="store_true",
+                    help="review 重建时缓存缺失允许补调 DeepSeek（默认只读缓存）")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
+
+    if args.review_only:
+        with open(args.inp, encoding="utf-8") as f:
+            cases = load_cases(f.read())
+        if args.limit:
+            cases = cases[:args.limit]
+        conn = pg_connect(cfg["RAG_PG_CONNINFO"])
+        cache_dir = "data/annotation_cache"
+        reviews = []
+        for case in cases:
+            reviews.append(rebuild_review_for_case(case, conn, cfg, cache_dir, args.top_n, args.allow_llm))
+            sys.stderr.write(f"[review] {case.get('case_id') or case['question'][:20]}: {reviews[-1]['cache_status']}\n")
+        out_review = args.review or (args.inp.rsplit('.', 1)[0] + ".review.md")
+        with open(out_review, "w", encoding="utf-8") as f:
+            f.write(render_review(reviews))
+        sys.stderr.write(f"[review] 完成 {len(reviews)} 题 → {out_review}\n")
+        return
+
+    if not args.out:
+        sys.stderr.write("[annot] 错误：非 --review-only 模式需要 --out\n")
+        sys.exit(1)
+
     with open(args.inp, encoding="utf-8") as f:
         cases = load_cases(f.read())
     if args.limit:
