@@ -23,6 +23,7 @@ TEST_CASE("retrieval_chunk JSON round trip preserves cache and chunk fields") {
     c.atomic_text = "5.1.2 路基沉降\n路基沉降应根据沉降深度评定。";
     c.embedding_text = "5.1.2 路基沉降\n路基沉降应根据沉降深度评定。\n相关图表题：\n图5.1.2 路基沉降示意图";
     c.context_text = "路径：5 技术状况评定 > 5.1 路基 > 5.1.2 路基沉降\n5.1.2 路基沉降\n路基沉降应根据沉降深度评定。";
+    c.bm25_text = "标准：JTC 5210-2018\n路径：5 技术状况评定 > 5.1 路基\n检索词：判定 要求";
     c.captions = {"图5.1.2 路基沉降示意图"};
     c.formulas = {"MQI = SCI + PQI + BCI + TCI"};
     c.page_start = 12;
@@ -36,7 +37,7 @@ TEST_CASE("retrieval_chunk JSON round trip preserves cache and chunk fields") {
     RetrievalChunkCache round_trip =
         retrieval_chunk_cache_from_json(retrieval_chunk_cache_to_json(cache));
 
-    CHECK(round_trip.schema_version == 1);
+    CHECK(round_trip.schema_version == 2);
     CHECK(round_trip.standard_id == "sid");
     CHECK(round_trip.standard_no == "JTC 5210-2018");
     REQUIRE(round_trip.chunks.size() == 1);
@@ -54,6 +55,8 @@ TEST_CASE("retrieval_chunk JSON round trip preserves cache and chunk fields") {
     CHECK(r.atomic_text.find("路基沉降") != std::string::npos);
     CHECK(r.embedding_text.find("图5.1.2") != std::string::npos);
     CHECK(r.context_text.find("路径：") != std::string::npos);
+    CHECK(r.bm25_text.find("标准：JTC 5210-2018") != std::string::npos);
+    CHECK(r.bm25_text.find("检索词：判定 要求") != std::string::npos);
     REQUIRE(r.captions.size() == 1);
     CHECK(r.captions[0] == "图5.1.2 路基沉降示意图");
     REQUIRE(r.formulas.size() == 1);

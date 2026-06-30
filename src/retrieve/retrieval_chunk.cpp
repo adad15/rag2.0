@@ -274,6 +274,7 @@ std::string retrieval_chunk_cache_to_json(const RetrievalChunkCache& cache) {
             {"atomic_text", c.atomic_text},
             {"embedding_text", c.embedding_text},
             {"context_text", c.context_text},
+            {"bm25_text", c.bm25_text},
             {"captions", c.captions},
             {"formulas", c.formulas},
             {"page_start", c.page_start},
@@ -312,6 +313,7 @@ RetrievalChunkCache retrieval_chunk_cache_from_json(const std::string& json_text
             c.atomic_text = string_value(e, "atomic_text");
             c.embedding_text = string_value(e, "embedding_text");
             c.context_text = string_value(e, "context_text");
+            c.bm25_text = string_value(e, "bm25_text");
             c.captions = string_array_value(e, "captions");
             c.formulas = string_array_value(e, "formulas");
             c.page_start = int_value(e, "page_start");

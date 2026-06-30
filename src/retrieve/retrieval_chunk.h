@@ -18,6 +18,7 @@ struct RetrievalChunk {
     std::string atomic_text;
     std::string embedding_text;
     std::string context_text;
+    std::string bm25_text;
     std::vector<std::string> captions;
     std::vector<std::string> formulas;
     int page_start = 0;
@@ -29,7 +30,7 @@ struct RetrievalChunk {
 };
 
 struct RetrievalChunkCache {
-    int schema_version = 1;
+    int schema_version = 2;
     std::string standard_id;
     std::string standard_no;
     std::vector<RetrievalChunk> chunks;
