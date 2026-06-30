@@ -147,6 +147,8 @@
     <ClCompile Include="..\src\retrieve\bm25_retriever.cpp" />
     <ClCompile Include="..\tests\test_synonyms.cpp" />
     <ClCompile Include="..\tests\test_text_utf8.cpp" />
+    <ClCompile Include="..\src\retrieve\reranker.cpp" />
+    <ClCompile Include="..\tests\test_reranker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
