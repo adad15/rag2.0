@@ -63,3 +63,10 @@ std::vector<Candidate> light_rerank(const QueryAnalysis& qa,
     if (static_cast<int>(kept.size()) > top_k) kept.resize(top_k);
     return kept;
 }
+
+std::vector<RerankCandidate> build_rerank_candidates(const std::vector<Candidate>& fused, PgClient& pg) {
+    std::vector<std::string> ids;
+    ids.reserve(fused.size());
+    for (const auto& c : fused) ids.push_back(c.chunk_id);
+    return assemble_rerank_candidates(fused, pg.get_chunks(ids));
+}

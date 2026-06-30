@@ -140,6 +140,43 @@ std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id
     return c;
 }
 
+std::vector<RetrievalChunkRow> PgClient::get_chunks(const std::vector<std::string>& chunk_ids) {
+    std::vector<RetrievalChunkRow> out;
+    if (chunk_ids.empty()) return out;
+    pqxx::connection cn(conninfo_);
+    pqxx::work tx(cn);
+    std::string sql =
+        "SELECT chunk_id,node_id,standard_id,COALESCE(chunk_type,''),"
+        "COALESCE(clause_no,''),COALESCE(method_no,''),COALESCE(title,''),"
+        "COALESCE(path_text,''),COALESCE(atomic_text,''),COALESCE(embedding_text,''),"
+        "COALESCE(context_text,''),COALESCE(captions::text,'[]'),COALESCE(formulas::text,'[]'),"
+        "COALESCE(page_start,0),COALESCE(page_end,0),COALESCE(has_table,FALSE),"
+        "COALESCE(has_formula,FALSE),COALESCE(has_figure,FALSE),COALESCE(suspect,''),"
+        "COALESCE(bm25_text,'') FROM retrieval_chunks WHERE chunk_id IN (";
+    pqxx::params p;
+    for (size_t i = 0; i < chunk_ids.size(); ++i) {
+        if (i) sql += ",";
+        sql += "$" + std::to_string(i + 1);
+        p.append(chunk_ids[i]);
+    }
+    sql += ")";
+    for (const auto& row : tx.exec(sql, p)) {
+        RetrievalChunkRow c;
+        c.chunk_id = row[0].c_str(); c.node_id = row[1].c_str();
+        c.standard_id = row[2].c_str(); c.chunk_type = row[3].c_str();
+        c.clause_no = row[4].c_str(); c.method_no = row[5].c_str();
+        c.title = row[6].c_str(); c.path_text = row[7].c_str();
+        c.atomic_text = row[8].c_str(); c.embedding_text = row[9].c_str();
+        c.context_text = row[10].c_str(); c.captions_json = row[11].c_str();
+        c.formulas_json = row[12].c_str(); c.page_start = row[13].as<int>();
+        c.page_end = row[14].as<int>(); c.has_table = row[15].as<bool>();
+        c.has_formula = row[16].as<bool>(); c.has_figure = row[17].as<bool>();
+        c.suspect = row[18].c_str(); c.bm25_text = row[19].c_str();
+        out.push_back(std::move(c));
+    }
+    return out;
+}
+
 std::string PgClient::find_standard_by_code(const std::string& code) {
     // 归一化两侧后做子串匹配，吸收 OCR/文件名/排版的 斜杠·破折号·空格·全角 变体
     //（如 gold "JTG/T 3650-2020" 命中库内文件名退化形 "…(JTGT 3650—2020）"）。现行优先。

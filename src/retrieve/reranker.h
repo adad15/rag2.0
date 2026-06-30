@@ -29,6 +29,9 @@ std::vector<Candidate> light_rerank(const QueryAnalysis& qa,
                                     const std::vector<RerankCandidate>& pool,
                                     int top_k, int max_per_clause);
 
+// IO：按 fused 的 chunk_id 批量回查 PG，拼 RerankCandidate（保序、缺失跳过）。
+std::vector<RerankCandidate> build_rerank_candidates(const std::vector<Candidate>& fused, PgClient& pg);
+
 class IReranker {
 public:
     virtual ~IReranker() = default;
