@@ -113,7 +113,8 @@ rag2.exe query "你的问题"   # 三路召回 + RRF + 方法号置顶 + DeepSee
 | **M2** | 入库正规化：条款层级树、三文本分离、OCR/MinerU 质量、分片持久化 | ✅ 完成 |
 | **M3** | 文本路三路召回：查询理解 + dense/BM25/PG精确 + RRF + 列举关键词直查补召回 + 方法号/条款号置顶 | ✅ 完成 |
 | **M4** | 评估闭环：100 题标注集、Group Recall/Complete + nDCG/Distractor/Redundancy 富指标、rule/LLM 双 planner | ✅ 完成 |
-| M5 | 文本路增强：reranker、表格 cell 定位、引用图扩展、LLM 元数据 | 设计 |
+| **M5.1** | Reranker 框架 + 轻量规则重排（`rerank.mode=off\|light`，仅普通题；RRF 序小步加分 + 同条款去重） | ✅ 框架完成（默认 off） |
+| M5.2+ | 大模型 reranker、表格 cell 定位、引用图扩展、LLM 元数据 | 设计 |
 | M6 | 版本管理与运维健壮性：版本生命周期、一致性、降级、灰度迁移 | 设计 |
 | M7–M8 | 视觉路（page / block 级） | 设计 |
 | M9 | both 模式 + auto 路由 | 设计 |
@@ -121,6 +122,8 @@ rag2.exe query "你的问题"   # 三路召回 + RRF + 方法号置顶 + DeepSee
 > 当前文本路水平（100 题富指标，rule planner，top-20，文档侧 dense/BM25 双文本后）：Group Recall@20≈0.997、Complete@20≈0.99、nDCG@20≈0.80、Distractor-before-gold≈0.07。
 >
 > 文档侧双文本：dense 用干净 `embedding_text`、BM25 用富化 `bm25_text`（标准号/路径/条款/确定性检索词），修复了"正确条文极短、BM25 漏召"类问题（如通用硅酸盐水泥安定性两种判定方法 → 召回升至 top1）。
+>
+> M5.1 LightReranker：`RAG_RERANK_MODE=off|light`（仅普通题，列举题走原覆盖链路）。rule planner 下 off-vs-light 大体中性（Distractor@20 0.68→0.60↓、Redundancy@20 0.256→0.264 微升、Recall/Complete/nDCG 持平），故**默认 off**；其关键词加分需 LLM planner（key_terms 非空）才显价值，待后续标定/接 M5.2 模型 reranker 再评。
 
 ## 评估与检索自查
 
