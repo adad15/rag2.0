@@ -26,6 +26,9 @@ struct Config {
     std::string ppstruct_base_url;
     int         scan_chars_threshold = 100;  // 每页字节数低于此判为扫描页
     std::string query_planner;               // rule | llm | auto（默认 auto）
+    std::string rerank_mode;          // off | light（默认 off）
+    int         rerank_pool_mult = 4;
+    int         rerank_max_per_clause = 2;
 
     // 从任意 key->value map 构建（测试友好）
     static Config from_map(const std::map<std::string, std::string>& env);

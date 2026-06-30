@@ -4,15 +4,18 @@
 #include "retrieve/pg_exact_retriever.h"
 #include "retrieve/retrieval_filter.h"
 #include "retrieve/rrf.h"
+#include "retrieve/reranker.h"
 #include "query/query_analysis.h"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 #include <set>
 
 std::vector<Candidate> text_retrieve(const std::string& question, milvus::MilvusRest& mv,
                                      EmbeddingClient& embed, PgClient& pg,
                                      const SynonymDict& syn, const std::string& collection,
                                      int per_path_k, int top_k,
-                                     const QueryPlanner& planner) {
+                                     const QueryPlanner& planner,
+                                     const RerankParams& rerank) {
     QueryAnalysis qa = planner.plan(question);
     spdlog::info("[queryplan] intent={} sparse=\"{}\" dense=\"{}\"",
                  query_intent_name(qa.intent), qa.sparse_text, qa.dense_text);
@@ -65,10 +68,16 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
     }
 
     // 列举时融合到大池、稍后下压再截断；非列举维持原 top_k 截断行为。
-    const int fuse_k = list_recall ? 1000000 : top_k;
+    const bool do_rerank = (rerank.mode == "light") && !list_recall;
+    const int fuse_k = list_recall ? 1000000
+                       : (do_rerank ? top_k * std::max(1, rerank.pool_mult) : top_k);
     std::vector<Candidate> fused = rrf_fuse(lists, /*k=*/60, fuse_k);
-    if (list_recall)
+    if (list_recall) {
         fused = demote_without_keyterms(fused, key_hit_ids, top_k);
+    } else if (do_rerank) {
+        std::vector<RerankCandidate> pool = build_rerank_candidates(fused, pg);
+        fused = light_rerank(qa, pool, top_k, rerank.max_per_clause);
+    }
 
     // 方法号精确命中置顶——与条款号 pin 对称，修 T0702/T0316 被泛 chunk 埋在 RRF 深处。
     if (!qa.method_no.empty())

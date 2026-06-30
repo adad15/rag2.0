@@ -30,6 +30,9 @@ Config Config::from_map(const std::map<std::string, std::string>& e) {
     c.ppstruct_base_url= get(e, "RAG_PPSTRUCT_BASE_URL", "http://localhost:8001");
     c.scan_chars_threshold = std::stoi(get(e, "RAG_SCAN_CHARS_THRESHOLD", "100"));
     c.query_planner    = get(e, "RAG_QUERY_PLANNER", "auto");
+    c.rerank_mode          = get(e, "RAG_RERANK_MODE", "off");
+    c.rerank_pool_mult     = std::stoi(get(e, "RAG_RERANK_POOL_MULT", "4"));
+    c.rerank_max_per_clause = std::stoi(get(e, "RAG_RERANK_MAX_PER_CLAUSE", "2"));
     return c;
 }
 

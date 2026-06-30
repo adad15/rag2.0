@@ -5,6 +5,12 @@
 #include "db/pg_client.h"
 #include "query/query_analysis.h"
 
+struct RerankParams {
+    std::string mode = "off";   // off | light（model/hybrid 留给 M5.2）
+    int pool_mult = 4;          // 非列举题候选池 = top_k * pool_mult
+    int max_per_clause = 2;
+};
+
 struct RerankCandidate {
     Candidate base;
     std::string title;

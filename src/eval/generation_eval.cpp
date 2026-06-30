@@ -37,7 +37,8 @@ GenerationReport run_generation_eval(
     milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
     const SynonymDict& syn, deepseek::DeepSeekClient& ds,
     const std::string& collection, int top_k,
-    const QueryPlanner& planner, const std::string& answer_cache_dir) {
+    const QueryPlanner& planner, const std::string& answer_cache_dir,
+    const RerankParams& rerank) {
 
     GenerationReport rep;
     for (const auto& c : cases) {
@@ -51,7 +52,7 @@ GenerationReport run_generation_eval(
         std::string answer = read_file(path);
         if (answer.empty()) {
             try {
-                answer = answer_query(c.question, mv, embed, pg, syn, ds, collection, top_k, planner);
+                answer = answer_query(c.question, mv, embed, pg, syn, ds, collection, top_k, planner, rerank);
             } catch (const std::exception& e) {
                 spdlog::warn("[gen-eval] answer_query 失败，跳过该条: {} ({})", c.question, e.what());
                 continue;                                  // 该条不计分

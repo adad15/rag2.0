@@ -8,6 +8,7 @@
 #include "query/synonyms.h"
 #include "query/query_planner.h"
 #include "generate/deepseek_client.h"
+#include "retrieve/reranker.h"
 
 struct GenCaseResult {
     std::string question;
@@ -30,4 +31,5 @@ GenerationReport run_generation_eval(
     milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
     const SynonymDict& syn, deepseek::DeepSeekClient& ds,
     const std::string& collection, int top_k,
-    const QueryPlanner& planner, const std::string& answer_cache_dir);
+    const QueryPlanner& planner, const std::string& answer_cache_dir,
+    const RerankParams& rerank);

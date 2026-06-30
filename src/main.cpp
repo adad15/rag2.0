@@ -29,6 +29,7 @@
 #include "eval/generation_eval.h"
 #include "eval/retrieval_metrics.h"
 #include "query/query_planner.h"
+#include "retrieve/reranker.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <fstream>
@@ -67,6 +68,14 @@ static QueryPlanner make_planner(const Config& cfg, deepseek::DeepSeekClient& ds
     p.llm_call = [&ds](const std::string& s, const std::string& u) { return ds.chat(s, u); };
     p.cache_dir = "data/query_plan_cache";
     return p;
+}
+
+static RerankParams make_rerank(const Config& cfg) {
+    RerankParams r;
+    r.mode = cfg.rerank_mode.empty() ? "off" : cfg.rerank_mode;
+    r.pool_mult = cfg.rerank_pool_mult;
+    r.max_per_clause = cfg.rerank_max_per_clause;
+    return r;
 }
 
 // 按 config 构建解析器：poppler + 选定 OCR 后端 + 路由模式。backend 的所有权交给调用方持有，
@@ -171,8 +180,11 @@ static int cmd_query(const Config& cfg, const std::string& question) {
         syn.load_from_file("config/synonyms.txt");
 
         QueryPlanner planner = make_planner(cfg, ds);
+        spdlog::info("[rerank] mode={} pool_mult={} max_per_clause={}",
+                     cfg.rerank_mode, cfg.rerank_pool_mult, cfg.rerank_max_per_clause);
         std::string ans = answer_query(question, mv, embed, pg, syn, ds,
-                                       cfg.milvus_collection, /*top_k=*/5, planner);
+                                       cfg.milvus_collection, /*top_k=*/5, planner,
+                                       make_rerank(cfg));
         std::cout << "\n===== 回答 =====\n" << ans << "\n";
         return 0;
     } catch (const std::exception& e) {
@@ -413,7 +425,8 @@ static int cmd_retrievecheck(const Config& cfg, const std::string& question, int
         QueryPlanner planner = make_planner(cfg, ds);
 
         auto cands = text_retrieve(question, mv, embed, pg, syn, cfg.milvus_collection,
-                                   /*per_path_k=*/k * 4, /*top_k=*/k, planner);
+                                   /*per_path_k=*/k * 4, /*top_k=*/k, planner,
+                                   make_rerank(cfg));
 
         std::cout << "\nretrievecheck \"" << question << "\" | 召回 "
                   << cands.size() << " 条 (k=" << k << ")\n\n";
@@ -467,7 +480,8 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
         QueryPlanner planner = make_planner(cfg, ds, planner_mode);
         spdlog::info("[eval] planner={}", planner_mode_name(planner.mode));
 
-        EvalReport rep = run_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, k, planner);
+        EvalReport rep = run_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, k, planner,
+                                  make_rerank(cfg));
 
         std::cout << "\neval \"" << dataset_path << "\" | " << cases.size()
                   << " 条 (k=" << k << ")\n\n";
@@ -500,7 +514,7 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
             spdlog::info("[eval] generation eval on");
             GenerationReport greport = run_generation_eval(
                 cases, mv, embed, pg, syn, ds, cfg.milvus_collection, k, planner,
-                "data/answer_cache");
+                "data/answer_cache", make_rerank(cfg));
             std::cout << "\n--- 生成侧（--gen）---\n";
             for (const auto& r : greport.results) {
                 if (r.cite_scored)
@@ -519,7 +533,8 @@ static int cmd_eval(const Config& cfg, const std::string& dataset_path, int k,
 
         if (rich) {
             spdlog::info("[eval] rich metrics on");
-            RichReport rr = run_rich_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, planner);
+            RichReport rr = run_rich_eval(cases, mv, embed, pg, syn, cfg.milvus_collection, planner,
+                                           make_rerank(cfg));
             std::cout << "\n--- 富检索指标 (--rich) ---\n";
             const int last = static_cast<int>(rr.ks.size()) - 1;
             for (const auto& r : rr.results) {

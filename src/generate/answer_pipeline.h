@@ -8,6 +8,7 @@
 #include "generate/deepseek_client.h"
 #include "query/synonyms.h"
 #include "query/query_planner.h"
+#include "retrieve/reranker.h"
 
 // 纯函数：chunk 行 + standards 行 -> LLM 上下文片段。
 ContextFragment fragment_from_chunk(int idx,
@@ -24,4 +25,5 @@ std::string answer_query(const std::string& question,
                          deepseek::DeepSeekClient& ds,
                          const std::string& collection,
                          int top_k,
-                         const QueryPlanner& planner);
+                         const QueryPlanner& planner,
+                         const RerankParams& rerank);

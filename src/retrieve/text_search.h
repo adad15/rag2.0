@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include "retrieve/candidate.h"
+#include "retrieve/reranker.h"
 #include "milvus/milvus_rest.h"
 #include "embedding/embedding_client.h"
 #include "db/pg_client.h"
@@ -16,4 +17,5 @@ std::vector<Candidate> text_retrieve(const std::string& question,
                                      const SynonymDict& syn,
                                      const std::string& collection,
                                      int per_path_k, int top_k,
-                                     const QueryPlanner& planner);
+                                     const QueryPlanner& planner,
+                                     const RerankParams& rerank);

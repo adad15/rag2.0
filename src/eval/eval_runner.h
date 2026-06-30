@@ -7,6 +7,7 @@
 #include "db/pg_client.h"
 #include "query/synonyms.h"
 #include "query/query_planner.h"
+#include "retrieve/reranker.h"
 
 struct CaseResult {
     std::string question;
@@ -30,7 +31,7 @@ struct EvalReport {
 EvalReport run_eval(const std::vector<EvalCase>& cases,
                     milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
                     const SynonymDict& syn, const std::string& collection, int k,
-                    const QueryPlanner& planner);
+                    const QueryPlanner& planner, const RerankParams& rerank);
 
 // 富检索指标（--rich）：每条用例在 ks 各 k 上覆盖的证据组数。
 struct RichCaseResult {
@@ -54,4 +55,4 @@ struct RichReport {
 RichReport run_rich_eval(const std::vector<EvalCase>& cases,
                          milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
                          const SynonymDict& syn, const std::string& collection,
-                         const QueryPlanner& planner);
+                         const QueryPlanner& planner, const RerankParams& rerank);

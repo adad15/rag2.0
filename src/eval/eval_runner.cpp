@@ -17,11 +17,11 @@ std::string strip_spaces(const std::string& s) {
 EvalReport run_eval(const std::vector<EvalCase>& cases,
                     milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
                     const SynonymDict& syn, const std::string& collection, int k,
-                    const QueryPlanner& planner) {
+                    const QueryPlanner& planner, const RerankParams& rerank) {
     EvalReport rep;
     for (const auto& c : cases) {
         auto cands = text_retrieve(c.question, mv, embed, pg, syn, collection,
-                                   /*per_path_k=*/k * 4, /*top_k=*/k, planner);
+                                   /*per_path_k=*/k * 4, /*top_k=*/k, planner, rerank);
 
         // 回查每个候选的 method_no 与 (standard_id|clause_no)
         std::vector<std::string> cand_methods;
@@ -72,7 +72,7 @@ EvalReport run_eval(const std::vector<EvalCase>& cases,
 RichReport run_rich_eval(const std::vector<EvalCase>& cases,
                          milvus::MilvusRest& mv, EmbeddingClient& embed, PgClient& pg,
                          const SynonymDict& syn, const std::string& collection,
-                         const QueryPlanner& planner) {
+                         const QueryPlanner& planner, const RerankParams& rerank) {
     RichReport rep;
     rep.ks = {1, 3, 5, 10, 20};
     for (const auto& c : cases) {
@@ -80,7 +80,7 @@ RichReport run_rich_eval(const std::vector<EvalCase>& cases,
 
         // top_k=20（k 集上限），per_path_k=80（=20*4，与 run_eval 的 k*4 同比例）
         auto cands = text_retrieve(c.question, mv, embed, pg, syn, collection,
-                                   /*per_path_k=*/80, /*top_k=*/20, planner);
+                                   /*per_path_k=*/80, /*top_k=*/20, planner, rerank);
 
         // 候选标识集（按排名）：chunk_id + method_no + standard_id|clause_no
         std::vector<std::set<std::string>> cand_keys;

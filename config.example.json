@@ -18,4 +18,7 @@
   "RAG_PPSTRUCT_BASE_URL": "http://localhost:8001",
   "RAG_SCAN_CHARS_THRESHOLD": "100",
   "RAG_QUERY_PLANNER": "auto"
+  ,"RAG_RERANK_MODE": "off"
+  ,"RAG_RERANK_POOL_MULT": "4"
+  ,"RAG_RERANK_MAX_PER_CLAUSE": "2"
 }
