@@ -64,6 +64,19 @@ std::vector<Candidate> light_rerank(const QueryAnalysis& qa,
     return kept;
 }
 
+std::vector<Candidate> light_rerank_with_fallback(const QueryAnalysis& qa,
+                                                  const std::vector<Candidate>& fused,
+                                                  const std::vector<RerankCandidate>& pool,
+                                                  int top_k, int max_per_clause) {
+    if (!pool.empty())
+        return light_rerank(qa, pool, top_k, max_per_clause);
+
+    std::vector<Candidate> out = fused;
+    if (top_k < 0) top_k = 0;
+    if (static_cast<int>(out.size()) > top_k) out.resize(top_k);
+    return out;
+}
+
 std::vector<RerankCandidate> build_rerank_candidates(const std::vector<Candidate>& fused, PgClient& pg) {
     std::vector<std::string> ids;
     ids.reserve(fused.size());

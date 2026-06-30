@@ -85,3 +85,17 @@ TEST_CASE("assemble_rerank_candidates preserves fused order and skips missing") 
     CHECK(out[1].base.chunk_id == "y");
     CHECK(out[1].bm25_text == "bm25Y");
 }
+
+TEST_CASE("light_rerank_with_fallback returns RRF order when PG lookup yields no pool") {
+    QueryAnalysis qa;
+    std::vector<Candidate> fused;
+    Candidate a; a.chunk_id = "a"; a.standard_id = "s"; a.source = "dense"; fused.push_back(a);
+    Candidate b; b.chunk_id = "b"; b.standard_id = "s"; b.source = "bm25"; fused.push_back(b);
+    Candidate c; c.chunk_id = "c"; c.standard_id = "s"; c.source = "dense"; fused.push_back(c);
+
+    auto out = light_rerank_with_fallback(qa, fused, {}, 2, 2);
+
+    REQUIRE(out.size() == 2);
+    CHECK(out[0].chunk_id == "a");
+    CHECK(out[1].chunk_id == "b");
+}

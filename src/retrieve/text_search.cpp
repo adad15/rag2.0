@@ -76,7 +76,9 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
         fused = demote_without_keyterms(fused, key_hit_ids, top_k);
     } else if (do_rerank) {
         std::vector<RerankCandidate> pool = build_rerank_candidates(fused, pg);
-        fused = light_rerank(qa, pool, top_k, rerank.max_per_clause);
+        if (pool.empty() && !fused.empty())
+            spdlog::warn("[rerank] PG 回查候选全失败，回退 RRF 原顺序");
+        fused = light_rerank_with_fallback(qa, fused, pool, top_k, rerank.max_per_clause);
     }
 
     // 方法号精确命中置顶——与条款号 pin 对称，修 T0702/T0316 被泛 chunk 埋在 RRF 深处。
