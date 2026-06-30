@@ -15,18 +15,18 @@
 - 精确路会补标准号、条款号、方法号、列举题关键词等命中。
 - RRF 把 dense、BM25、PG 精确召回融合。
 
-但是文档侧还没有完成对应增强。现在写入 Milvus BM25 `text` 字段的内容，其实仍然是 `embedding_text`。
+文档侧还没跟上。现在写入 Milvus BM25 `text` 字段的内容，仍然是 `embedding_text`。
 
-也就是说：
+实际链路是：
 
 ```text
 查询侧 BM25 文本：sparse_text / key_terms
 文档侧 BM25 文本：embedding_text
 ```
 
-`embedding_text` 当初是为 dense embedding 准备的，刻意不放标准号、完整路径、方法号等强关键词，目的是避免向量语义被噪声污染。这个选择对 dense 是对的，但对 BM25 不够好。
+`embedding_text` 当初是为 dense embedding 准备的，刻意不放标准号、完整路径、方法号等强关键词，避免向量语义被噪声污染。这个选择对 dense 是对的，对 BM25 却不够。
 
-下一阶段要补齐文档侧：让 dense 和 BM25 各吃适合自己的文本。
+这次补文档侧：dense 和 BM25 分别使用适合自己的文本。
 
 ## 2. 问题复盘
 
@@ -49,7 +49,7 @@ gold：GB 175-2023 / 7.4.2
 - BM25 没有召回正确 chunk。
 - RRF 融合时，正确 chunk 只有 dense 一路支持，分数被多路噪声 chunk 挤到 top20 之外。
 
-根因不是“查询侧完全没写好”，而是“文档侧 BM25 可检索文本太瘦”。
+问题不在于查询侧完全没写好，而是文档侧给 BM25 的可检索文本太瘦。
 
 正确 chunk 的原始 `embedding_text` 主要是：
 
@@ -69,26 +69,26 @@ gold：GB 175-2023 / 7.4.2
 - `判定`
 - `要求`
 
-BM25 是关键词匹配型检索。文档侧没有这些词时，查询侧再怎么带 `key_terms`，也很难匹配到这个 chunk。
+BM25 靠词面匹配。文档侧没有这些词，查询侧就算带了 `key_terms`，也很难匹配到这个 chunk。
 
 ## 3. 目标
 
-本阶段目标是引入文档侧“双文本路线”：
+本阶段引入文档侧“双文本路线”：
 
 - `embedding_text`：继续服务 dense embedding，保持干净、短、语义集中。
 - `bm25_text`：新增，专门服务 Milvus BM25，允许加入标准号、路径、标题、方法号、少量可解释检索词。
 
-核心目标：
+这次要做到：
 
 - 修复 `rq-081` 这类“正确 chunk 很短，但用户问题带标准名和判定意图”的漏召回。
 - 不污染 dense embedding。
 - 不用手工给每个标准维护关键词。
 - 不引入 LLM 文档改写。
-- 可以稳定重建 chunk cache、PG、Milvus。
+- 重建 chunk cache、PG、Milvus 的流程要清楚，不能靠临时操作。
 
 ## 4. 非目标
 
-本阶段不做以下事情：
+本阶段先不做这些事：
 
 - 不做强制标准过滤。用户问题模糊时，硬过滤容易误伤。
 - 不做 LLM 自动扩写文档关键词。首版先用确定性规则，便于测试和回滚。
@@ -97,7 +97,7 @@ BM25 是关键词匹配型检索。文档侧没有这些词时，查询侧再怎
 - 不把 `context_text` 直接塞给 BM25。`context_text` 包含同级叶子，容易把 BM25 变吵。
 - 不把所有增强内容塞回 `embedding_text`。
 
-## 5. 核心设计
+## 5. 设计方案
 
 ### 5.1 新增 `bm25_text`
 
@@ -116,7 +116,7 @@ std::string bm25_text;
 | `context_text` | 回答展示和上下文拼接 | 是 | 否 |
 | `atomic_text` | 精简证据正文 | 否 | 否 |
 
-这样做的意义很简单：
+拆成两份文本后，职责会更清楚：
 
 ```text
 dense 继续看“这段话本身是什么意思”
@@ -125,7 +125,7 @@ BM25 改成看“这段话在什么标准、什么路径、什么条款下，还
 
 ### 5.2 `bm25_text` 首版内容
 
-首版 `bm25_text` 由确定性函数生成，建议命名为：
+首版 `bm25_text` 由确定性函数生成。函数可以叫：
 
 ```cpp
 compose_bm25_text(const ClauseTree& tree,
@@ -133,7 +133,7 @@ compose_bm25_text(const ClauseTree& tree,
                   const std::map<std::string, const TreeNode*>& by_id)
 ```
 
-建议格式：
+格式可以这样：
 
 ```text
 标准：GB 175-2023
@@ -159,7 +159,7 @@ compose_bm25_text(const ClauseTree& tree,
 
 ### 5.3 关键词怎么添加
 
-这里的“关键词”不是用户人工一个个补，也不是 LLM 猜出来。
+这里的“关键词”不靠用户一个个手填，也不让 LLM 猜。
 
 首版关键词只来自三类确定性来源：
 
@@ -208,7 +208,7 @@ compose_bm25_text(const ClauseTree& tree,
 方法 判定 要求 合格
 ```
 
-这样用户问“哪两种方法判定合格”时，BM25 文档侧终于有词可以接住。
+用户问“哪两种方法判定合格”时，BM25 文档侧就有词能接住。
 
 ### 5.4 Milvus schema 不需要重命名
 
@@ -233,7 +233,7 @@ mv.insert_full(collection, c.chunk_id, c.node_id, c.standard_id,
                status, c.bm25_text, vec);
 ```
 
-这样 dense 和 sparse 的输入在写入时真正分离。
+dense 和 sparse 的输入在写入时就分开了。
 
 ## 6. 数据流
 
@@ -287,10 +287,7 @@ chunk.bm25_text -> BM25 index
 - `RetrievalChunk` 新增 `bm25_text`。
 - `RetrievalChunkCache.schema_version` 从 `1` 升到 `2`。
 
-原因：
-
-- 老 cache 没有 `bm25_text`，不能直接拿来灌 Milvus。
-- schema version 升级后，chunkload 可以明确提示用户重新生成 cache。
+这么做是为了拦住旧 cache。老 cache 没有 `bm25_text`，不能直接拿来灌 Milvus；schema version 升级后，chunkload 可以明确提示用户重新生成 cache。
 
 ### 7.2 `src/retrieve/retrieval_chunk.cpp`
 
@@ -315,7 +312,7 @@ chunk.bm25_text -> BM25 index
 - `insert_full` 的 `text` 参数改用 `c.bm25_text`。
 - 如果 `cache.schema_version < 2` 或某个 chunk 的 `bm25_text` 为空，应给出清晰错误，提示重新生成 chunk cache。
 
-关键代码方向：
+代码要落到这一步：
 
 ```cpp
 std::vector<float> vec = embed.embed(c.embedding_text);
@@ -334,10 +331,7 @@ mv.insert_full(collection, c.chunk_id, c.node_id, c.standard_id,
 ALTER TABLE retrieval_chunks ADD COLUMN IF NOT EXISTS bm25_text TEXT;
 ```
 
-原因：
-
-- PG 要保存 `bm25_text`，方便排查 BM25 为什么命中或没命中。
-- 这也是后续做评估审计和 case review 的基础。
+PG 保存 `bm25_text` 后，后面排查 BM25 为什么命中或没命中会方便很多；case review 也能直接看到当时喂给 BM25 的文本。
 
 ### 7.5 `src/db/pg_client.h` / `src/db/pg_client.cpp`
 
@@ -351,10 +345,7 @@ ALTER TABLE retrieval_chunks ADD COLUMN IF NOT EXISTS bm25_text TEXT;
 
 - `chunks_containing` 首版继续查 `embedding_text`。
 
-原因：
-
-- `chunks_containing` 是 PG 精确内容直查，主要用于“正文确实包含某词”的补召回。
-- `bm25_text` 含标准号、路径和意图词，如果直接用于 PG LIKE，容易放大误召回。
+`chunks_containing` 是 PG 精确内容直查，主要用于“正文确实包含某词”的补召回。`bm25_text` 含标准号、路径和意图词，如果直接用于 PG LIKE，容易放大误召回。
 
 ### 7.6 `src/milvus/milvus_rest.cpp`
 
@@ -385,7 +376,7 @@ Milvus schema 可以保持不变：
 
 代码改完后，旧数据不会自动变好。原因是 Milvus BM25 的 sparse index 是写入时由 `text` 字段生成的。
 
-必须重建或重新灌入 chunk：
+需要重建或重新灌入 chunk：
 
 ```text
 重新生成 chunk cache
@@ -394,13 +385,13 @@ Milvus schema 可以保持不变：
   -> Milvus 重新生成 sparse 向量
 ```
 
-最低要求：
+至少要做：
 
 - 对参与 eval 的标准重新生成 chunk cache。
 - 重新执行 chunkload。
 - 重新跑目标 case 和 100 题 rich eval。
 
-如果只改代码但不重新 chunkload，BM25 仍然会用旧的 `embedding_text` 索引，评估结果不会体现新设计。
+如果只改代码但不重新 chunkload，BM25 仍然会用旧的 `embedding_text` 索引，评估里也看不到这次改动。
 
 ## 10. 测试设计
 
@@ -492,11 +483,7 @@ Distractor-before-gold: 0.0705882
 
 ### 11.1 BM25 变吵
 
-风险：
-
-- 每个 chunk 都加标准号和路径后，某些标准名查询可能召回很多同标准 chunk。
-
-缓解：
+每个 chunk 都加标准号和路径后，某些标准名查询可能召回很多同标准 chunk。首版用几条限制压住这个问题：
 
 - 不把 `context_text` 整段塞入 BM25。
 - `检索词` 只用少量规则。
@@ -505,12 +492,7 @@ Distractor-before-gold: 0.0705882
 
 ### 11.2 旧 cache 混用
 
-风险：
-
-- 老 chunk cache 没有 `bm25_text`。
-- 如果直接 chunkload，Milvus 会写入空 text 或旧 text。
-
-缓解：
+老 chunk cache 没有 `bm25_text`。如果直接 chunkload，Milvus 可能写入空 text 或旧 text。处理办法：
 
 - `schema_version` 升到 2。
 - chunkload 检查 schema version。
@@ -518,29 +500,21 @@ Distractor-before-gold: 0.0705882
 
 ### 11.3 误把增强词用于精确召回
 
-风险：
-
-- 如果 PG `chunks_containing` 改查 `bm25_text`，可能因为“要求”“判定”这类泛词召回过多。
-
-缓解：
+如果 PG `chunks_containing` 改查 `bm25_text`，可能因为“要求”“判定”这类泛词召回过多。首版先收住：
 
 - 首版 `chunks_containing` 继续查 `embedding_text`。
 - BM25 使用 `bm25_text`，让排序模型承担泛词噪声。
 
 ### 11.4 文本超过 Milvus 限制
 
-风险：
-
-- Milvus `text.max_length` 当前是 `8192`。
-
-缓解：
+Milvus `text.max_length` 当前是 `8192`，所以 `bm25_text` 需要自己控长：
 
 - `bm25_text` 生成函数内部做长度控制。
 - 超长时优先裁剪图表题、公式和正文尾部，不裁剪标准号、路径、条款和检索词。
 
 ## 12. 验收标准
 
-代码实现完成后，必须满足：
+代码实现完成后，要满足：
 
 - C++ 单元测试通过。
 - Python annotation 测试不回退。
@@ -568,7 +542,7 @@ BM25 像一个按关键词翻目录的人
 给 BM25 的纸：写正文 + 标准号 + 路径 + 条款 + 少量检索词
 ```
 
-这样 dense 不被干扰，BM25 也终于有关键词可以匹配。
+dense 不被干扰，BM25 也有关键词可以匹配。
 
 这就是“文档侧双文本路线”。
 
