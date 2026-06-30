@@ -146,6 +146,11 @@ TEST_CASE("build_retrieval_chunk_cache creates one dense-safe chunk per leaf") {
     CHECK(c.captions[0] == "图5.1.2 路基沉降示意图");
     REQUIRE(c.formulas.size() == 1);
     CHECK(c.formulas[0] == "MQI = SCI + PQI + BCI + TCI");
+
+    CHECK(c.bm25_text.find("JTC 5210-2018") != std::string::npos);
+    CHECK(c.bm25_text.find("技术状况评定 >") != std::string::npos);
+    CHECK(c.bm25_text.find("路基沉降") != std::string::npos);
+    CHECK(c.embedding_text.find("JTC 5210") == std::string::npos);
 }
 
 TEST_CASE("retrieval chunks keep T method numbers as metadata outside embedding text") {
@@ -177,6 +182,10 @@ TEST_CASE("retrieval chunks keep T method numbers as metadata outside embedding 
     CHECK(c.embedding_text.find("T 0302") == std::string::npos);
     CHECK(c.embedding_text.find("集料筛分试验") == std::string::npos);
     CHECK(c.embedding_text.find("JTG 3432") == std::string::npos);
+
+    CHECK(c.bm25_text.find("T0302-2024") != std::string::npos);
+    CHECK(c.bm25_text.find("仪具与材料") != std::string::npos);
+    CHECK(c.embedding_text.find("T0302") == std::string::npos);
 }
 
 TEST_CASE("retrieval chunks classify appendix and explanation chunks from node id") {
@@ -265,6 +274,29 @@ TEST_CASE("context text includes the current leaf exactly once even with trailin
     size_t first = c.context_text.find(needle);
     REQUIRE(first != std::string::npos);
     CHECK(c.context_text.find(needle, first + needle.size()) == std::string::npos);
+}
+
+TEST_CASE("bm25_text adds intent terms from clause body rules") {
+    ClauseTree tree;
+    tree.standard_id = "sid";
+    tree.standard_no = "GB 175-2023";
+    TreeNode root = make_node("sid:7", "7", "技术要求", "", false);
+    root.child_ids = {"sid:7/7.4"};
+    TreeNode parent = make_node("sid:7/7.4", "7.4", "物理性能", "", false, "sid:7");
+    parent.child_ids = {"sid:7/7.4/7.4.2"};
+    TreeNode leaf = make_node("sid:7/7.4/7.4.2", "7.4.2", "安定性",
+                              "沸煮法合格。压蒸法合格。", true, "sid:7/7.4");
+    tree.nodes = {root, parent, leaf};
+
+    RetrievalChunkCache cache = build_retrieval_chunk_cache(tree);
+    REQUIRE(cache.chunks.size() == 1);
+    const std::string& b = cache.chunks[0].bm25_text;
+    CHECK(b.find("GB175-2023") != std::string::npos);
+    CHECK(b.find("安定性") != std::string::npos);
+    CHECK(b.find("物理性能") != std::string::npos);
+    CHECK(b.find("方法") != std::string::npos);
+    CHECK(b.find("判定") != std::string::npos);
+    CHECK(b.find("要求") != std::string::npos);
 }
 
 TEST_CASE("write_chunk_cache creates parent directories and writes readable JSON") {

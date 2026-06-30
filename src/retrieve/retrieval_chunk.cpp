@@ -212,6 +212,62 @@ std::string compose_context_text(const TreeNode& n, const std::map<std::string, 
     return out;
 }
 
+std::string compact_code(const std::string& s) {
+    std::string out;
+    for (char ch : s) if (ch != ' ') out += ch;   // "GB 175-2023" -> "GB175-2023"
+    return out;
+}
+
+std::vector<std::string> compose_bm25_terms(const ClauseTree& tree, const TreeNode& n,
+                                            const std::string& method_no) {
+    std::vector<std::string> terms;
+    auto add = [&](const std::string& t) {
+        if (t.empty()) return;
+        if (std::find(terms.begin(), terms.end(), t) == terms.end()) terms.push_back(t);
+    };
+    if (!tree.standard_no.empty()) add(compact_code(tree.standard_no));
+    if (!method_no.empty()) { add(method_no); add(compact_code(method_no)); }
+
+    const std::string& body = n.text;
+    auto has = [&](const char* kw) { return body.find(kw) != std::string::npos; };
+    bool has_qualify = has("合格") || has("不合格");
+    bool has_require = has("应") || has("不得") || has("不应") || has("应符合");
+    bool has_method  = has("法") && has("合格");
+    if (has_qualify) { add("判定"); add("要求"); add("合格"); }
+    if (has_require) { add("要求"); add("规定"); }
+    if (has_method)  { add("方法"); add("试验方法"); add("判定"); }
+    return terms;
+}
+
+std::string compose_bm25_text(const ClauseTree& tree, const TreeNode& n,
+                              const std::map<std::string, const TreeNode*>& by_id,
+                              const std::string& method_no) {
+    std::string out;
+    if (!tree.standard_no.empty()) {
+        append_line(out, "标准：" + tree.standard_no);
+        append_line(out, "标准代号：" + tree.standard_no + " " + compact_code(tree.standard_no));
+    }
+    std::string path = path_text_for(n, by_id);
+    if (!path.empty()) append_line(out, "路径：" + path);
+    std::string clause = node_label(n);
+    if (!clause.empty()) append_line(out, "条款：" + clause);
+
+    std::vector<std::string> terms = compose_bm25_terms(tree, n, method_no);
+    if (!terms.empty()) {
+        std::string joined;
+        for (const auto& t : terms) { if (!joined.empty()) joined += " "; joined += t; }
+        append_line(out, "检索词：" + joined);
+    }
+    std::string body = compose_embedding_text(n);
+    if (!body.empty()) {
+        if (!out.empty()) out += "\n";
+        out += "正文：\n" + body;
+    }
+    constexpr size_t kMaxChars = 3500;   // < Milvus text.max_length=8192
+    if (out.size() > kMaxChars) out = out.substr(0, kMaxChars);
+    return out;
+}
+
 RetrievalChunk chunk_from_leaf(const ClauseTree& tree, const TreeNode& n,
                                const std::map<std::string, const TreeNode*>& by_id) {
     RetrievalChunk c;
@@ -227,6 +283,7 @@ RetrievalChunk chunk_from_leaf(const ClauseTree& tree, const TreeNode& n,
     c.atomic_text = compose_atomic_text(n);
     c.embedding_text = compose_embedding_text(n);
     c.context_text = compose_context_text(n, by_id);
+    c.bm25_text = compose_bm25_text(tree, n, by_id, c.method_no);
     c.captions = n.captions;
     c.formulas = n.formulas;
     c.page_start = n.page_start;
