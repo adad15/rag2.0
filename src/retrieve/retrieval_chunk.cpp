@@ -264,7 +264,12 @@ std::string compose_bm25_text(const ClauseTree& tree, const TreeNode& n,
         out += "正文：\n" + body;
     }
     constexpr size_t kMaxChars = 3500;   // < Milvus text.max_length=8192
-    if (out.size() > kMaxChars) out = out.substr(0, kMaxChars);
+    if (out.size() > kMaxChars) {
+        // 按 UTF-8 字符边界裁剪：回退过续字节(0x80~0xBF)，避免切碎多字节汉字→非法 UTF-8 致 json dump 抛错
+        size_t len = kMaxChars;
+        while (len > 0 && (static_cast<unsigned char>(out[len]) & 0xC0) == 0x80) --len;
+        out = out.substr(0, len);
+    }
     return out;
 }
 

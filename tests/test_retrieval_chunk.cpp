@@ -299,6 +299,27 @@ TEST_CASE("bm25_text adds intent terms from clause body rules") {
     CHECK(b.find("要求") != std::string::npos);
 }
 
+TEST_CASE("bm25_text length cap truncates on UTF-8 boundary (stays valid UTF-8)") {
+    ClauseTree tree;
+    tree.standard_id = "sid";
+    tree.standard_no = "GB 175-2023";
+    TreeNode root = make_node("sid:7", "7", "技术要求", "", false);
+    root.child_ids = {"sid:7/7.1"};
+    std::string longtext;
+    while (longtext.size() < 8000) longtext += "通用硅酸盐水泥安定性合格。";  // 多字节汉字
+    TreeNode leaf = make_node("sid:7/7.1", "7.1", "安定性", longtext, true, "sid:7");
+    tree.nodes = {root, leaf};
+
+    RetrievalChunkCache cache = build_retrieval_chunk_cache(tree);
+    REQUIRE(cache.chunks.size() == 1);
+    CHECK(cache.chunks[0].bm25_text.size() <= 3500);
+    // 非法 UTF-8 会让 json dump 抛 type_error.316；不抛即证明按字符边界裁剪
+    std::string js;
+    CHECK_NOTHROW(js = retrieval_chunk_cache_to_json(cache));
+    RetrievalChunkCache rt = retrieval_chunk_cache_from_json(js);
+    REQUIRE(rt.chunks.size() == 1);
+}
+
 TEST_CASE("write_chunk_cache creates parent directories and writes readable JSON") {
     RetrievalChunkCache cache;
     cache.standard_id = "sid";
