@@ -18,6 +18,7 @@ RetrievalChunkRow chunk_to_row(const RetrievalChunk& c) {
     row.atomic_text = c.atomic_text;
     row.embedding_text = c.embedding_text;
     row.context_text = c.context_text;
+    row.bm25_text = c.bm25_text;
     row.captions_json = json(c.captions).dump();
     row.formulas_json = json(c.formulas).dump();
     row.page_start = c.page_start;
@@ -35,15 +36,25 @@ ChunkLoadResult load_chunks(const RetrievalChunkCache& cache, PgClient& pg,
     ChunkLoadResult result;
     result.chunk_count = static_cast<int>(cache.chunks.size());
 
+    if (cache.schema_version < 2) {
+        spdlog::error("chunk cache schema_version={} < 2，缺 bm25_text，请用 chunkcheck 重新生成 cache 再 chunkload",
+                      cache.schema_version);
+        return result;
+    }
+
     mv.delete_by_standard(collection, cache.standard_id);
     result.deleted_count = pg.delete_chunks_by_standard(cache.standard_id);
 
     for (const auto& c : cache.chunks) {
         pg.insert_chunk(chunk_to_row(c));
+        if (c.bm25_text.empty()) {
+            spdlog::warn("chunk bm25_text 为空，跳过 Milvus 写入: {}", c.chunk_id);
+            continue;
+        }
         try {
             std::vector<float> vec = embed.embed(c.embedding_text);
             mv.insert_full(collection, c.chunk_id, c.node_id, c.standard_id,
-                           status, c.embedding_text, vec);
+                           status, c.bm25_text, vec);
             ++result.embedded_count;
         } catch (const std::exception& e) {
             spdlog::warn("chunk embed/写入失败，跳过: {} ({})", c.chunk_id, e.what());

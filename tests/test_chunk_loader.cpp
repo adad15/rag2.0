@@ -17,6 +17,7 @@ TEST_CASE("chunk_to_row maps all fields and serializes captions and formulas to 
     c.atomic_text = "5.1.2 路基沉降\n正文";
     c.embedding_text = "5.1.2 路基沉降\n正文\n图题";
     c.context_text = "路径：…\n正文";
+    c.bm25_text = "标准：JTC 5210-2018\n检索词：判定";
     c.captions = {"图5.1.2 路基沉降示意图"};
     c.formulas = {"MQI = SCI + PQI + BCI + TCI"};
     c.page_start = 12;
@@ -39,6 +40,7 @@ TEST_CASE("chunk_to_row maps all fields and serializes captions and formulas to 
     CHECK(row.atomic_text == c.atomic_text);
     CHECK(row.embedding_text == c.embedding_text);
     CHECK(row.context_text == c.context_text);
+    CHECK(row.bm25_text == c.bm25_text);
     CHECK(row.page_start == 12);
     CHECK(row.page_end == 13);
     CHECK(row.has_table);
