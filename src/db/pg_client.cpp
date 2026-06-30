@@ -91,8 +91,8 @@ void PgClient::insert_chunk(const RetrievalChunkRow& c) {
     tx.exec(
         "INSERT INTO retrieval_chunks(chunk_id,node_id,standard_id,chunk_type,"
         "clause_no,method_no,title,path_text,atomic_text,embedding_text,context_text,"
-        "captions,formulas,page_start,page_end,has_table,has_formula,has_figure,suspect) "
-        "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19) "
+        "captions,formulas,page_start,page_end,has_table,has_formula,has_figure,suspect,bm25_text) "
+        "VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20) "
         "ON CONFLICT (chunk_id) DO UPDATE SET "
         "node_id=EXCLUDED.node_id, standard_id=EXCLUDED.standard_id, "
         "chunk_type=EXCLUDED.chunk_type, clause_no=EXCLUDED.clause_no, "
@@ -102,12 +102,12 @@ void PgClient::insert_chunk(const RetrievalChunkRow& c) {
         "formulas=EXCLUDED.formulas, page_start=EXCLUDED.page_start, "
         "page_end=EXCLUDED.page_end, has_table=EXCLUDED.has_table, "
         "has_formula=EXCLUDED.has_formula, has_figure=EXCLUDED.has_figure, "
-        "suspect=EXCLUDED.suspect",
+        "suspect=EXCLUDED.suspect, bm25_text=EXCLUDED.bm25_text",
         pqxx::params{c.chunk_id, c.node_id, c.standard_id, c.chunk_type,
                      c.clause_no, c.method_no, c.title, c.path_text,
                      c.atomic_text, c.embedding_text, c.context_text,
                      c.captions_json, c.formulas_json, c.page_start, c.page_end,
-                     c.has_table, c.has_formula, c.has_figure, c.suspect});
+                     c.has_table, c.has_formula, c.has_figure, c.suspect, c.bm25_text});
     tx.commit();
 }
 
@@ -121,7 +121,7 @@ std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id
         "COALESCE(context_text,''),COALESCE(captions::text,'[]'),"
         "COALESCE(formulas::text,'[]'),COALESCE(page_start,0),COALESCE(page_end,0),"
         "COALESCE(has_table,FALSE),COALESCE(has_formula,FALSE),"
-        "COALESCE(has_figure,FALSE),COALESCE(suspect,'') "
+        "COALESCE(has_figure,FALSE),COALESCE(suspect,''),COALESCE(bm25_text,'') "
         "FROM retrieval_chunks WHERE chunk_id=$1", pqxx::params{chunk_id});
     if (r.empty()) return std::nullopt;
     auto row = r[0];
@@ -136,6 +136,7 @@ std::optional<RetrievalChunkRow> PgClient::get_chunk(const std::string& chunk_id
     c.page_end = row[14].as<int>(); c.has_table = row[15].as<bool>();
     c.has_formula = row[16].as<bool>(); c.has_figure = row[17].as<bool>();
     c.suspect = row[18].c_str();
+    c.bm25_text = row[19].c_str();
     return c;
 }
 

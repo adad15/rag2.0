@@ -35,6 +35,7 @@ struct RetrievalChunkRow {
     std::string atomic_text;
     std::string embedding_text;
     std::string context_text;
+    std::string bm25_text;
     std::string captions_json = "[]";
     std::string formulas_json = "[]";
     int page_start = 0;

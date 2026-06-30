@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS retrieval_chunks (
     atomic_text    TEXT,
     embedding_text TEXT,
     context_text   TEXT,
+    bm25_text      TEXT,
     captions       JSONB DEFAULT '[]',
     formulas       JSONB DEFAULT '[]',
     page_start     INT,
@@ -45,3 +46,5 @@ CREATE TABLE IF NOT EXISTS retrieval_chunks (
 
 CREATE INDEX IF NOT EXISTS idx_chunks_standard ON retrieval_chunks(standard_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_node ON retrieval_chunks(node_id);
+
+ALTER TABLE retrieval_chunks ADD COLUMN IF NOT EXISTS bm25_text TEXT;
