@@ -118,7 +118,9 @@ rag2.exe query "你的问题"   # 三路召回 + RRF + 方法号置顶 + DeepSee
 | M7–M8 | 视觉路（page / block 级） | 设计 |
 | M9 | both 模式 + auto 路由 | 设计 |
 
-> 当前文本路水平（100 题富指标 baseline，rule planner，top-20）：Group Recall@20≈0.99、Complete@20≈0.98、nDCG@20≈0.78、Distractor-before-gold≈0.08。
+> 当前文本路水平（100 题富指标，rule planner，top-20，文档侧 dense/BM25 双文本后）：Group Recall@20≈0.997、Complete@20≈0.99、nDCG@20≈0.80、Distractor-before-gold≈0.07。
+>
+> 文档侧双文本：dense 用干净 `embedding_text`、BM25 用富化 `bm25_text`（标准号/路径/条款/确定性检索词），修复了"正确条文极短、BM25 漏召"类问题（如通用硅酸盐水泥安定性两种判定方法 → 召回升至 top1）。
 
 ## 评估与检索自查
 
