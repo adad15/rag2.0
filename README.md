@@ -118,7 +118,8 @@ rag2.exe query "你的问题"   # 三路召回 + RRF + 方法号置顶 + DeepSee
 | **M3** | 文本路三路召回：查询理解 + dense/BM25/PG精确 + RRF + 列举关键词直查补召回 + 方法号/条款号置顶 | ✅ 完成 |
 | **M4** | 评估闭环：100 题标注集、Group Recall/Complete + nDCG/Distractor/Redundancy 富指标、rule/LLM 双 planner | ✅ 完成 |
 | **M5.1** | Reranker 框架 + 轻量规则重排（`rerank.mode=off\|light`，仅普通题；RRF 序小步加分 + 同条款去重） | ✅ 框架完成（默认 off） |
-| M5.2+ | 大模型 reranker、表格 cell 定位、引用图扩展、LLM 元数据 | 设计 |
+| **M5.2** | 大模型 reranker（`rerank.mode=model\|hybrid`，Qwen3-Reranker-8B + 打分缓存） | ✅ 完成（默认 off，四模式实测中性）|
+| M5.3+ | 表格 cell 定位、引用图扩展、LLM 元数据 | 设计 |
 | M6 | 版本管理与运维健壮性：版本生命周期、一致性、降级、灰度迁移 | 设计 |
 | M7–M8 | 视觉路（page / block 级） | 设计 |
 | M9 | both 模式 + auto 路由 | 设计 |
@@ -129,7 +130,7 @@ rag2.exe query "你的问题"   # 三路召回 + RRF + 方法号置顶 + DeepSee
 >
 > M5.1 LightReranker：`RAG_RERANK_MODE=off|light`（仅普通题，列举题走原覆盖链路）。rule planner 下 off-vs-light 大体中性（Distractor@20 0.68→0.60↓、Redundancy@20 0.256→0.264 微升、Recall/Complete/nDCG 持平），故**默认 off**；其关键词加分需 LLM planner（key_terms 非空）才显价值，待后续标定/接 M5.2 模型 reranker 再评。
 >
-> M5.2 ModelReranker：新增 `RAG_RERANK_MODE=model|hybrid`（保留 `off|light`）。模型 = 硅基流动 `Qwen/Qwen3-Reranker-8B`（`/v1/rerank`），支持任务指令 `RAG_RERANK_INSTRUCTION`；rerank 打分落盘缓存（`data/rerank_cache/`，键含 model+instruction+query+候选集+doc 版本），eval 可重跑确定、省 token。语义上仅非列举题参与：`model` 失败/超时/非法响应回退 RRF 原顺序，`hybrid` 回退 LightReranker；模型成功后与 light 走同一 `RAG_RERANK_MAX_PER_CLAUSE` 多样性后处理，条款/方法号 pin 仍在最后。默认仍 `off`。四模式（off/light/model/hybrid）rich eval 对比**待实测**（需本地 PG+Milvus + SiliconFlow rerank 余额），届时据 Group Recall/Complete/nDCG/Redundancy/Distractor 指标决定是否改默认；复现命令：切换 `RAG_RERANK_MODE` 后 `rag2.exe eval eval/retrieval_questions_100.annotated.json 30 rule --rich`。
+> M5.2 ModelReranker：新增 `RAG_RERANK_MODE=model|hybrid`（保留 `off|light`）。模型 = 硅基流动 `Qwen/Qwen3-Reranker-8B`（`/v1/rerank`），支持任务指令 `RAG_RERANK_INSTRUCTION`；rerank 打分落盘缓存（`data/rerank_cache/`，键含 model+instruction+query+候选集+doc 版本），eval 可重跑确定、省 token。语义上仅非列举题参与：`model` 失败/超时/非法响应回退 RRF 原顺序，`hybrid` 回退 LightReranker；模型成功后与 light 走同一 `RAG_RERANK_MAX_PER_CLAUSE` 多样性后处理，条款/方法号 pin 仍在最后。默认仍 `off`。**四模式 rich eval 实测**（100 题，rule planner，top-20）：Recall@20/Complete@20 四模式持平（0.997/0.99，不伤召回）；model/hybrid 仅 nDCG@20 微升（0.799→0.807）、nDCG@1 微降（0.885→0.865），而 Redundancy@20（0.253→0.284）、Distractor Hit@20（0.906→0.941）反而变差，Distractor-before-gold 四模式全为 0.0706（无改善）——即 model/hybrid **未明显降低排序风险，故默认保持 off**；model≈hybrid（本轮 model 全程未失败、hybrid 兜底未触发，退化为同 model）。研判：本评测集干扰项取自检索器自身 dense 近邻，对纯语义 reranker 天然不利，其价值更可能在 `llm` planner（key_terms 非空）下显现，待后续评。复现：切 `RAG_RERANK_MODE` 后 `rag2.exe eval eval/retrieval_questions_100.annotated.json 30 rule --rich`。
 
 ## 评估与检索自查
 
