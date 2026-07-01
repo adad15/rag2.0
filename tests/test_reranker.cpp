@@ -70,6 +70,28 @@ TEST_CASE("light_rerank: stable on equal adjustment + truncate") {
     CHECK(out[1].chunk_id == "b");
 }
 
+TEST_CASE("finalize_rerank: clause dedup demotes 3rd same-clause, truncate") {
+    std::vector<RerankCandidate> ranked = {
+        mk("a","dense",0,"5.1"), mk("b","dense",1,"5.1"),
+        mk("c","dense",2,"5.1"), mk("d","dense",3,"9.9")};
+    auto out = finalize_rerank(ranked, 2, 10);
+    REQUIRE(out.size() == 4);
+    CHECK(out[0].chunk_id == "a");
+    CHECK(out[1].chunk_id == "b");
+    CHECK(out[2].chunk_id == "d");   // c 被降尾
+    CHECK(out[3].chunk_id == "c");
+}
+
+TEST_CASE("finalize_rerank: max_per_clause<=0 means no cap") {
+    std::vector<RerankCandidate> ranked = {
+        mk("a","dense",0,"5.1"), mk("b","dense",1,"5.1"), mk("c","dense",2,"5.1")};
+    auto out = finalize_rerank(ranked, 0, 10);
+    REQUIRE(out.size() == 3);
+    CHECK(out[0].chunk_id == "a");
+    CHECK(out[1].chunk_id == "b");
+    CHECK(out[2].chunk_id == "c");   // 不降尾
+}
+
 TEST_CASE("assemble_rerank_candidates preserves fused order and skips missing") {
     std::vector<Candidate> fused;
     Candidate c1; c1.chunk_id="x"; c1.standard_id="s"; fused.push_back(c1);

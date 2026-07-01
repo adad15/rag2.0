@@ -29,6 +29,12 @@ std::vector<RerankCandidate> assemble_rerank_candidates(
     const std::vector<Candidate>& fused,
     const std::vector<RetrievalChunkRow>& rows);
 
+// 纯函数：所有 reranker 输出的共用后处理。按已排好序的 ranked 做同条款去重
+// (standard_id|clause_no 超过 max_per_clause 的降到队尾；max_per_clause<=0 表示不掐；
+// clause_no 为空不受限)，再截断 top_k。返回 base 候选。
+std::vector<Candidate> finalize_rerank(const std::vector<RerankCandidate>& ranked,
+                                       int max_per_clause, int top_k);
+
 // 纯函数：以 pool 的 RRF 顺序为基底做小步加分(稳定排序)，再同条款(standard_id|clause_no)
 // 去重(每键最多 max_per_clause，超出降末尾)，截断 top_k。返回 Candidate(base)。
 std::vector<Candidate> light_rerank(const QueryAnalysis& qa,

@@ -39,6 +39,22 @@ std::vector<RerankCandidate> assemble_rerank_candidates(
     return out;
 }
 
+std::vector<Candidate> finalize_rerank(const std::vector<RerankCandidate>& ranked,
+                                       int max_per_clause, int top_k) {
+    std::vector<Candidate> kept, overflow;
+    std::map<std::string, int> clause_count;
+    for (const auto& c : ranked) {
+        if (max_per_clause > 0 && !c.clause_no.empty()) {
+            std::string key = c.base.standard_id + "|" + c.clause_no;
+            if (++clause_count[key] > max_per_clause) { overflow.push_back(c.base); continue; }
+        }
+        kept.push_back(c.base);
+    }
+    kept.insert(kept.end(), overflow.begin(), overflow.end());
+    if (static_cast<int>(kept.size()) > top_k) kept.resize(top_k);
+    return kept;
+}
+
 std::vector<Candidate> light_rerank(const QueryAnalysis& qa,
                                     const std::vector<RerankCandidate>& pool,
                                     int top_k, int max_per_clause) {
@@ -66,19 +82,10 @@ std::vector<Candidate> light_rerank(const QueryAnalysis& qa,
     std::stable_sort(sc.begin(), sc.end(),
                      [](const Scored& a, const Scored& b) { return a.adj > b.adj; });
 
-    std::vector<Candidate> kept, overflow;
-    std::map<std::string, int> clause_count;
-    for (const auto& s : sc) {
-        const RerankCandidate& c = pool[s.idx];
-        if (!c.clause_no.empty()) {
-            std::string key = c.base.standard_id + "|" + c.clause_no;
-            if (++clause_count[key] > max_per_clause) { overflow.push_back(c.base); continue; }
-        }
-        kept.push_back(c.base);
-    }
-    kept.insert(kept.end(), overflow.begin(), overflow.end());
-    if (static_cast<int>(kept.size()) > top_k) kept.resize(top_k);
-    return kept;
+    std::vector<RerankCandidate> ranked;
+    ranked.reserve(sc.size());
+    for (const auto& s : sc) ranked.push_back(pool[s.idx]);
+    return finalize_rerank(ranked, max_per_clause, top_k);
 }
 
 std::vector<Candidate> light_rerank_with_fallback(const QueryAnalysis& qa,
