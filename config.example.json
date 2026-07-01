@@ -25,4 +25,6 @@
   ,"RAG_RERANK_INSTRUCTION": "检索与给定查询最相关的公路工程标准规范条款或试验方法片段"
   ,"RAG_RERANK_KEY": ""
   ,"RAG_RERANK_TIMEOUT_SEC": "20"
+  ,"RAG_RERANK_BASE_URL": "https://api.siliconflow.cn"
+  ,"RAG_RERANK_PATH": "/v1/rerank"
 }
