@@ -92,6 +92,10 @@ docs/superpowers/           设计 spec 与实现计划（M0–M9）
 | `RAG_MILVUS_BASE_URL` / `RAG_MILVUS_TOKEN` | Milvus REST 地址与令牌 |
 | `RAG_EMBED_BASE_URL` / `RAG_EMBED_PATH` / `RAG_EMBED_MODEL` / `RAG_EMBED_DIM` / `RAG_EMBED_KEY` | Embedding 服务（OpenAI 兼容） |
 | `RAG_DEEPSEEK_BASE_URL` / `RAG_DEEPSEEK_KEY` / `RAG_DEEPSEEK_MODEL` | DeepSeek 生成 |
+| `RAG_RERANK_MODE` | 重排模式：`off\|light\|model\|hybrid`（默认 `off`） |
+| `RAG_RERANK_MODEL` / `RAG_RERANK_INSTRUCTION` | M5.2 模型 reranker：模型名、任务指令 |
+| `RAG_RERANK_KEY` | 模型 reranker 鉴权 key（空则回退 `RAG_DEEPSEEK_KEY`） |
+| `RAG_RERANK_BASE_URL` / `RAG_RERANK_PATH` / `RAG_RERANK_TIMEOUT_SEC` | 模型 reranker 服务地址、路径、超时秒数 |
 | `RAG_DOC_PATH` | 待入库 PDF 路径 |
 
 ## 用法
@@ -124,6 +128,8 @@ rag2.exe query "你的问题"   # 三路召回 + RRF + 方法号置顶 + DeepSee
 > 文档侧双文本：dense 用干净 `embedding_text`、BM25 用富化 `bm25_text`（标准号/路径/条款/确定性检索词），修复了"正确条文极短、BM25 漏召"类问题（如通用硅酸盐水泥安定性两种判定方法 → 召回升至 top1）。
 >
 > M5.1 LightReranker：`RAG_RERANK_MODE=off|light`（仅普通题，列举题走原覆盖链路）。rule planner 下 off-vs-light 大体中性（Distractor@20 0.68→0.60↓、Redundancy@20 0.256→0.264 微升、Recall/Complete/nDCG 持平），故**默认 off**；其关键词加分需 LLM planner（key_terms 非空）才显价值，待后续标定/接 M5.2 模型 reranker 再评。
+>
+> M5.2 ModelReranker：新增 `RAG_RERANK_MODE=model|hybrid`（保留 `off|light`）。模型 = 硅基流动 `Qwen/Qwen3-Reranker-8B`（`/v1/rerank`），支持任务指令 `RAG_RERANK_INSTRUCTION`；rerank 打分落盘缓存（`data/rerank_cache/`，键含 model+instruction+query+候选集+doc 版本），eval 可重跑确定、省 token。语义上仅非列举题参与：`model` 失败/超时/非法响应回退 RRF 原顺序，`hybrid` 回退 LightReranker；模型成功后与 light 走同一 `RAG_RERANK_MAX_PER_CLAUSE` 多样性后处理，条款/方法号 pin 仍在最后。默认仍 `off`。四模式（off/light/model/hybrid）rich eval 对比**待实测**（需本地 PG+Milvus + SiliconFlow rerank 余额），届时据 Group Recall/Complete/nDCG/Redundancy/Distractor 指标决定是否改默认；复现命令：切换 `RAG_RERANK_MODE` 后 `rag2.exe eval eval/retrieval_questions_100.annotated.json 30 rule --rich`。
 
 ## 评估与检索自查
 
