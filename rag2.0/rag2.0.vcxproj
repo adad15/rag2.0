@@ -111,6 +111,7 @@
     <ClCompile Include="..\src\query\query_terms.cpp" />
     <ClCompile Include="..\src\query\query_planner.cpp" />
     <ClCompile Include="..\src\retrieve\reranker.cpp" />
+    <ClCompile Include="..\src\retrieve\rerank_api_client.cpp" />
     <ClCompile Include="..\src\eval\dataset.cpp" />
     <ClCompile Include="..\src\eval\retrieval_metrics.cpp" />
     <ClCompile Include="..\src\eval\eval_runner.cpp" />
@@ -165,6 +166,7 @@
     <ClInclude Include="..\src\query\query_terms.h" />
     <ClInclude Include="..\src\query\query_planner.h" />
     <ClInclude Include="..\src\retrieve\reranker.h" />
+    <ClInclude Include="..\src\retrieve\rerank_api_client.h" />
     <ClInclude Include="..\src\eval\dataset.h" />
     <ClInclude Include="..\src\eval\retrieval_metrics.h" />
     <ClInclude Include="..\src\eval\eval_runner.h" />

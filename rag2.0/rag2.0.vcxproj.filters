@@ -64,6 +64,7 @@
     <ClCompile Include="..\src\query\synonyms.cpp"><Filter>源文件\query</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\bm25_retriever.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\reranker.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
+    <ClCompile Include="..\src\retrieve\rerank_api_client.cpp"><Filter>源文件\retrieve</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h"><Filter>头文件</Filter></ClInclude>
@@ -113,6 +114,7 @@
     <ClInclude Include="..\src\query\synonyms.h"><Filter>头文件\query</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\bm25_retriever.h"><Filter>头文件\retrieve</Filter></ClInclude>
     <ClInclude Include="..\src\retrieve\reranker.h"><Filter>头文件\retrieve</Filter></ClInclude>
+    <ClInclude Include="..\src\retrieve\rerank_api_client.h"><Filter>头文件\retrieve</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\db\schema.sql"><Filter>资源文件</Filter></None>

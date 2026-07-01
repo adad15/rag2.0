@@ -71,6 +71,8 @@
     <ClCompile Include="..\src\query\synonyms.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\src\retrieve\reranker.cpp"><Filter>被测源码</Filter></ClCompile>
     <ClCompile Include="..\tests\test_reranker.cpp"><Filter>测试</Filter></ClCompile>
+    <ClCompile Include="..\src\retrieve\rerank_api_client.cpp"><Filter>被测源码</Filter></ClCompile>
+    <ClCompile Include="..\tests\test_rerank_api_client.cpp"><Filter>测试</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h"><Filter>头文件</Filter></ClInclude>

@@ -149,6 +149,8 @@
     <ClCompile Include="..\tests\test_text_utf8.cpp" />
     <ClCompile Include="..\src\retrieve\reranker.cpp" />
     <ClCompile Include="..\tests\test_reranker.cpp" />
+    <ClCompile Include="..\src\retrieve\rerank_api_client.cpp" />
+    <ClCompile Include="..\tests\test_rerank_api_client.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\rag_config.h" />
