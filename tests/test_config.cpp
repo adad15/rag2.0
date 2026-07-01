@@ -76,3 +76,30 @@ TEST_CASE("Config M2a parser keys can be overridden") {
     CHECK(c.ppstruct_base_url == "http://x:9");
     CHECK(c.scan_chars_threshold == 50);
 }
+
+TEST_CASE("config: rerank M5.2 keys default + override + key fallback") {
+    // 默认值
+    Config d = Config::from_map({});
+    CHECK(d.rerank_base_url == "https://api.siliconflow.cn");
+    CHECK(d.rerank_path == "/v1/rerank");
+    CHECK(d.rerank_model == "Qwen/Qwen3-Reranker-8B");
+    CHECK(d.rerank_timeout_sec == 20);
+    CHECK_FALSE(d.rerank_instruction.empty());
+
+    // rerank_key 为空时回退 deepseek_key
+    Config f = Config::from_map({{"RAG_DEEPSEEK_KEY", "dsk-123"}});
+    CHECK(f.rerank_key == "dsk-123");
+
+    // 覆盖值 + rerank_key 独立时不回退
+    Config o = Config::from_map({
+        {"RAG_DEEPSEEK_KEY", "dsk-123"},
+        {"RAG_RERANK_KEY", "rk-999"},
+        {"RAG_RERANK_MODEL", "BAAI/bge-reranker-v2-m3"},
+        {"RAG_RERANK_TIMEOUT_SEC", "45"},
+        {"RAG_RERANK_INSTRUCTION", "自定义指令"},
+    });
+    CHECK(o.rerank_key == "rk-999");
+    CHECK(o.rerank_model == "BAAI/bge-reranker-v2-m3");
+    CHECK(o.rerank_timeout_sec == 45);
+    CHECK(o.rerank_instruction == "自定义指令");
+}

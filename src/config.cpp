@@ -33,6 +33,14 @@ Config Config::from_map(const std::map<std::string, std::string>& e) {
     c.rerank_mode          = get(e, "RAG_RERANK_MODE", "off");
     c.rerank_pool_mult     = std::stoi(get(e, "RAG_RERANK_POOL_MULT", "4"));
     c.rerank_max_per_clause = std::stoi(get(e, "RAG_RERANK_MAX_PER_CLAUSE", "2"));
+    c.rerank_base_url   = get(e, "RAG_RERANK_BASE_URL", "https://api.siliconflow.cn");
+    c.rerank_path       = get(e, "RAG_RERANK_PATH", "/v1/rerank");
+    c.rerank_model      = get(e, "RAG_RERANK_MODEL", "Qwen/Qwen3-Reranker-8B");
+    c.rerank_key        = get(e, "RAG_RERANK_KEY");
+    if (c.rerank_key.empty()) c.rerank_key = c.deepseek_key;   // 空则复用 deepseek key
+    c.rerank_timeout_sec = std::stoi(get(e, "RAG_RERANK_TIMEOUT_SEC", "20"));
+    c.rerank_instruction = get(e, "RAG_RERANK_INSTRUCTION",
+                               "检索与给定查询最相关的公路工程标准规范条款或试验方法片段");
     return c;
 }
 

@@ -30,6 +30,14 @@ struct Config {
     int         rerank_pool_mult = 4;
     int         rerank_max_per_clause = 2;
 
+    // M5.2 模型重排
+    std::string rerank_base_url;
+    std::string rerank_path;
+    std::string rerank_model;
+    std::string rerank_key;
+    int         rerank_timeout_sec = 20;
+    std::string rerank_instruction;
+
     // 从任意 key->value map 构建（测试友好）
     static Config from_map(const std::map<std::string, std::string>& env);
     // 从 JSON 文本构建（测试友好）
