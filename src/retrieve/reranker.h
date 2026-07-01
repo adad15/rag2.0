@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <functional>
 #include "retrieve/candidate.h"
 #include "db/pg_client.h"
 #include "query/query_analysis.h"
@@ -84,4 +85,31 @@ public:
     }
 private:
     int max_per_clause_;
+};
+
+// 模型打分回调：入参 query + documents(RRF序)，返回 index+score。失败抛异常或返回空。
+using RerankCall = std::function<std::vector<RerankScore>(const std::string& query,
+                                                          const std::vector<std::string>& docs)>;
+
+// 兜底：直接返回 pool 的 base（RRF 原序）截断到 top_k，不去重。model 失败回退用。
+class RrfPassthrough : public IReranker {
+public:
+    std::vector<Candidate> rerank(const QueryAnalysis& qa,
+                                  const std::vector<RerankCandidate>& pool, int top_k) override;
+};
+
+// 模型重排：组文档 → 查缓存 → 调 score_call → 成功 assemble_model_ranking、失败走注入的兜底。
+class ModelReranker : public IReranker {
+public:
+    ModelReranker(RerankCall call, std::string model, std::string instruction,
+                  std::string cache_dir, int max_per_clause, IReranker* fallback)
+        : call_(std::move(call)), model_(std::move(model)), instruction_(std::move(instruction)),
+          cache_dir_(std::move(cache_dir)), max_per_clause_(max_per_clause), fallback_(fallback) {}
+    std::vector<Candidate> rerank(const QueryAnalysis& qa,
+                                  const std::vector<RerankCandidate>& pool, int top_k) override;
+private:
+    RerankCall call_;
+    std::string model_, instruction_, cache_dir_;
+    int max_per_clause_;
+    IReranker* fallback_;
 };

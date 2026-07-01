@@ -1,7 +1,15 @@
 #include "retrieve/reranker.h"
 #include "util/text_utf8.h"
+#include "query/query_planner.h"
+#include <nlohmann/json.hpp>
 #include <algorithm>
 #include <map>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <cstdio>
+#include <functional>
+#include <spdlog/spdlog.h>
 
 const char* kRerankDocVersion = "v1";
 
@@ -128,4 +136,102 @@ std::vector<RerankCandidate> build_rerank_candidates(const std::vector<Candidate
     ids.reserve(fused.size());
     for (const auto& c : fused) ids.push_back(c.chunk_id);
     return assemble_rerank_candidates(fused, pg.get_chunks(ids));
+}
+
+namespace {
+std::string rerank_query_text(const QueryAnalysis& qa) {
+    return qa.dense_text.empty() ? qa.clean_text : qa.dense_text;
+}
+std::string rerank_cache_path(const std::string& dir, const std::string& model,
+                              const std::string& instruction, const std::string& query,
+                              const std::vector<RerankCandidate>& pool) {
+    std::vector<std::string> ids;
+    ids.reserve(pool.size());
+    for (const auto& c : pool) ids.push_back(c.base.chunk_id);
+    std::sort(ids.begin(), ids.end());
+    std::string joined;
+    for (const auto& id : ids) { joined += id; joined += ','; }
+    std::string key = model + "\x1f" + instruction + "\x1f" + normalize_question(query) +
+                      "\x1f" + joined + "\x1f" + kRerankDocVersion;
+    size_t h = std::hash<std::string>{}(key);
+    char name[32];
+    std::snprintf(name, sizeof(name), "%016llx.json", static_cast<unsigned long long>(h));
+    return dir + "/" + name;
+}
+std::map<std::string, double> read_rerank_cache(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return {};
+    std::stringstream ss; ss << f.rdbuf();
+    auto j = nlohmann::json::parse(ss.str(), nullptr, false);
+    std::map<std::string, double> m;
+    if (j.is_object() && j.contains("scores") && j["scores"].is_object())
+        for (auto it = j["scores"].begin(); it != j["scores"].end(); ++it)
+            m[it.key()] = it.value().get<double>();
+    return m;
+}
+void write_rerank_cache(const std::string& dir, const std::string& path,
+                        const std::map<std::string, double>& scores) {
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    nlohmann::json j; j["scores"] = nlohmann::json::object();
+    for (const auto& kv : scores) j["scores"][kv.first] = kv.second;
+    std::ofstream f(path, std::ios::binary);
+    if (f) f << j.dump();
+}
+std::vector<RerankScore> scores_from_map(const std::vector<RerankCandidate>& pool,
+                                         const std::map<std::string, double>& m) {
+    std::vector<RerankScore> out;
+    for (int i = 0; i < static_cast<int>(pool.size()); ++i) {
+        auto it = m.find(pool[i].base.chunk_id);
+        if (it != m.end()) out.push_back({i, it->second});
+    }
+    return out;
+}
+}  // namespace
+
+std::vector<Candidate> RrfPassthrough::rerank(const QueryAnalysis&,
+                                              const std::vector<RerankCandidate>& pool, int top_k) {
+    std::vector<Candidate> out;
+    out.reserve(pool.size());
+    for (const auto& c : pool) out.push_back(c.base);
+    if (static_cast<int>(out.size()) > top_k) out.resize(top_k);
+    return out;
+}
+
+std::vector<Candidate> ModelReranker::rerank(const QueryAnalysis& qa,
+                                             const std::vector<RerankCandidate>& pool, int top_k) {
+    const std::string query = rerank_query_text(qa);
+    const std::string path = rerank_cache_path(cache_dir_, model_, instruction_, query, pool);
+
+    // 1) 缓存命中：直接用缓存分。
+    auto cached = read_rerank_cache(path);
+    if (!cached.empty()) {
+        auto scores = scores_from_map(pool, cached);
+        if (!scores.empty())
+            return assemble_model_ranking(pool, scores, max_per_clause_, top_k);
+    }
+
+    // 2) 调模型；任何失败/空 -> 走兜底。
+    std::vector<std::string> docs;
+    docs.reserve(pool.size());
+    for (const auto& c : pool) docs.push_back(compose_rerank_document(c));
+    std::vector<RerankScore> scores;
+    try {
+        scores = call_(query, docs);
+    } catch (const std::exception& e) {
+        spdlog::warn("[rerank] 模型调用失败，回退兜底: {}", e.what());
+        return fallback_->rerank(qa, pool, top_k);
+    }
+    if (scores.empty()) {
+        spdlog::warn("[rerank] 模型返回空分，回退兜底");
+        return fallback_->rerank(qa, pool, top_k);
+    }
+
+    // 3) 成功：写缓存（chunk_id->score），再 assemble。
+    std::map<std::string, double> to_cache;
+    const int n = static_cast<int>(pool.size());
+    for (const auto& s : scores)
+        if (s.index >= 0 && s.index < n) to_cache[pool[s.index].base.chunk_id] = s.score;
+    write_rerank_cache(cache_dir_, path, to_cache);
+    return assemble_model_ranking(pool, scores, max_per_clause_, top_k);
 }

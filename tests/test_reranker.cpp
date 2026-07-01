@@ -1,5 +1,8 @@
 #include <doctest/doctest.h>
 #include "retrieve/reranker.h"
+#include <filesystem>
+#include <memory>
+#include <string>
 
 static RerankCandidate mk(const std::string& cid, const std::string& src, int rrf_rank,
                           const std::string& clause = "", const std::string& method = "",
@@ -167,4 +170,72 @@ TEST_CASE("assemble_model_ranking: dedup + truncate applied") {
     REQUIRE(out.size() == 4);
     CHECK(out[2].chunk_id == "d");   // c(第3个5.1)降尾
     CHECK(out[3].chunk_id == "c");
+}
+
+// 计数并可控抛异常的假打分器
+struct FakeScorer {
+    int calls = 0;
+    bool throw_next = false;
+    std::vector<RerankScore> ret;
+    std::vector<RerankScore> operator()(const std::string&, const std::vector<std::string>&) {
+        ++calls;
+        if (throw_next) throw std::runtime_error("boom");
+        return ret;
+    }
+};
+
+static std::string tmp_cache_dir(const std::string& name) {
+    auto d = std::filesystem::temp_directory_path() / ("rr_" + name);
+    std::filesystem::remove_all(d);
+    return d.string();
+}
+
+TEST_CASE("ModelReranker: success uses model order, writes+reads cache") {
+    QueryAnalysis qa; qa.clean_text = "查询X";
+    std::vector<RerankCandidate> pool = {mk("a","dense",0), mk("b","dense",1)};
+    auto scorer = std::make_shared<FakeScorer>();
+    scorer->ret = {{1, 0.9}, {0, 0.1}};   // b 优先
+    std::string dir = tmp_cache_dir("ok");
+    RrfPassthrough fb;
+    RerankCall call = [scorer](const std::string& q, const std::vector<std::string>& d){ return (*scorer)(q,d); };
+    ModelReranker mr(call, "M", "指令", dir, 2, &fb);
+
+    auto out1 = mr.rerank(qa, pool, 10);
+    REQUIRE(out1.size() == 2);
+    CHECK(out1[0].chunk_id == "b");
+    CHECK(scorer->calls == 1);
+
+    // 第二次同输入：命中缓存，不再调用打分器
+    auto out2 = mr.rerank(qa, pool, 10);
+    CHECK(out2[0].chunk_id == "b");
+    CHECK(scorer->calls == 1);           // 未增加 -> 缓存命中
+    std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("ModelReranker: model failure falls back to injected reranker (RRF passthrough)") {
+    QueryAnalysis qa; qa.clean_text = "查询Y";
+    std::vector<RerankCandidate> pool = {mk("a","dense",0), mk("b","dense",1)};
+    auto scorer = std::make_shared<FakeScorer>();
+    scorer->throw_next = true;
+    std::string dir = tmp_cache_dir("fail");
+    RrfPassthrough fb;
+    RerankCall call = [scorer](const std::string& q, const std::vector<std::string>& d){ return (*scorer)(q,d); };
+    ModelReranker mr(call, "M", "", dir, 2, &fb);
+
+    auto out = mr.rerank(qa, pool, 10);
+    REQUIRE(out.size() == 2);
+    CHECK(out[0].chunk_id == "a");       // RRF 原序
+    CHECK(out[1].chunk_id == "b");
+    std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("RrfPassthrough: returns pool base in order, truncated, no dedup") {
+    QueryAnalysis qa;
+    std::vector<RerankCandidate> pool = {
+        mk("a","dense",0,"5.1"), mk("b","dense",1,"5.1"), mk("c","dense",2,"5.1")};
+    RrfPassthrough fb;
+    auto out = fb.rerank(qa, pool, 2);
+    REQUIRE(out.size() == 2);
+    CHECK(out[0].chunk_id == "a");
+    CHECK(out[1].chunk_id == "b");       // 不去重、不降尾，仅截断
 }
