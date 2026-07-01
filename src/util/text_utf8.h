@@ -19,4 +19,16 @@ inline std::string truncate(const std::string& s, size_t max_chars) {
     return s.substr(0, i) + "\xE2\x80\xA6";  // U+2026 省略号
 }
 
+// 可见字符数（一个汉字算 1）。纯函数。
+inline size_t char_count(const std::string& s) {
+    size_t i = 0, chars = 0;
+    while (i < s.size()) {
+        unsigned char b = static_cast<unsigned char>(s[i]);
+        size_t step = (b < 0x80) ? 1 : ((b >> 5) == 0x6) ? 2 : ((b >> 4) == 0xE) ? 3 : 4;
+        i += step;
+        ++chars;
+    }
+    return chars;
+}
+
 }  // namespace text_utf8

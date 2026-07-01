@@ -1,6 +1,23 @@
 #include "retrieve/reranker.h"
+#include "util/text_utf8.h"
 #include <algorithm>
 #include <map>
+
+const char* kRerankDocVersion = "v1";
+
+std::string compose_rerank_document(const RerankCandidate& c) {
+    std::string out;
+    if (!c.title.empty()) out += "标题: " + c.title + "\n";
+    std::string num;
+    if (!c.clause_no.empty()) num += "条款 " + c.clause_no;
+    if (!c.method_no.empty()) { if (!num.empty()) num += "；"; num += "方法 " + c.method_no; }
+    if (!num.empty()) out += "编号: " + num + "\n";
+    std::string body = c.atomic_text;
+    if (text_utf8::char_count(c.atomic_text) < 80 && !c.context_text.empty())
+        body += "\n" + text_utf8::truncate(c.context_text, 200);   // 150-300 区间取 200
+    out += "正文: " + body;
+    return text_utf8::truncate(out, 1000);   // 单 document 上限（800-1200 区间取 1000）
+}
 
 std::vector<RerankCandidate> assemble_rerank_candidates(
     const std::vector<Candidate>& fused, const std::vector<RetrievalChunkRow>& rows) {

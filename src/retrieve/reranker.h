@@ -44,6 +44,14 @@ std::vector<Candidate> light_rerank_with_fallback(const QueryAnalysis& qa,
 // IO：按 fused 的 chunk_id 批量回查 PG，拼 RerankCandidate（保序、缺失跳过）。
 std::vector<RerankCandidate> build_rerank_candidates(const std::vector<Candidate>& fused, PgClient& pg);
 
+// document 构造版本号——改下面 compose 格式规则时必须 bump（缓存键含它）。
+extern const char* kRerankDocVersion;
+
+// 纯函数：把一个候选拼成给重排模型看的紧凑文档：标题 / 编号 / 正文。
+// atomic 为主；title 只作定位；clause/method 非空才写；atomic 很短(<80 字)才补一小段 context；
+// 整体按 UTF-8 字符上限截断。path_text、bm25_text、chunk id、score 一律不进。
+std::string compose_rerank_document(const RerankCandidate& c);
+
 class IReranker {
 public:
     virtual ~IReranker() = default;

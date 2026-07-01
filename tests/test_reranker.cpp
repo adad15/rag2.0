@@ -99,3 +99,27 @@ TEST_CASE("light_rerank_with_fallback returns RRF order when PG lookup yields no
     CHECK(out[0].chunk_id == "a");
     CHECK(out[1].chunk_id == "b");
 }
+
+TEST_CASE("compose_rerank_document: 标题/编号/正文，忽略 path_text 与 bm25_text") {
+    RerankCandidate c = mk("id1", "dense", 0, "5.1", "T0709", "马歇尔稳定度");
+    c.atomic_text = "本方法规定了马歇尔稳定度试验的技术要求。";
+    c.path_text = "不应出现的路径";
+    c.bm25_text = "不应出现的BM25文本";
+    std::string doc = compose_rerank_document(c);
+    CHECK(doc.find("马歇尔稳定度") != std::string::npos);   // title
+    CHECK(doc.find("条款 5.1") != std::string::npos);
+    CHECK(doc.find("方法 T0709") != std::string::npos);
+    CHECK(doc.find("技术要求") != std::string::npos);        // atomic
+    CHECK(doc.find("不应出现的路径") == std::string::npos);   // path_text 不进
+    CHECK(doc.find("不应出现的BM25文本") == std::string::npos);
+}
+
+TEST_CASE("compose_rerank_document: 空编号不写编号行；长正文短则补 context") {
+    RerankCandidate c = mk("id2", "dense", 0, "", "", "");   // 无 title/clause/method
+    c.atomic_text = "很短的正文";                            // < 80 字 -> 补 context
+    c.context_text = "这是补充上下文内容。";
+    std::string doc = compose_rerank_document(c);
+    CHECK(doc.find("编号:") == std::string::npos);
+    CHECK(doc.find("标题:") == std::string::npos);
+    CHECK(doc.find("补充上下文") != std::string::npos);
+}
