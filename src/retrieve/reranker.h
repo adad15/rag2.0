@@ -7,12 +7,6 @@
 #include "query/query_analysis.h"
 #include "retrieve/rerank_api_client.h"
 
-struct RerankParams {
-    std::string mode = "off";   // off | light（model/hybrid 留给 M5.2）
-    int pool_mult = 4;          // 非列举题候选池 = top_k * pool_mult
-    int max_per_clause = 2;
-};
-
 struct RerankCandidate {
     Candidate base;
     std::string title;
@@ -90,6 +84,17 @@ private:
 // 模型打分回调：入参 query + documents(RRF序)，返回 index+score。失败抛异常或返回空。
 using RerankCall = std::function<std::vector<RerankScore>(const std::string& query,
                                                           const std::vector<std::string>& docs)>;
+
+struct RerankParams {
+    std::string mode = "off";   // off | light | model | hybrid
+    int pool_mult = 4;          // 非列举题候选池 = top_k * pool_mult
+    int max_per_clause = 2;
+    // M5.2：model/hybrid 用
+    std::string model;
+    std::string instruction;
+    std::string cache_dir = "data/rerank_cache";
+    RerankCall  score_call;     // off/light 时留空
+};
 
 // 兜底：直接返回 pool 的 base（RRF 原序）截断到 top_k，不去重。model 失败回退用。
 class RrfPassthrough : public IReranker {

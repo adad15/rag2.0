@@ -30,6 +30,7 @@
 #include "eval/retrieval_metrics.h"
 #include "query/query_planner.h"
 #include "retrieve/reranker.h"
+#include "retrieve/rerank_api_client.h"
 #include <spdlog/spdlog.h>
 #include <filesystem>
 #include <fstream>
@@ -75,6 +76,16 @@ static RerankParams make_rerank(const Config& cfg) {
     r.mode = cfg.rerank_mode.empty() ? "off" : cfg.rerank_mode;
     r.pool_mult = cfg.rerank_pool_mult;
     r.max_per_clause = cfg.rerank_max_per_clause;
+    r.model = cfg.rerank_model;
+    r.instruction = cfg.rerank_instruction;
+    r.cache_dir = "data/rerank_cache";
+    if (r.mode == "model" || r.mode == "hybrid") {
+        RerankApiClient client(cfg.rerank_base_url, cfg.rerank_path, cfg.rerank_model,
+                               cfg.rerank_key, cfg.rerank_timeout_sec, cfg.rerank_instruction);
+        r.score_call = [client](const std::string& q, const std::vector<std::string>& docs) {
+            return client.score(q, docs);   // client 按值捕获，自足、无生命周期问题
+        };
+    }
     return r;
 }
 

@@ -68,7 +68,8 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
     }
 
     // 列举时融合到大池、稍后下压再截断；非列举维持原 top_k 截断行为。
-    const bool do_rerank = (rerank.mode == "light") && !list_recall;
+    const bool do_rerank =
+        (rerank.mode == "light" || rerank.mode == "model" || rerank.mode == "hybrid") && !list_recall;
     const int fuse_k = list_recall ? 1000000
                        : (do_rerank ? top_k * std::max(1, rerank.pool_mult) : top_k);
     std::vector<Candidate> fused = rrf_fuse(lists, /*k=*/60, fuse_k);
@@ -76,9 +77,21 @@ std::vector<Candidate> text_retrieve(const std::string& question, milvus::Milvus
         fused = demote_without_keyterms(fused, key_hit_ids, top_k);
     } else if (do_rerank) {
         std::vector<RerankCandidate> pool = build_rerank_candidates(fused, pg);
-        if (pool.empty() && !fused.empty())
-            spdlog::warn("[rerank] PG 回查候选全失败，回退 RRF 原顺序");
-        fused = light_rerank_with_fallback(qa, fused, pool, top_k, rerank.max_per_clause);
+        if (pool.empty()) {
+            if (!fused.empty()) spdlog::warn("[rerank] PG 回查候选全失败，回退 RRF 原顺序");
+            if (static_cast<int>(fused.size()) > top_k) fused.resize(top_k);
+        } else if (rerank.mode == "light") {
+            LightReranker light(rerank.max_per_clause);
+            fused = light.rerank(qa, pool, top_k);
+        } else {   // model | hybrid
+            LightReranker light(rerank.max_per_clause);
+            RrfPassthrough rrf_pass;
+            IReranker* fb = (rerank.mode == "hybrid")
+                          ? static_cast<IReranker*>(&light) : static_cast<IReranker*>(&rrf_pass);
+            ModelReranker model(rerank.score_call, rerank.model, rerank.instruction,
+                                rerank.cache_dir, rerank.max_per_clause, fb);
+            fused = model.rerank(qa, pool, top_k);
+        }
     }
 
     // 方法号精确命中置顶——与条款号 pin 对称，修 T0702/T0316 被泛 chunk 埋在 RRF 深处。
