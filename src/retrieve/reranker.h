@@ -4,6 +4,7 @@
 #include "retrieve/candidate.h"
 #include "db/pg_client.h"
 #include "query/query_analysis.h"
+#include "retrieve/rerank_api_client.h"
 
 struct RerankParams {
     std::string mode = "off";   // off | light（model/hybrid 留给 M5.2）
@@ -34,6 +35,13 @@ std::vector<RerankCandidate> assemble_rerank_candidates(
 // clause_no 为空不受限)，再截断 top_k。返回 base 候选。
 std::vector<Candidate> finalize_rerank(const std::vector<RerankCandidate>& ranked,
                                        int max_per_clause, int top_k);
+
+// 纯函数：把模型打分套到 pool 上，生成最终排序。有效候选按 score 降序(稳定)；
+// 重复 index 只取第一次；越界 index 忽略；未打分候选按 pool(RRF) 原序补尾；
+// 再走 finalize_rerank(去重+截断)。
+std::vector<Candidate> assemble_model_ranking(const std::vector<RerankCandidate>& pool,
+                                              const std::vector<RerankScore>& scores,
+                                              int max_per_clause, int top_k);
 
 // 纯函数：以 pool 的 RRF 顺序为基底做小步加分(稳定排序)，再同条款(standard_id|clause_no)
 // 去重(每键最多 max_per_clause，超出降末尾)，截断 top_k。返回 Candidate(base)。

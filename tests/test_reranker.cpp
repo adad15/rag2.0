@@ -145,3 +145,26 @@ TEST_CASE("compose_rerank_document: 空编号不写编号行；长正文短则�
     CHECK(doc.find("标题:") == std::string::npos);
     CHECK(doc.find("补充上下文") != std::string::npos);
 }
+
+TEST_CASE("assemble_model_ranking: score desc, dup index first-only, OOB ignore, missing tail") {
+    std::vector<RerankCandidate> pool = {
+        mk("a","dense",0), mk("b","dense",1), mk("c","dense",2)};
+    std::vector<RerankScore> scores = {
+        {1, 0.9}, {0, 0.8}, {1, 0.1}, {5, 0.99}};   // b>a；重复 index1 忽略第二次；index5 越界忽略；c 缺分
+    auto out = assemble_model_ranking(pool, scores, 2 /*cap*/, 10 /*top_k*/);
+    REQUIRE(out.size() == 3);
+    CHECK(out[0].chunk_id == "b");
+    CHECK(out[1].chunk_id == "a");
+    CHECK(out[2].chunk_id == "c");   // 未打分 -> RRF 原序补尾
+}
+
+TEST_CASE("assemble_model_ranking: dedup + truncate applied") {
+    std::vector<RerankCandidate> pool = {
+        mk("a","dense",0,"5.1"), mk("b","dense",1,"5.1"),
+        mk("c","dense",2,"5.1"), mk("d","dense",3,"9.9")};
+    std::vector<RerankScore> scores = {{0,0.9},{1,0.8},{2,0.7},{3,0.6}};
+    auto out = assemble_model_ranking(pool, scores, 2, 10);
+    REQUIRE(out.size() == 4);
+    CHECK(out[2].chunk_id == "d");   // c(第3个5.1)降尾
+    CHECK(out[3].chunk_id == "c");
+}

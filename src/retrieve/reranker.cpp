@@ -101,6 +101,28 @@ std::vector<Candidate> light_rerank_with_fallback(const QueryAnalysis& qa,
     return out;
 }
 
+std::vector<Candidate> assemble_model_ranking(const std::vector<RerankCandidate>& pool,
+                                              const std::vector<RerankScore>& scores,
+                                              int max_per_clause, int top_k) {
+    const int n = static_cast<int>(pool.size());
+    std::vector<char> seen(n, 0);
+    struct SI { size_t idx; double score; };
+    std::vector<SI> scored;
+    for (const auto& rs : scores) {
+        if (rs.index < 0 || rs.index >= n) continue;   // 越界忽略
+        if (seen[rs.index]) continue;                   // 重复 index 取第一次
+        seen[rs.index] = 1;
+        scored.push_back({static_cast<size_t>(rs.index), rs.score});
+    }
+    std::stable_sort(scored.begin(), scored.end(),
+                     [](const SI& a, const SI& b) { return a.score > b.score; });
+    std::vector<RerankCandidate> ranked;
+    ranked.reserve(n);
+    for (const auto& s : scored) ranked.push_back(pool[s.idx]);
+    for (int i = 0; i < n; ++i) if (!seen[i]) ranked.push_back(pool[i]);   // 补尾
+    return finalize_rerank(ranked, max_per_clause, top_k);
+}
+
 std::vector<RerankCandidate> build_rerank_candidates(const std::vector<Candidate>& fused, PgClient& pg) {
     std::vector<std::string> ids;
     ids.reserve(fused.size());
