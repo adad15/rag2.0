@@ -8,28 +8,24 @@
 
 using nlohmann::json;
 
-const char* kQueryPlannerPromptVersion = "qp-v2";
+const char* kQueryPlannerPromptVersion = "qp-v1";
 
 const char* kQueryPlannerSystemPrompt =
     "你是公路工程标准问答系统的查询分析器。给定一个中文问题，只输出一个严格的 JSON 对象，"
     "描述检索计划，不要任何解释或代码块围栏。字段：\n"
     "- intent: 四选一 \"GeneralFact\"|\"ListByCondition\"|\"ClauseLookup\"|\"MethodLookup\"。"
     "问\"哪些/有哪些…用到/需要某仪器或材料\"这类要列举多个试验的→ListByCondition；其余普通问答→GeneralFact。\n"
-    "- key_terms: 所有题型都抽 1-4 个最能定位答案的判别词（试验方法名/仪器/材料/指标名），用问题原文词形；"
-    "绝不放\"试验/规程/方法/公路/工程/水泥/混凝土/沥青/集料\"这类满库通用词；确无判别词才给空数组。\n"
-    "- section_hints: 判别词通常所在章节词（仪器→[\"仪具\",\"材料\"]）；无则空数组。\n"
-    "- sparse_text: 给关键词检索的查询=判别词+章节词，空格分隔，去掉\"哪些/的/了\"等虚词与满库背景词；拿不准就留空串。\n"
-    "- dense_text: 给向量检索的聚焦重述，一句话，必须保留问题里全部关键实体与限定条件；拿不准就留空串。\n"
-    "拿不准或确无判别词时：key_terms 给空数组、sparse_text 和 dense_text 留空串——留空系统会回退用原句检索，不会更差。\n"
+    "- key_terms: 问题里的核心判别词（仪器/材料/实体名）。用问题原文中的词形，不要扩展成全称。GeneralFact 可为空数组。\n"
+    "- section_hints: 该判别词通常所在章节词（仪器→[\"仪具\",\"材料\"]）；无则空数组。\n"
+    "- sparse_text: 给关键词检索的查询，仅含判别词+章节词，空格分隔，去掉\"哪些/的/了\"等虚词与\"公路/工程/试验/规程\"等满库背景词。GeneralFact 留空串。\n"
+    "- dense_text: 给向量检索的简短自然语句，聚焦判别词。GeneralFact 留空串。\n"
     "示例：\n"
     "问：公路工程水泥及水泥混凝土试验规程中哪些混凝土试验用到了天平\n"
     "答：{\"intent\":\"ListByCondition\",\"key_terms\":[\"天平\"],\"section_hints\":[\"仪具\",\"材料\"],\"sparse_text\":\"天平 仪具 材料\",\"dense_text\":\"使用天平的试验仪具与材料\"}\n"
-    "问：环球法测沥青软化点时，试样制备、加热速度和终点判定怎样控制？\n"
-    "答：{\"intent\":\"GeneralFact\",\"key_terms\":[\"环球法\",\"软化点\"],\"section_hints\":[],\"sparse_text\":\"环球法 软化点 加热速度 终点判定\",\"dense_text\":\"环球法测定沥青软化点的试样制备、加热速度与终点判定\"}\n"
-    "问：微型狄法尔法和洛杉矶法评价集料磨耗性能时，试验作用方式与结果指标有什么不同？\n"
-    "答：{\"intent\":\"GeneralFact\",\"key_terms\":[\"微型狄法尔\",\"洛杉矶\",\"磨耗\"],\"section_hints\":[],\"sparse_text\":\"微型狄法尔 洛杉矶 磨耗\",\"dense_text\":\"微型狄法尔法与洛杉矶法评价集料磨耗性能的作用方式与结果指标区别\"}\n"
-    "问：粗集料筛分试验需要准备哪些主要仪具？\n"
-    "答：{\"intent\":\"GeneralFact\",\"key_terms\":[\"筛分\",\"仪具\"],\"section_hints\":[\"仪具\",\"材料\"],\"sparse_text\":\"筛分 仪具 材料\",\"dense_text\":\"粗集料筛分试验的仪具与材料\"}";
+    "问：哪些试验用到马歇尔\n"
+    "答：{\"intent\":\"ListByCondition\",\"key_terms\":[\"马歇尔\"],\"section_hints\":[\"仪具\",\"材料\"],\"sparse_text\":\"马歇尔 仪具 材料\",\"dense_text\":\"使用马歇尔的试验仪具与材料\"}\n"
+    "问：路基沉降怎么评定\n"
+    "答：{\"intent\":\"GeneralFact\",\"key_terms\":[],\"section_hints\":[],\"sparse_text\":\"\",\"dense_text\":\"\"}";
 
 PlannerMode parse_planner_mode(const std::string& s) {
     if (s == "rule") return PlannerMode::Rule;
