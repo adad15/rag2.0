@@ -132,3 +132,32 @@ TEST_CASE("QueryPlanner rule mode never calls LLM") {
     CHECK(*calls == 0);
     std::filesystem::remove_all(p.cache_dir);
 }
+
+TEST_CASE("qp-v2: prompt version bumped and prompt content updated") {
+    CHECK(std::string(kQueryPlannerPromptVersion) == "qp-v2");
+    std::string p(kQueryPlannerSystemPrompt);
+    // 新 few-shot 锚点：流程题 / 对比题 / 仪器题
+    CHECK(p.find("环球法") != std::string::npos);
+    CHECK(p.find("微型狄法尔") != std::string::npos);
+    CHECK(p.find("粗集料筛分") != std::string::npos);
+    // 安全阀规则句
+    CHECK(p.find("回退用原句") != std::string::npos);
+    // 旧行为教材已删：全空示例、同构 List 示例、"GeneralFact 留空"规则
+    CHECK(p.find("路基沉降") == std::string::npos);
+    CHECK(p.find("哪些试验用到马歇尔") == std::string::npos);
+    CHECK(p.find("GeneralFact 留空串") == std::string::npos);
+}
+
+TEST_CASE("QueryPlanner maps GeneralFact plan fields into QueryAnalysis (qp-v2 三件套流通)") {
+    auto p = make_test_planner([](const std::string&, const std::string&) {
+        return std::string(R"({"intent":"GeneralFact","key_terms":["环球法","软化点"],
+            "section_hints":[],"sparse_text":"环球法 软化点","dense_text":"环球法测定沥青软化点"})");
+    });
+    QueryAnalysis a = p.plan("环球法测沥青软化点怎样控制");
+    CHECK(a.intent == QueryIntent::GeneralFact);
+    REQUIRE(a.key_terms.size() == 2);
+    CHECK(a.key_terms[0] == "环球法");
+    CHECK(a.sparse_text == "环球法 软化点");
+    CHECK(a.dense_text == "环球法测定沥青软化点");
+    std::filesystem::remove_all(p.cache_dir);
+}
