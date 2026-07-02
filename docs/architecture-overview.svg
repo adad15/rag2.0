@@ -1,0 +1,111 @@
+<svg viewBox="0 0 760 910" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, sans-serif">
+<title>rag2.0 系统白话版架构图</title>
+<desc>面向新手的完整说明:系统把7本公路工程标准变成可问答的知识库;入库侧五步建库,查询侧六层流水线处理一次提问,并以一道真实问题为例演示每层做什么。</desc>
+
+<rect x="0" y="0" width="760" height="910" fill="#ffffff"/>
+
+<!-- ============ 这是什么 ============ -->
+<text x="20" y="30" font-size="15" font-weight="700" fill="#1c1917">rag2.0:公路工程标准规范的智能问答系统</text>
+<text x="20" y="52" font-size="11" fill="#52525b">把 7 本规范(PDF 扫描件)变成能"对话"的知识库:你用大白话提问,它找到规范原文、给出带出处的回答。</text>
+<text x="20" y="68" font-size="11" fill="#52525b">系统分两半:入库侧建图书馆,只做一次;查询侧是每次提问都走一遍的流水线。</text>
+
+<!-- ============ 入库侧 ============ -->
+<text x="20" y="100" font-size="13" font-weight="700" fill="#1c1917">入库侧 · 建图书馆(已完成:7 本标准切成 3381 个片段)</text>
+<g font-size="10.5" fill="#1c1917">
+  <rect x="20" y="112" width="128" height="62" rx="6" fill="#f4f4f5" stroke="#d4d4d8"/>
+  <text x="84" y="130" text-anchor="middle" font-weight="600">PDF 扫描件</text>
+  <text x="84" y="146" text-anchor="middle" fill="#71717a" font-size="9.5">纸质规范的照片,</text>
+  <text x="84" y="159" text-anchor="middle" fill="#71717a" font-size="9.5">电脑读不懂文字</text>
+
+  <rect x="168" y="112" width="128" height="62" rx="6" fill="#f4f4f5" stroke="#d4d4d8"/>
+  <text x="232" y="130" text-anchor="middle" font-weight="600">OCR 文字识别</text>
+  <text x="232" y="146" text-anchor="middle" fill="#71717a" font-size="9.5">把图片上的字</text>
+  <text x="232" y="159" text-anchor="middle" fill="#71717a" font-size="9.5">"认"成可搜索文本</text>
+
+  <rect x="316" y="112" width="128" height="62" rx="6" fill="#f4f4f5" stroke="#d4d4d8"/>
+  <text x="380" y="130" text-anchor="middle" font-weight="600">恢复目录结构</text>
+  <text x="380" y="146" text-anchor="middle" fill="#71717a" font-size="9.5">章→节→条款/试验方法,</text>
+  <text x="380" y="159" text-anchor="middle" fill="#71717a" font-size="9.5">每段都知道自己的编号</text>
+
+  <rect x="464" y="112" width="128" height="62" rx="6" fill="#f4f4f5" stroke="#d4d4d8"/>
+  <text x="528" y="130" text-anchor="middle" font-weight="600">切成小片段</text>
+  <text x="528" y="146" text-anchor="middle" fill="#71717a" font-size="9.5">每段备两份文本:语义版</text>
+  <text x="528" y="159" text-anchor="middle" fill="#71717a" font-size="9.5">(干净)+关键词版(加料)</text>
+
+  <rect x="612" y="112" width="128" height="62" rx="6" fill="#e0e7ff" stroke="#a5b4fc"/>
+  <text x="676" y="130" text-anchor="middle" font-weight="600">存进两个库</text>
+  <text x="676" y="146" text-anchor="middle" fill="#71717a" font-size="9.5">PostgreSQL 存原文编号</text>
+  <text x="676" y="159" text-anchor="middle" fill="#71717a" font-size="9.5">Milvus 存"语义指纹"</text>
+</g>
+<g stroke="#a1a1aa" stroke-width="1.5" fill="none">
+  <path d="M148 143 L164 143"/><path d="M296 143 L312 143"/><path d="M444 143 L460 143"/><path d="M592 143 L608 143"/>
+</g>
+
+<!-- ============ 查询侧 ============ -->
+<text x="20" y="210" font-size="13" font-weight="700" fill="#1c1917">查询侧 · 一次提问的旅程(6 层流水线)</text>
+<rect x="20" y="222" width="720" height="30" rx="6" fill="#fef9c3" stroke="#fde047"/>
+<text x="34" y="241" font-size="11" fill="#713f12" font-weight="600">跟着这道例题走:"沥青针入度试验的温度和荷载有哪些规定?"</text>
+
+<g font-size="11" fill="#1c1917">
+  <!-- 1 planner -->
+  <rect x="20" y="264" width="720" height="82" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="34" y="284" font-weight="700">① 读懂问题(QueryPlanner)</text>
+  <text x="700" y="284" text-anchor="end" fill="#4f46e5" font-size="10" font-weight="600">默认:LLM 规划</text>
+  <text x="34" y="302" fill="#52525b" font-size="10">先让一个 AI(DeepSeek)把问题"读懂":这是普通提问还是要列清单?核心词是什么?问过的题有缓存,不重复花钱。</text>
+  <text x="34" y="318" fill="#52525b" font-size="10">题里带编号(如 T0604、第 7.4.2 条)就不用问 AI 了,直接走本地规则快捷通道。</text>
+  <text x="34" y="336" fill="#4f46e5" font-size="10">例:AI 判断这是"普通问答",核心词 = 针入度、温度、荷载。</text>
+
+  <!-- 2 三路召回 -->
+  <rect x="20" y="358" width="720" height="118" rx="8" fill="#fafafa" stroke="#d4d4d8"/>
+  <text x="34" y="378" font-weight="700">② 三个找法同时开工(三路召回)</text>
+  <text x="34" y="394" fill="#52525b" font-size="10">像三个图书管理员分头找书,各交一份候选名单,彼此补短板:</text>
+  <rect x="34" y="404" width="222" height="60" rx="6" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="145" y="422" text-anchor="middle" font-weight="600">语义检索(向量)</text>
+  <text x="145" y="438" text-anchor="middle" fill="#71717a" font-size="9.5">按"意思相近"找,</text>
+  <text x="145" y="451" text-anchor="middle" fill="#71717a" font-size="9.5">听得懂近义词、换个说法也行</text>
+  <rect x="270" y="404" width="222" height="60" rx="6" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="381" y="422" text-anchor="middle" font-weight="600">关键词检索(BM25)</text>
+  <text x="381" y="438" text-anchor="middle" fill="#71717a" font-size="9.5">按"字面匹配"找,</text>
+  <text x="381" y="451" text-anchor="middle" fill="#71717a" font-size="9.5">编号、专业术语最精准</text>
+  <rect x="506" y="404" width="222" height="60" rx="6" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="617" y="422" text-anchor="middle" font-weight="600">编号直查(数据库)</text>
+  <text x="617" y="438" text-anchor="middle" fill="#71717a" font-size="9.5">题里带方法号时启用,</text>
+  <text x="617" y="451" text-anchor="middle" fill="#71717a" font-size="9.5">按编号精确捞出对应原文</text>
+
+  <!-- 3 RRF -->
+  <rect x="20" y="488" width="720" height="64" rx="8" fill="#fafafa" stroke="#d4d4d8"/>
+  <text x="34" y="508" font-weight="700">③ 合并榜单(RRF 融合)</text>
+  <text x="34" y="524" fill="#52525b" font-size="10">把几份名单合成一份总榜:谁被多个找法同时看好,谁排前面。</text>
+  <text x="34" y="542" fill="#4f46e5" font-size="10">例:"T0604 针入度试验·方法与步骤"被语义和关键词两路同时命中,稳进前排。</text>
+
+  <!-- 4 reranker -->
+  <rect x="20" y="564" width="720" height="94" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="34" y="584" font-weight="700">④ 精排(Reranker,可选)</text>
+  <text x="700" y="584" text-anchor="end" fill="#4f46e5" font-size="10" font-weight="600">默认:关</text>
+  <text x="34" y="602" fill="#52525b" font-size="10">再请一个"评分 AI"(Qwen 重排模型)给候选逐条打相关性分、重新排序;也有不花钱的规则版(light)。</text>
+  <text x="34" y="618" fill="#52525b" font-size="10">框架建好了,打过的分也有缓存。但 100 道考题实测下来不划算,默认跳过;开关留着,以后随时再评。</text>
+  <text x="34" y="636" fill="#4f46e5" font-size="10">例:本题跳过此层,直接用 ③ 的总榜。</text>
+
+  <!-- 5 pin -->
+  <rect x="20" y="670" width="720" height="64" rx="8" fill="#fafafa" stroke="#d4d4d8"/>
+  <text x="34" y="690" font-weight="700">⑤ 编号铁律置顶(pin)</text>
+  <text x="34" y="706" fill="#52525b" font-size="10">你明确问了"第 7.4.2 条"或"T0604"?对应原文无条件排第一,后面哪一层都不许把它挤下去。</text>
+  <text x="34" y="724" fill="#4f46e5" font-size="10">例:本题没写编号,此层不触发;最终输出前 20 个片段。</text>
+
+  <!-- 6 generation -->
+  <rect x="20" y="746" width="720" height="82" rx="8" fill="#fafafa" stroke="#d4d4d8"/>
+  <text x="34" y="766" font-weight="700">⑥ 写答案(生成)</text>
+  <text x="34" y="782" fill="#52525b" font-size="10">把前 20 段规范原文交给 DeepSeek:"照着这些材料回答,标明出处,材料里没有的不许编"。</text>
+  <text x="34" y="800" fill="#4f46e5" font-size="10">例:答案会引用 T0604 的温度(25℃)、荷载(100g)等条文并注明出处。</text>
+  <text x="34" y="818" fill="#52525b" font-size="10">同一问题的答案也有缓存,重复提问秒回。</text>
+</g>
+
+<g stroke="#a1a1aa" stroke-width="1.5" fill="none">
+  <path d="M380 346 L380 354"/><path d="M380 476 L380 484"/><path d="M380 552 L380 560"/><path d="M380 658 L380 666"/><path d="M380 734 L380 742"/>
+</g>
+
+<!-- ============ 质量保障 ============ -->
+<rect x="20" y="844" width="720" height="50" rx="8" fill="#f0fdf4" stroke="#86efac"/>
+<text x="34" y="864" font-size="11" font-weight="700" fill="#14532d">质量怎么保证:100 道带标准答案的"月考"</text>
+<text x="34" y="882" font-size="10" fill="#166534">每次改动都要过这 100 道人工标注的考题,找齐证据的比例现在是 99%。每层都有开关和缓存,改坏了能一键回滚。</text>
+</svg>
